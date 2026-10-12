@@ -22,14 +22,24 @@ export interface TimetableEvent {
   room: string; // e.g. "Roberts G06 Sir Ambrose Fleming LT"
 }
 
-/** Free time between two timetable events (or before/after the day's first/last one). */
+/**
+ * Free time between two timetable events on the same day. We skip time before the first
+ * event and after the last one: we don't know where the student is then, so we can't
+ * work out walking time.
+ */
 export interface Gap {
   id: string;
   start: IsoDateTime;
   end: IsoDateTime;
   durationMins: number;
-  prevEvent?: TimetableEvent;
-  nextEvent?: TimetableEvent;
+  /** durationMins minus the walk to the next event (never below 0). */
+  usableMins: number;
+  /** Walking time from locationId to nextLocationId. */
+  walkMins: number;
+  prevEvent: TimetableEvent;
+  nextEvent: TimetableEvent;
+  prevLocationId: BuildingId;
+  nextLocationId: BuildingId;
   /** Where the student probably is at the start of the gap. */
   locationId: BuildingId;
   /** "inferred" comes from prevEvent's building, "manual" from the user's override. */
