@@ -3,6 +3,7 @@
 import { useMemo, useSyncExternalStore } from "react";
 import { eventsOnDay, findGaps, londonDateKey } from "@/lib/gaps";
 import { addDays, dayOfWeek, londonTodayKey } from "@/lib/london-time";
+import { demoMonday, mockTimetable } from "@/lib/mock";
 import { parseUserData, readRawUserData, subscribeUserData } from "@/lib/storage";
 import { expandWeekly } from "@/lib/timetable";
 import type { UserData } from "@/lib/types";
@@ -13,15 +14,19 @@ import { TodayTimeline, type Day } from "./today-timeline";
  * localStorage only exists in the browser, so the server renders a skeleton and the
  * real content appears right after hydration (no flash of the demo week).
  */
-export function Home({ demoDays, demoDateKey }: { demoDays: Day[]; demoDateKey: string }) {
+export function Home() {
   // "" = checked, nothing saved. null = not checked yet (server render / hydration).
   const raw = useSyncExternalStore(subscribeUserData, () => readRawUserData() ?? "", () => null);
   const user = useMemo(() => parseUserData(raw), [raw]);
   const userDays = useMemo(() => (user ? buildDays(user) : null), [user]);
+  // Only built in the browser, once we know there's no usable saved timetable, so the server
+  // never renders a week from its own clock.
+  const demo = useMemo(() => (raw !== null && !user ? buildDemo() : null), [raw, user]);
 
   if (raw === null) return <Skeleton />;
   if (!user || !userDays) {
-    return <TodayTimeline days={demoDays} initialDateKey={demoDateKey} mode="demo" />;
+    if (!demo) return <Skeleton />;
+    return <TodayTimeline days={demo.days} initialDateKey={demo.initialDateKey} mode="demo" />;
   }
   return (
     <TodayTimeline
@@ -34,6 +39,18 @@ export function Home({ demoDays, demoDateKey }: { demoDays: Day[]; demoDateKey: 
       societies={user.societies}
     />
   );
+}
+
+/** The mock week (always the current one). Opens on today, or on Monday at the weekend. */
+function buildDemo(): { days: Day[]; initialDateKey: string } {
+  const timetable = mockTimetable();
+  const dateKeys = [...new Set(timetable.map((e) => londonDateKey(e.start)))].sort();
+  const days = dateKeys.map((dateKey) => {
+    const events = eventsOnDay(timetable, dateKey);
+    return { dateKey, events, gaps: findGaps(events) };
+  });
+  const today = londonTodayKey();
+  return { days, initialDateKey: dateKeys.includes(today) ? today : demoMonday(today) };
 }
 
 /** Every weekday of term, plus any weekend day that has a class. */

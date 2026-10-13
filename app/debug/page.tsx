@@ -1,10 +1,11 @@
 // TEMPORARY: a page for eyeballing mock data in the browser. Delete before the demo.
+import { connection } from "next/server";
 import type { ReactNode } from "react";
 import { BUILDINGS, travelLabel, travelTime, type BuildingId } from "@/lib/buildings";
 import { isDemoMode } from "@/lib/config";
 import { estimateBusyness, LIBRARY_SNAPSHOT } from "@/lib/library-busyness";
 import { londonIso, londonTodayKey } from "@/lib/london-time";
-import { MOCK_DEADLINES, MOCK_SOCIETY_EVENTS, MOCK_TIMETABLE } from "@/lib/mock";
+import { mockDeadlines, mockSocietyEvents, mockTimetable } from "@/lib/mock";
 
 const londonDateTime = new Intl.DateTimeFormat("en-GB", {
   timeZone: "Europe/London",
@@ -64,8 +65,15 @@ function Table({ headers, rows }: { headers: string[]; rows: ReactNode[][] }) {
   );
 }
 
-export default function DebugPage() {
+// A throwaway dev page: blocking on the request is fine, no static shell needed.
+export const instant = false;
+
+export default async function DebugPage() {
+  await connection(); // the mock week and busyness follow today's date, so render per request
   const buildingIds = Object.keys(BUILDINGS) as BuildingId[];
+  const MOCK_TIMETABLE = mockTimetable();
+  const MOCK_DEADLINES = mockDeadlines();
+  const MOCK_SOCIETY_EVENTS = mockSocietyEvents();
 
   return (
     <main className="mx-auto w-full max-w-6xl p-6">

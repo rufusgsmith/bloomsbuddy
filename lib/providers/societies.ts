@@ -14,17 +14,17 @@
 // Nothing is guessed silently: an unstated cost leaves `free` unset, an unstated end sets
 // `endEstimated`, and a session with a day but no time is kept with `timeTBC` + `partOfDay`.
 
+import { cacheLife } from "next/cache";
 import { BUILDINGS, type BuildingId } from "../buildings";
 import { askClaudeJson, FAST_MODEL, makeDebug } from "../claude-json";
 import { londonDateKey } from "../gaps";
 import { addDays, dayOfWeek, isDateKey, isWallTime, londonIso, londonTodayKey } from "../london-time";
-import { MOCK_SOCIETY_EVENTS } from "../mock";
+import { mockSocietyEvents } from "../mock";
 import { societyPageText, toSlug } from "../societies/su-site";
 import type { DateKey, IsoDateTime, PartOfDay, Society, SocietyEvent, WallTime } from "../types";
 import type { EventsProvider } from "./types";
 
 const debug = makeDebug("societies");
-const CACHE_MS = 60 * 60 * 1000; // 1 hour
 const HORIZON_DAYS = 14;
 /** SocietyEvent needs an end. When the text gives none, assume an hour (not shown as a fact anywhere). */
 const DEFAULT_LENGTH_MINS = 60;
@@ -156,11 +156,11 @@ function plusMins(time: WallTime, mins: number): WallTime {
   return `${String(Math.floor(total / 60)).padStart(2, "0")}:${String(total % 60).padStart(2, "0")}`;
 }
 
-async function extractRules(society: Society): Promise<EventRule[]> {
+async function extractRules(society: Society, today: DateKey): Promise<EventRule[]> {
   const text = await societyPageText(society.slug).catch((err) => {
     throw new PageUnavailableError(society.slug, err);
   });
-  const today = londonTodayKey();
+  // No temperature: Haiku 5.5 rejects any non-default value (400). The JSON schema fixes the shape.
   const parsed = (await askClaudeJson(
     `society ${society.slug}`,
     [{ type: "text", text: prompt(society, today, text) }],
@@ -233,22 +233,40 @@ async function extractRules(society: Society): Promise<EventRule[]> {
 
 // ---------- Cache ----------
 
-// Keeps the promise, not the result, so the parallel /api/recommend calls for one day share a
-// single scrape and Claude call per society. Lives as long as the server instance does.
-// Keyed by day too, because the horizon starts today. An empty list is cached like any other answer.
-const cache = new Map<string, { at: number; rules: Promise<EventRule[]> }>();
+/** What the cache stores. Failures are plain data too: an error thrown across the cache boundary loses its class. */
+type RulesResult = { ok: true; rules: EventRule[] } | { ok: false; pageUnavailable: boolean; error: string };
 
-function rulesFor(society: Society): Promise<EventRule[]> {
-  const key = `${society.slug}:${londonTodayKey()}`;
-  const hit = cache.get(key);
-  if (hit && Date.now() - hit.at < CACHE_MS) return hit.rules;
-  const rules = extractRules(society);
-  cache.set(key, { at: Date.now(), rules });
-  // Don't cache failures: the next request should retry.
-  rules.catch(() => {
-    if (cache.get(key)?.rules === rules) cache.delete(key);
-  });
-  return rules;
+/**
+ * One society's rules for one day, in Next's remote cache: shared by every server instance
+ * (on Vercel), not just this one. Keyed by its arguments, so a new day means a fresh scrape,
+ * because the horizon starts today. An empty list is cached like any other answer; failures
+ * only for a minute, so the next request soon retries.
+ */
+async function cachedRules(society: Society, today: DateKey): Promise<RulesResult> {
+  "use cache: remote";
+  try {
+    const rules = await extractRules(society, today);
+    cacheLife("hours"); // refreshed after an hour
+    return { ok: true, rules };
+  } catch (err) {
+    cacheLife({ revalidate: 30, expire: 60 });
+    const pageUnavailable = err instanceof PageUnavailableError;
+    return { ok: false, pageUnavailable, error: String(pageUnavailable ? err.cause : err) };
+  }
+}
+
+// The parallel /api/recommend calls for one day arrive together, before the remote cache has
+// an entry. Sharing the in-flight promise gives them one scrape and Claude call per society.
+const inFlight = new Map<string, Promise<RulesResult>>();
+
+function rulesFor(society: Society): Promise<RulesResult> {
+  const today = londonTodayKey();
+  const key = `${society.slug}:${today}`;
+  const pending = inFlight.get(key);
+  if (pending) return pending;
+  const result = cachedRules({ slug: society.slug, name: society.name }, today).finally(() => inFlight.delete(key));
+  inFlight.set(key, result);
+  return result;
 }
 
 // ---------- Rules → events ----------
@@ -334,7 +352,7 @@ const overlaps = (ev: SocietyEvent, s: number, e: number) => Date.parse(ev.start
 
 /** The mock week's events for this society, if it has any. Matched on slug, so "UCL Chess Society" = chess-society. */
 function mockEventsFor(society: Society): SocietyEvent[] {
-  return MOCK_SOCIETY_EVENTS.filter((ev) => toSlug(ev.society) === society.slug);
+  return mockSocietyEvents().filter((ev) => toSlug(ev.society) === society.slug);
 }
 
 /**
@@ -344,18 +362,24 @@ function mockEventsFor(society: Society): SocietyEvent[] {
 async function eventsForSociety(society: Society, start: IsoDateTime, end: IsoDateTime): Promise<SocietyEvent[]> {
   const s = Date.parse(start);
   const e = Date.parse(end);
+  let result: RulesResult;
   try {
-    const rules = await rulesFor(society);
-    const events = daysBetween(start, end).flatMap((day) => rules.filter((r) => happensOn(r, day)).map((r) => toEvent(r, day)));
-    return events.filter((ev) => overlaps(ev, s, e));
+    result = await rulesFor(society);
   } catch (err) {
-    if (err instanceof PageUnavailableError) {
-      console.error(`[societies] ${society.slug}: page unavailable, using mock:`, err.cause);
+    // Only if the cache itself fails: cachedRules catches everything else.
+    result = { ok: false, pageUnavailable: false, error: String(err) };
+  }
+  if (!result.ok) {
+    if (result.pageUnavailable) {
+      console.error(`[societies] ${society.slug}: page unavailable, using mock:`, result.error);
       return mockEventsFor(society).filter((ev) => overlaps(ev, s, e));
     }
-    console.error(`[societies] ${society.slug}: reading the page failed, no events:`, err);
+    console.error(`[societies] ${society.slug}: reading the page failed, no events:`, result.error);
     return [];
   }
+  const { rules } = result;
+  const events = daysBetween(start, end).flatMap((day) => rules.filter((r) => happensOn(r, day)).map((r) => toEvent(r, day)));
+  return events.filter((ev) => overlaps(ev, s, e));
 }
 
 /**

@@ -1,15 +1,16 @@
 import type { TimetableEvent } from "../types";
+import { toDemoWeek } from "./week";
 
-// Week of Mon 12 – Fri 16 Oct 2026 for a 2nd-year BSc Economics student.
-// London is on BST (+01:00) all week.
+// One week for a 2nd-year BSc Economics student, written as Mon 12 – Fri 16 Oct 2026 and
+// moved to the current week by mockTimetable() (see week.ts).
 //
 // Gap mix by design:
 //   Mon: 30m, 1h30
 //   Tue: 4h (big one)
 //   Wed: 1h, then a free afternoon (Wednesday is sports afternoon at UCL)
 //   Thu: 1h, 2h
-//   Fri (demo day): 30m, 1h30, 3h
-export const MOCK_TIMETABLE: TimetableEvent[] = [
+//   Fri: 30m, 1h30, 3h
+const WEEK: TimetableEvent[] = [
   // Monday 12 Oct
   {
     id: "tt-mon-1",
@@ -118,7 +119,7 @@ export const MOCK_TIMETABLE: TimetableEvent[] = [
     room: "IOE 20 Bedford Way, Room 822",
   },
 
-  // Friday 16 Oct (demo day)
+  // Friday 16 Oct
   {
     id: "tt-fri-1",
     moduleCode: "ECON0019",
@@ -160,3 +161,8 @@ export const MOCK_TIMETABLE: TimetableEvent[] = [
     room: "Bentham House Gideon Schreier LT",
   },
 ];
+
+/** The mock timetable, dated to the current demo week. */
+export function mockTimetable(): TimetableEvent[] {
+  return WEEK.map((e) => ({ ...e, start: toDemoWeek(e.start), end: toDemoWeek(e.end) }));
+}
