@@ -6,6 +6,7 @@ import { parseHome, readRawHome, subscribeHome } from "@/lib/home";
 import { addDays, dayOfWeek, londonTodayKey } from "@/lib/london-time";
 import { demoMonday, mockTimetable } from "@/lib/mock";
 import { parseUserData, readRawUserData, subscribeUserData } from "@/lib/storage";
+import { parseTodos, readRawTodos, subscribeTodos } from "@/lib/todos";
 import { expandWeekly } from "@/lib/timetable";
 import type { UserData } from "@/lib/types";
 import { TodayTimeline, type Day } from "./today-timeline";
@@ -21,6 +22,9 @@ export function Home() {
   const user = useMemo(() => parseUserData(raw), [raw]);
   const rawHome = useSyncExternalStore(subscribeHome, () => readRawHome() ?? "", () => null);
   const home = useMemo(() => parseHome(rawHome), [rawHome]);
+  // Not part of the remount keys below: ticking off a to-do shouldn't throw away cached picks.
+  const rawTodos = useSyncExternalStore(subscribeTodos, () => readRawTodos() ?? "", () => null);
+  const todos = useMemo(() => parseTodos(rawTodos), [rawTodos]);
   const userDays = useMemo(() => (user ? buildDays(user) : null), [user]);
   // Only built in the browser, once we know there's no usable saved timetable, so the server
   // never renders a week from its own clock.
@@ -37,6 +41,7 @@ export function Home() {
         initialDateKey={demo.initialDateKey}
         mode="demo"
         home={home}
+        todos={todos}
       />
     );
   }
@@ -50,6 +55,7 @@ export function Home() {
       deadlines={user.deadlines}
       societies={user.societies}
       home={home}
+      todos={todos}
     />
   );
 }

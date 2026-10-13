@@ -11,6 +11,7 @@ const LOADING_LINES = [
   "Checking what societies are up to…",
   "Peeking at your deadlines…",
   "Checking if home's worth the walk…",
+  "Scanning your to-do list…",
   "Weighing up coffee vs. productivity ☕",
 ];
 
@@ -103,6 +104,7 @@ function Badges({ option }: { option: RecommendationOption }) {
     <div className="mt-2 flex flex-wrap gap-1.5">
       <Badge tone="neutral">{option.travelMins === 0 ? "Staying put" : travelLabel(option.travelMins, option.travelMode)}</Badge>
       {option.busyness && <Badge tone={BUSYNESS_TONE[option.busyness]}>🪑 Usually {option.busyness}</Badge>}
+      {option.todoId && <Badge tone="good">📝 From your to-do</Badge>}
     </div>
   );
 }

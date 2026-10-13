@@ -12,6 +12,7 @@ UCL students have gaps between lectures and waste them. Bloomsbuddy finds the ga
 - **Location**: inferred from the previous lecture's room (`findGaps` supports a manual override, but no UI sets it yet)
 - **Home**: a hall (from `BUILDINGS`: every UCL hall, including One Pool Street at UCL East, plus the University of London intercollegiate halls), a private UK postcode (turned into lat/lng server-side by `/api/postcode` via postcodes.io), or "Don't use my home". Set from the 🏠 chip on the Today page, saved in localStorage under its own key (works in the demo week too). Claude only suggests going home when `get_home` says the round trip leaves 30+ min there; `recommend.ts` rejects a `home` pick otherwise
 - **Lunch**: `lib/lunch.ts` flags a gap with 15+ usable min inside 12:00–14:00 London when no earlier gap that day had 30+ min there. Claude then usually includes a `food` pick from `get_food_spots`
+- **To-dos**: the To-do tab (`Todo` in `lib/types.ts`: title, optional `due` day and `estMinutes`, `done`), saved in localStorage under `bloomsbuddy:todos` (works in the demo week too). Open ones go to `/api/recommend`, where `get_todos` says whether each fits the gap's usable minutes. Claude prefers ones due soon, never suggests one that doesn't fit, and marks the pick with `todoId` (no extra pick type). The card then shows a "📝 From your to-do" badge
 - **Lunch spots**: MOCK `FOOD_SPOTS` in `lib/buildings.ts` (approx coordinates, made-up queue notes). Static reference data like the buildings, so no provider
 
 **Voice**: warm, casual, a bit cheeky. Like a friend who knows UCL's campus.
@@ -42,7 +43,8 @@ Every data source sits behind a **provider interface** with a `mock` and a `real
 - `lib/buildings.ts`: UCL building and hall coordinates, mock `FOOD_SPOTS`, `walkingMins()`, `travelTime()` (buildings) and `travelTimeBetween()` (any lat/lng, e.g. a postcode)
 - `lib/home.ts`: the student's home in localStorage (`bloomsbuddy:home`) + `homeLocation()` for the recommend request
 - `lib/lunch.ts`: `lunchInfo(gap, dayGaps)`, the lunch rule above
-- `lib/recommend/`: Claude tool loop (`recommend.ts`: `get_study_spaces`, `get_events_in_window`, `get_deadlines`, `get_food_spots`, and `get_home` when a home is set) and the editable `system-prompt.ts`
+- `lib/todos.ts`: the to-do list in localStorage (`bloomsbuddy:todos`), plus `isTodo` (shared with the API route) and the 15/30/60/90 estimate chips
+- `lib/recommend/`: Claude tool loop (`recommend.ts`: `get_study_spaces`, `get_events_in_window`, `get_deadlines`, `get_food_spots`, `get_todos` when there are open to-dos, and `get_home` when a home is set) and the editable `system-prompt.ts`
 - `lib/config.ts`: `isDemoMode()`
 - `lib/mock/`: one realistic student week, written as Mon 12 – Fri 16 Oct 2026 and moved to the current London week on every call (`week.ts`; at the weekend, next week)
 - `lib/providers/`: provider interfaces + mocks; `societies.ts` is the real SU events provider (scraped on every request, no cache; parallel requests share one in-flight scrape per society)
