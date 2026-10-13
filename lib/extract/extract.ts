@@ -1,6 +1,7 @@
-// Reads timetable and Moodle screenshots with Claude vision. Server-side only (uses ANTHROPIC_API_KEY).
+// Reads timetable and Moodle screenshots (Claude vision) or pasted/typed text. Server-side only
+// (uses ANTHROPIC_API_KEY).
 //
-// One request per screenshot, no tools. The answer is constrained by a JSON schema
+// One request per screenshot or text, no tools. The answer is constrained by a JSON schema
 // (output_config.format), then checked again here, because a misread screenshot is the
 // likeliest thing to go wrong. The student reviews everything before it's saved anyway.
 
@@ -22,6 +23,8 @@ export interface ImageInput {
   /** Base64, without the "data:...;base64," prefix. */
   data: string;
 }
+/** A screenshot, or text the student pasted or typed. Same schema and checks either way. */
+export type ExtractInput = { image: ImageInput } | { text: string };
 
 const isBuildingId = (x: unknown): x is BuildingId =>
   typeof x === "string" && (BUILDING_IDS as string[]).includes(x);
@@ -35,17 +38,16 @@ function normaliseTime(x: unknown): string {
 }
 
 // "medium" effort: reading a dense timetable grid accurately is worth a bit of thinking.
-function askClaude(label: string, image: ImageInput, prompt: string, schema: Record<string, unknown>): Promise<unknown> {
-  return askClaudeJson(
-    label,
-    [
-      { type: "image", source: { type: "base64", media_type: image.mediaType, data: image.data } },
-      { type: "text", text: prompt },
-    ],
-    schema,
-    "medium",
-  );
+// Text is wrapped in tags so Claude treats it as data to read, not instructions.
+function askClaude(label: string, input: ExtractInput, prompt: string, schema: Record<string, unknown>): Promise<unknown> {
+  const source =
+    "image" in input
+      ? { type: "image" as const, source: { type: "base64" as const, media_type: input.image.mediaType, data: input.image.data } }
+      : { type: "text" as const, text: `<student_text>\n${input.text}\n</student_text>` };
+  return askClaudeJson(label, [source, { type: "text", text: prompt }], schema, "medium");
 }
+
+const isText = (input: ExtractInput) => "text" in input;
 
 // ---------- Timetable ----------
 
@@ -74,7 +76,17 @@ const TIMETABLE_SCHEMA = {
 
 const BUILDING_LIST = BUILDING_IDS.map((id) => `- ${id}: ${BUILDINGS[id].name}`).join("\n");
 
-const TIMETABLE_PROMPT = `This is a screenshot of a UCL student's weekly timetable (from UCL Go, the UCL timetable website, or similar).
+function timetablePrompt(input: ExtractInput): string {
+  const intro = isText(input)
+    ? `Above is text a UCL student pasted or typed about their weekly timetable. It may be copied from UCL Go or the UCL timetable website, or written casually (e.g. "econ lecture mon 10-12 roberts G06").`
+    : "This is a screenshot of a UCL student's weekly timetable (from UCL Go, the UCL timetable website, or similar).";
+  const textRules = isText(input)
+    ? `
+- Casual day names ("mon", "weds", "thurs") and times ("2pm", "10-12") are fine to interpret.
+- If no end time is given, assume the class lasts 1 hour.
+- If no room is given, use an empty string for room and null for buildingId.`
+    : "";
+  return `${intro}
 
 List every class in it as a weekly pattern: one entry per class per weekday it appears on. If the same class shows on the same weekday more than once (e.g. several weeks of a list view), include it only once.
 
@@ -84,10 +96,11 @@ Rules:
 - kind: pick the closest of lecture, seminar, lab or tutorial ("practical" → lab, "workshop" or "problem class" → tutorial).
 - buildingId: match the room to one of these UCL buildings by its building name. Use null if none of them fits; don't guess.
 ${BUILDING_LIST}
-- Only include what is actually in the screenshot. Never invent classes. If there are no classes, return an empty list.`;
+- Only include what is actually in the ${isText(input) ? "text" : "screenshot"}. Never invent classes. If there are no classes, return an empty list.${textRules}`;
+}
 
-export async function extractTimetable(image: ImageInput): Promise<WeeklyClass[]> {
-  const parsed = (await askClaude("timetable", image, TIMETABLE_PROMPT, TIMETABLE_SCHEMA)) as { classes?: unknown };
+export async function extractTimetable(input: ExtractInput): Promise<WeeklyClass[]> {
+  const parsed = (await askClaude("timetable", input, timetablePrompt(input), TIMETABLE_SCHEMA)) as { classes?: unknown };
   const raw = Array.isArray(parsed.classes) ? parsed.classes : [];
 
   const classes: WeeklyClass[] = [];
@@ -139,8 +152,15 @@ const DEADLINES_SCHEMA = {
   additionalProperties: false,
 };
 
-function deadlinesPrompt(todayKey: DateKey): string {
-  return `This is a screenshot of a UCL student's Moodle timeline (or calendar / upcoming events).
+function deadlinesPrompt(input: ExtractInput, todayKey: DateKey): string {
+  const intro = isText(input)
+    ? `Above is text a UCL student pasted or typed about their deadlines. It may be copied from Moodle, or written casually (e.g. "econ essay due next fri 5pm").`
+    : "This is a screenshot of a UCL student's Moodle timeline (or calendar / upcoming events).";
+  const textRules = isText(input)
+    ? `
+- Resolve relative dates ("next Friday", "tomorrow") against today.`
+    : "";
+  return `${intro}
 
 Today is ${todayKey} (London). List every assignment, quiz or other deadline in it.
 
@@ -148,12 +168,12 @@ Rules:
 - dueDate as YYYY-MM-DD. If the year isn't shown, pick the first date on or after today.
 - dueTime in 24-hour HH:MM, or null if no time is shown.
 - moduleCode: the UCL module code (like ECON0019) if you can see it, often in the course name. Otherwise an empty string.
-- weightPercent only if the screenshot states it; otherwise null.
-- Only include what is actually in the screenshot. Never invent deadlines. If there are none, return an empty list.`;
+- weightPercent only if it is stated; otherwise null.
+- Only include what is actually in the ${isText(input) ? "text" : "screenshot"}. Never invent deadlines. If there are none, return an empty list.${textRules}`;
 }
 
-export async function extractDeadlines(image: ImageInput, todayKey: DateKey): Promise<Deadline[]> {
-  const parsed = (await askClaude("deadlines", image, deadlinesPrompt(todayKey), DEADLINES_SCHEMA)) as {
+export async function extractDeadlines(input: ExtractInput, todayKey: DateKey): Promise<Deadline[]> {
+  const parsed = (await askClaude("deadlines", input, deadlinesPrompt(input, todayKey), DEADLINES_SCHEMA)) as {
     deadlines?: unknown;
   };
   const raw = Array.isArray(parsed.deadlines) ? parsed.deadlines : [];

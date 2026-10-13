@@ -1,8 +1,8 @@
 "use client";
 
 // Onboarding and "edit my timetable" in one place:
-//   1. Timetable: screenshot → Claude → editable weekly classes, plus how many weeks they repeat
-//   2. Deadlines: Moodle screenshot → Claude → editable deadlines (skippable)
+//   1. Timetable: screenshot or pasted text → Claude → editable weekly classes, plus how many weeks they repeat
+//   2. Deadlines: Moodle screenshot or pasted text → Claude → editable deadlines (skippable)
 //   3. Societies: typed names, checked against the SU website (skippable)
 //   4. Check and save to localStorage
 // Nothing is saved until step 4, so a bad screenshot can't break anything.
@@ -319,14 +319,15 @@ function TimetableStep({
       <div>
         <h2 className="text-lg font-semibold">Your weekly timetable</h2>
         <p className="mt-1 text-sm text-zinc-600 dark:text-zinc-400">
-          Screenshot one week from UCL Go or the timetable website and drop it here. I&apos;ll read it, then you
-          check I got it right.
+          Screenshot one week from UCL Go or the timetable website and drop it here, or paste/type it below.
+          I&apos;ll read it, then you check I got it right.
         </p>
       </div>
 
       <Uploader
         kind="timetable"
         nouns={["class", "classes"]}
+        placeholder="Paste from UCL Go, or type e.g. ECON0013 lecture Mon 10–12, Roberts G06"
         existingCount={classes.length}
         onResult={(rows, mode) => setClasses(mode === "replace" ? rows : [...classes, ...rows])}
       />
@@ -524,7 +525,7 @@ function DeadlinesStep({
       <div>
         <h2 className="text-lg font-semibold">Your Moodle deadlines</h2>
         <p className="mt-1 text-sm text-zinc-600 dark:text-zinc-400">
-          Screenshot the Timeline block on your Moodle dashboard. I&apos;ll use these to decide when you should
+          Screenshot the Timeline block on your Moodle dashboard, or paste/type them below. I&apos;ll use these to decide when you should
           actually be studying. You can skip this.
         </p>
       </div>
@@ -532,6 +533,7 @@ function DeadlinesStep({
       <Uploader
         kind="deadlines"
         nouns={["deadline", "deadlines"]}
+        placeholder="Paste your Moodle timeline, or type e.g. ECON0019 essay due Fri 30 Oct, 5pm"
         existingCount={deadlines.length}
         onResult={(rows, mode) => {
           const drafts = rows.map(toDraft);
@@ -849,22 +851,24 @@ function ReviewStep({
   );
 }
 
-// ---------- Screenshot upload ----------
+// ---------- Screenshot / text upload ----------
 
 type UploadState =
   | { status: "idle" }
-  | { status: "reading" }
+  | { status: "reading"; from: "image" | "text" }
   | { status: "error"; message: string }
   | { status: "done"; count: number };
 
 function Uploader<K extends "timetable" | "deadlines">({
   kind,
   nouns: [one, many],
+  placeholder,
   existingCount,
   onResult,
 }: {
   kind: K;
   nouns: [string, string];
+  placeholder: string;
   existingCount: number;
   onResult: (rows: K extends "timetable" ? WeeklyClass[] : Deadline[], mode: "replace" | "append") => void;
 }) {
@@ -873,7 +877,40 @@ function Uploader<K extends "timetable" | "deadlines">({
   // Results waiting for "replace or add?" when there are already rows.
   const [pending, setPending] = useState<Rows | null>(null);
   const inputRef = useRef<HTMLInputElement>(null);
+  const [text, setText] = useState("");
   const plural = (n: number) => `${n} ${n === 1 ? one : many}`;
+
+  /** Sends a screenshot or text to Claude. Returns true if it found something. */
+  async function extract(from: "image" | "text", getPayload: () => Promise<object>): Promise<boolean> {
+    const what = from === "image" ? "screenshot" : "text";
+    setState({ status: "reading", from });
+    setPending(null);
+    try {
+      const res = await fetch("/api/extract", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ kind, ...(await getPayload()) }),
+      });
+      const body = (await res.json().catch(() => ({}))) as { classes?: WeeklyClass[]; deadlines?: Deadline[]; error?: string };
+      if (!res.ok) throw new Error(body.error ?? `HTTP ${res.status}`);
+      const rows = ((kind === "timetable" ? body.classes : body.deadlines) ?? []) as Rows;
+      if (rows.length === 0) {
+        setState({ status: "error", message: `I couldn't spot any ${many} in that one. Is it the right ${what}?` });
+        return false;
+      }
+      setState({ status: "done", count: rows.length });
+      if (existingCount > 0) setPending(rows);
+      else onResult(rows, "replace");
+      return true;
+    } catch (err) {
+      console.warn("[extract]", err);
+      setState({
+        status: "error",
+        message: `Couldn't read that ${what} right now. Try again, or add your ${many} by hand below.`,
+      });
+      return false;
+    }
+  }
 
   async function handleFile(file: Blob | null | undefined) {
     if (!file || state.status === "reading") return;
@@ -881,34 +918,15 @@ function Uploader<K extends "timetable" | "deadlines">({
       setState({ status: "error", message: "That doesn't look like an image. Try a PNG or JPEG screenshot." });
       return;
     }
-    setState({ status: "reading" });
-    setPending(null);
-    try {
-      const image = await prepareImage(file);
-      const res = await fetch("/api/extract", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ kind, image }),
-      });
-      const body = (await res.json().catch(() => ({}))) as { classes?: WeeklyClass[]; deadlines?: Deadline[]; error?: string };
-      if (!res.ok) throw new Error(body.error ?? `HTTP ${res.status}`);
-      const rows = ((kind === "timetable" ? body.classes : body.deadlines) ?? []) as Rows;
-      if (rows.length === 0) {
-        setState({ status: "error", message: `I couldn't spot any ${many} in that one. Is it the right screenshot?` });
-        return;
-      }
-      setState({ status: "done", count: rows.length });
-      if (existingCount > 0) setPending(rows);
-      else onResult(rows, "replace");
-    } catch (err) {
-      console.warn("[extract]", err);
-      setState({
-        status: "error",
-        message: `Couldn't read that screenshot right now. Try again, or add your ${many} by hand below.`,
-      });
-    } finally {
-      if (inputRef.current) inputRef.current.value = "";
-    }
+    await extract("image", async () => ({ image: await prepareImage(file) }));
+    if (inputRef.current) inputRef.current.value = "";
+  }
+
+  async function handleText() {
+    const trimmed = text.trim();
+    if (!trimmed || state.status === "reading") return;
+    // Keep the text on failure so they can tweak it and try again.
+    if (await extract("text", async () => ({ text: trimmed }))) setText("");
   }
 
   // Pasting a screenshot (Cmd/Ctrl+V) works too: handy on a laptop.
@@ -947,7 +965,7 @@ function Uploader<K extends "timetable" | "deadlines">({
         />
         {reading ? (
           <span aria-live="polite" className="animate-pulse font-medium text-emerald-800 dark:text-emerald-200">
-            Squinting at your screenshot…
+            {state.from === "image" ? "Squinting at your screenshot…" : "Reading your text…"}
           </span>
         ) : (
           <>
@@ -961,6 +979,39 @@ function Uploader<K extends "timetable" | "deadlines">({
           </>
         )}
       </label>
+
+      <div className="flex items-center gap-3 text-xs font-medium uppercase tracking-wide text-zinc-500" aria-hidden>
+        <span className="h-px flex-1 bg-zinc-200 dark:bg-zinc-800" />
+        or type it
+        <span className="h-px flex-1 bg-zinc-200 dark:bg-zinc-800" />
+      </div>
+
+      <div className="flex flex-col gap-2">
+        <label htmlFor={`${kind}-text`} className="sr-only">
+          Paste or type your {many}
+        </label>
+        <textarea
+          id={`${kind}-text`}
+          rows={4}
+          value={text}
+          disabled={reading}
+          placeholder={placeholder}
+          onChange={(e) => setText(e.target.value)}
+          onKeyDown={(e) => {
+            // Cmd/Ctrl+Enter sends, like most chat boxes.
+            if (e.key === "Enter" && (e.metaKey || e.ctrlKey)) {
+              e.preventDefault();
+              void handleText();
+            }
+          }}
+          className="w-full rounded-xl border border-zinc-300 bg-white p-3 text-base text-zinc-900 placeholder:text-zinc-400 disabled:opacity-60 dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-100 sm:text-sm"
+        />
+        <div className="flex justify-end">
+          <SmallButton primary disabled={reading || !text.trim()} onClick={() => void handleText()}>
+            Read it
+          </SmallButton>
+        </div>
+      </div>
 
       {state.status === "error" && (
         <p role="alert" className="rounded-xl bg-amber-50 p-3 text-sm text-amber-900 dark:bg-amber-950/40 dark:text-amber-200">
@@ -1004,7 +1055,7 @@ function Uploader<K extends "timetable" | "deadlines">({
       ) : (
         state.status === "done" && (
           <p aria-live="polite" className="text-sm text-emerald-800 dark:text-emerald-200">
-            Got {plural(state.count)} ✨ Give them a quick check. Screenshots can be sneaky.
+            Got {plural(state.count)} ✨ Give them a quick check. I can get things wrong.
           </p>
         )
       )}
@@ -1039,12 +1090,23 @@ function RemoveButton({ label, onClick }: { label: string; onClick: () => void }
   );
 }
 
-function SmallButton({ primary, onClick, children }: { primary?: boolean; onClick: () => void; children: ReactNode }) {
+function SmallButton({
+  primary,
+  disabled,
+  onClick,
+  children,
+}: {
+  primary?: boolean;
+  disabled?: boolean;
+  onClick: () => void;
+  children: ReactNode;
+}) {
   return (
     <button
       type="button"
+      disabled={disabled}
       onClick={onClick}
-      className={`min-h-10 rounded-full px-4 text-sm font-medium ${
+      className={`min-h-10 rounded-full px-4 text-sm font-medium disabled:cursor-not-allowed disabled:opacity-50 ${
         primary
           ? "bg-emerald-600 text-white hover:bg-emerald-700 dark:bg-emerald-500 dark:text-emerald-950 dark:hover:bg-emerald-400"
           : "bg-zinc-100 text-zinc-700 hover:bg-zinc-200 dark:bg-zinc-800 dark:text-zinc-200 dark:hover:bg-zinc-700"
