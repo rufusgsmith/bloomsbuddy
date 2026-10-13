@@ -1,0 +1,32 @@
+// Mock providers over the demo week in lib/mock. Time maths uses Date.parse, which
+// respects the ISO offset, so the server's timezone never matters.
+
+import { MOCK_DEADLINES, MOCK_SEATS, MOCK_SOCIETY_EVENTS } from "../mock";
+import type { Providers } from "./types";
+
+const MS_PER_DAY = 86_400_000;
+
+export const mockProviders: Providers = {
+  seats: {
+    async getSeats() {
+      return MOCK_SEATS;
+    },
+  },
+  events: {
+    async getEvents(start, end) {
+      const s = Date.parse(start);
+      const e = Date.parse(end);
+      return MOCK_SOCIETY_EVENTS.filter((ev) => Date.parse(ev.start) < e && Date.parse(ev.end) > s);
+    },
+  },
+  deadlines: {
+    async getDeadlines(from, withinDays) {
+      const f = Date.parse(from);
+      const until = f + withinDays * MS_PER_DAY;
+      return MOCK_DEADLINES.filter((d) => {
+        const due = Date.parse(d.due);
+        return due > f && due <= until;
+      }).sort((a, b) => Date.parse(a.due) - Date.parse(b.due));
+    },
+  },
+};

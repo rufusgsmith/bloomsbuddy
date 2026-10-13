@@ -79,16 +79,18 @@ export interface SeatAvailability {
   updatedAt: IsoDateTime;
 }
 
-export type ActivityKind = "study" | "deadline" | "society" | "food" | "rest" | "explore";
+export type RecommendationType = "study" | "event" | "rest";
 
 export interface RecommendationOption {
   title: string;
-  activity: ActivityKind;
-  /** Short, friendly reason in Bloomsbuddy's voice. */
+  type: RecommendationType;
+  /** Human-readable place, e.g. "SSEES Library". */
+  place: string;
+  /** Walking time from where the student is at the start of the gap. */
+  walkMins: number;
+  /** Short, friendly reason in Bloomsbuddy's voice, citing real details. */
   reason: string;
-  locationId?: BuildingId;
-  walkMins?: number;
-  /** id of the related Deadline / SocietyEvent / SeatAvailability, if any. */
+  /** id of the related Deadline / SocietyEvent / library BuildingId, if any. */
   relatedId?: string;
 }
 
