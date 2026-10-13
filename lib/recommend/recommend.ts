@@ -7,14 +7,15 @@
 import Anthropic from "@anthropic-ai/sdk";
 import { betaTool } from "@anthropic-ai/sdk/helpers/beta/json-schema";
 import { BUILDINGS, travelTime, type BuildingId, type TravelMode } from "../buildings";
+import { estimateBusyness } from "../library-busyness";
 import { deadlinesFromList, eventsFor, getProviders } from "../providers";
 import type {
+  BusynessLevel,
   Deadline,
   Gap,
   IsoDateTime,
   Recommendation,
   RecommendationOption,
-  SeatAvailability,
   Society,
 } from "../types";
 import { SYSTEM_PROMPT } from "./system-prompt";
@@ -54,6 +55,14 @@ const debug = (...args: unknown[]) => {
 const isBuildingId = (x: unknown): x is BuildingId =>
   typeof x === "string" && (BUILDING_IDS as string[]).includes(x);
 
+/** Libraries we have a busyness estimate for, at the given instant. */
+function studySpaces(at: IsoDateTime): { libraryId: BuildingId; busyness: BusynessLevel }[] {
+  return LIBRARY_IDS.flatMap((libraryId) => {
+    const estimate = estimateBusyness(libraryId, at);
+    return estimate ? [{ libraryId, busyness: estimate.level }] : [];
+  });
+}
+
 /** travelTime as tool-result fields, e.g. suffix "FromNear" gives { minsFromNear, modeFromNear }. */
 function travelFields<S extends string>(suffix: S, from: BuildingId, to: BuildingId) {
   const { mins, mode } = travelTime(from, to);
@@ -63,12 +72,12 @@ function travelFields<S extends string>(suffix: S, from: BuildingId, to: Buildin
 
 /**
  * `eventIds` collects every society event Claude was shown, so we can enforce type "event".
- * `seatsSeen` keeps the seat counts Claude was shown, so the UI's badges match the reason text.
+ * `librariesSeen` keeps the busyness levels Claude was shown, so the UI's badges match the reason text.
  */
 function makeTools(
   gap: Gap,
   eventIds: Set<string>,
-  seatsSeen: Map<string, SeatAvailability>,
+  librariesSeen: Map<string, BusynessLevel>,
   dayGaps: Gap[],
   userDeadlines?: Deadline[],
   societies?: Society[],
@@ -80,10 +89,10 @@ function makeTools(
   const here = gap.locationId;
   const next = gap.nextLocationId;
 
-  const getFreeSeats = betaTool({
-    name: "get_free_seats",
+  const getStudySpaces = betaTool({
+    name: "get_study_spaces",
     description:
-      "Live free-seat counts for UCL libraries, sorted by travel time from `near`. Each entry includes travel minutes and mode (walk or tube) from `near` and onward to the student's next lecture.",
+      "UCL libraries with how busy each one usually is at the start of the gap (quiet, moderate, busy or packed), sorted by travel time from `near`. Busyness is an estimate from typical patterns, not a live count. Each entry includes travel minutes and mode (walk or tube) from `near` and onward to the student's next lecture.",
     inputSchema: {
       type: "object",
       properties: {
@@ -93,20 +102,19 @@ function makeTools(
       additionalProperties: false,
     },
     run: async ({ near }) => {
-      debug("tool get_free_seats", { near });
+      debug("tool get_study_spaces", { near });
       const from = isBuildingId(near) ? near : here;
-      const seats = await providers.seats.getSeats();
-      for (const s of seats) seatsSeen.set(s.libraryId, s);
-      const rows = seats
-        .map((s) => ({
-          libraryId: s.libraryId,
-          name: s.name,
-          available: s.available,
-          total: s.total,
-          ...travelFields("FromNear", from, s.libraryId),
-          ...travelFields("ToNextLecture", s.libraryId, next),
-          updatedAt: fmt(s.updatedAt),
-        }))
+      const rows = studySpaces(gap.start)
+        .map(({ libraryId, busyness }) => {
+          librariesSeen.set(libraryId, busyness);
+          return {
+            libraryId,
+            name: BUILDINGS[libraryId].shortName,
+            busyness,
+            ...travelFields("FromNear", from, libraryId),
+            ...travelFields("ToNextLecture", libraryId, next),
+          };
+        })
         .sort((a, b) => a.minsFromNear - b.minsFromNear);
       return JSON.stringify(rows);
     },
@@ -194,7 +202,7 @@ function makeTools(
     },
   });
 
-  return [getFreeSeats, getEventsInWindow, getDeadlines];
+  return [getStudySpaces, getEventsInWindow, getDeadlines];
 }
 
 const OPTION_SCHEMA = {
@@ -261,7 +269,7 @@ function describeGap(gap: Gap, dayGaps: Gap[]): string {
 function toOption(
   raw: unknown,
   eventIds: Set<string>,
-  seatsSeen: Map<string, SeatAvailability>,
+  librariesSeen: Map<string, BusynessLevel>,
 ): RecommendationOption {
   const o = raw as Record<string, unknown>;
   if (
@@ -275,7 +283,7 @@ function toOption(
     throw new Error("Claude returned a malformed option");
   }
   const isSocietyEvent = typeof o.relatedId === "string" && eventIds.has(o.relatedId);
-  const seat = typeof o.libraryId === "string" ? seatsSeen.get(o.libraryId) : undefined;
+  const busyness = typeof o.libraryId === "string" ? librariesSeen.get(o.libraryId) : undefined;
   return {
     title: o.title,
     type: isSocietyEvent ? "event" : (o.type as RecommendationOption["type"]),
@@ -284,7 +292,7 @@ function toOption(
     travelMode: o.travelMode as RecommendationOption["travelMode"],
     reason: o.reason,
     ...(typeof o.relatedId === "string" && o.relatedId ? { relatedId: o.relatedId } : {}),
-    ...(seat ? { seats: { available: seat.available, total: seat.total, updatedAt: seat.updatedAt } } : {}),
+    ...(busyness ? { busyness } : {}),
   };
 }
 
@@ -295,14 +303,14 @@ export async function recommendForGap(
 ): Promise<Recommendation> {
   const client = new Anthropic(); // reads ANTHROPIC_API_KEY
   const eventIds = new Set<string>();
-  const seatsSeen = new Map<string, SeatAvailability>();
+  const librariesSeen = new Map<string, BusynessLevel>();
 
   const runner = client.beta.messages.toolRunner({
     model: MODEL,
     max_tokens: 8000,
     max_iterations: 6,
     system: SYSTEM_PROMPT,
-    tools: makeTools(gap, eventIds, seatsSeen, dayGaps, opts.deadlines, opts.societies),
+    tools: makeTools(gap, eventIds, librariesSeen, dayGaps, opts.deadlines, opts.societies),
     // "low" effort keeps thinking (billed as output) short: picking 3 options doesn't need deep reasoning.
     output_config: { effort: "low", format: { type: "json_schema", schema: OUTPUT_SCHEMA } },
     messages: [
@@ -336,17 +344,17 @@ export async function recommendForGap(
     throw new Error(`Expected 2 alternatives, got ${parsed.alternatives?.length}`);
   }
 
-  // Claude should always call get_free_seats, but if it didn't, fetch counts once for the badges.
-  if (seatsSeen.size === 0) {
-    for (const s of await getProviders().seats.getSeats()) seatsSeen.set(s.libraryId, s);
+  // Claude should always call get_study_spaces, but if it didn't, estimate once for the badges.
+  if (librariesSeen.size === 0) {
+    for (const s of studySpaces(gap.start)) librariesSeen.set(s.libraryId, s.busyness);
   }
 
   return {
     gapId: gap.id,
-    top: toOption(parsed.top, eventIds, seatsSeen),
+    top: toOption(parsed.top, eventIds, librariesSeen),
     alternatives: [
-      toOption(parsed.alternatives[0], eventIds, seatsSeen),
-      toOption(parsed.alternatives[1], eventIds, seatsSeen),
+      toOption(parsed.alternatives[0], eventIds, librariesSeen),
+      toOption(parsed.alternatives[1], eventIds, librariesSeen),
     ],
     generatedAt: new Date().toISOString(),
   };

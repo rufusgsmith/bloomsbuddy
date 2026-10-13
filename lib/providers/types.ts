@@ -1,11 +1,7 @@
 // Provider interfaces: every data source has a mock and (eventually) a real implementation.
 // See "Architecture rule" in CLAUDE.md.
 
-import type { Deadline, IsoDateTime, SeatAvailability, SocietyEvent } from "../types";
-
-export interface SeatsProvider {
-  getSeats(): Promise<SeatAvailability[]>;
-}
+import type { Deadline, IsoDateTime, SocietyEvent } from "../types";
 
 export interface EventsProvider {
   /** Events that overlap [start, end]. */
@@ -18,7 +14,6 @@ export interface DeadlinesProvider {
 }
 
 export interface Providers {
-  seats: SeatsProvider;
   events: EventsProvider;
   deadlines: DeadlinesProvider;
 }

@@ -12,8 +12,8 @@ export type * from "./types";
 const EVENTS_TIMEOUT_MS = 20_000;
 
 /**
- * The real library seat scraper isn't built yet, so seats are always mock. Society events
- * depend on the student's societies, so they come from eventsFor() instead of here.
+ * Mock deadlines and events. Society events depend on the student's societies, so the real ones
+ * come from eventsFor() instead. Library busyness isn't a provider: see lib/library-busyness.ts.
  */
 export function getProviders(): Providers {
   return mockProviders;

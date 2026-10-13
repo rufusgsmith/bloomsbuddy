@@ -7,7 +7,7 @@ Hackathon project for the UCL Claude Campus Hackathon (Fri 16 Oct 2026, "Better 
 ## What it does
 UCL students have gaps between lectures and waste them. Bloomsbuddy finds the gaps in a student's timetable and uses Claude to recommend the best thing to do in each one: **a top pick + 2 alternatives, each with a reason**. Inputs:
 - **Timetable and Moodle deadlines**: added by uploading screenshots, which Claude reads with vision
-- **Live UCL Library seat counts**: scraped from a public page
+- **Estimated library busyness**: one real seat snapshot (Tue 11:40) scaled by time of day and weekday. The live UCL seat page blocks bots, so there is no scraper
 - **Society events**: scraped from Students' Union pages
 - **Location**: inferred from the previous lecture's room, with a manual override
 
@@ -38,7 +38,8 @@ Every data source sits behind a **provider interface** with a `mock` and a `real
 - `lib/buildings.ts`: UCL building coordinates + `walkingMins()`
 - `lib/config.ts`: `isDemoMode()`
 - `lib/mock/`: one realistic student week (Mon 12 – Fri 16 Oct 2026)
-- `lib/providers/`: provider interfaces + mocks; `societies.ts` is the real SU events provider (seats are still mock-only)
+- `lib/providers/`: provider interfaces + mocks; `societies.ts` is the real SU events provider
+- `lib/library-busyness.ts`: library busyness estimates (not a provider; Claude and the UI only see the level, never seat numbers)
 - `lib/societies/su-site.ts`: SU website fetching/slugs (cheerio)
 - `lib/claude-json.ts`: shared schema-constrained Claude call
 

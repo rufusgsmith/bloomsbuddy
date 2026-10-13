@@ -61,3 +61,12 @@ export function mondayOf(dateKey: DateKey): DateKey {
 export function londonTodayKey(): DateKey {
   return londonStamp(Date.now()).slice(0, 10);
 }
+
+/** London weekday (1 = Monday … 7 = Sunday) and minutes since midnight for an instant. */
+export function londonWeekdayAndMinutes(iso: IsoDateTime): { weekday: number; minutes: number } {
+  const stamp = londonStamp(Date.parse(iso));
+  return {
+    weekday: dayOfWeek(stamp.slice(0, 10)),
+    minutes: Number(stamp.slice(11, 13)) * 60 + Number(stamp.slice(14, 16)),
+  };
+}

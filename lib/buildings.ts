@@ -66,11 +66,19 @@ export const BUILDINGS = {
   "ioe-library": { name: "IOE Library (Newsam)", shortName: "IOE Library", lat: 51.5227, lng: -0.1288, isLibrary: true, area: "bloomsbury", kind: "library" },
   "ssees-library": { name: "SSEES Library (Taviton St)", shortName: "SSEES Library", lat: 51.5248, lng: -0.1300, isLibrary: true, area: "bloomsbury", kind: "library" },
   "senate-house-library": { name: "Senate House Library", shortName: "Senate House", lat: 51.5211, lng: -0.1287, isLibrary: true, area: "bloomsbury", kind: "library" },
+  // Smaller site libraries. Each shares its coordinates with the building it sits in.
+  "archaeology-library": { name: "Institute of Archaeology Library", shortName: "Archaeology Library", lat: 51.5248, lng: -0.1307, isLibrary: true, area: "bloomsbury", kind: "library" },
+  "child-health-library": { name: "Great Ormond Street Institute of Child Health Library", shortName: "Child Health Library", lat: 51.5225, lng: -0.1212, isLibrary: true, area: "bloomsbury", kind: "library" },
+  "lss-library": { name: "Language & Speech Science Library (Chandler House)", shortName: "LSS Library", lat: 51.5250, lng: -0.1215, isLibrary: true, area: "bloomsbury", kind: "library" },
+  "queen-square-library": { name: "Queen Square Library (Institute of Neurology)", shortName: "Queen Square Library", lat: 51.5221, lng: -0.1222, isLibrary: true, area: "bloomsbury", kind: "library" },
+  "pharmacy-library": { name: "School of Pharmacy Library (Brunswick Sq)", shortName: "Pharmacy Library", lat: 51.5242, lng: -0.1225, isLibrary: true, area: "bloomsbury", kind: "library" },
+  "ophthalmology-library": { name: "Joint Library of Ophthalmology (Bath St)", shortName: "Ophthalmology Library", lat: 51.5275, lng: -0.0905, isLibrary: true, area: "elsewhere", kind: "library" },
 
   // ---- UCL East (Queen Elizabeth Olympic Park) ----
   "marshgate": { name: "Marshgate (UCL East)", shortName: "Marshgate", lat: 51.5386, lng: -0.0109, isLibrary: false, area: "ucl-east", kind: "teaching" },
   "one-pool-street": { name: "One Pool Street (UCL East)", shortName: "One Pool St", lat: 51.5394, lng: -0.0088, isLibrary: false, area: "ucl-east", kind: "teaching" },
   "here-east": { name: "UCL at Here East", shortName: "Here East", lat: 51.5466, lng: -0.0229, isLibrary: false, area: "ucl-east", kind: "teaching" },
+  "ucl-east-library": { name: "UCL East Library (Marshgate)", shortName: "UCL East Library", lat: 51.5386, lng: -0.0109, isLibrary: true, area: "ucl-east", kind: "library" },
 
   // ---- Canary Wharf ----
   "one-canada-square": { name: "One Canada Square (School of Management)", shortName: "One Canada Sq", lat: 51.5049, lng: -0.0195, isLibrary: false, area: "canary-wharf", kind: "teaching" },

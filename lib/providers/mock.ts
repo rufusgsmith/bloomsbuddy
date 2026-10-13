@@ -1,18 +1,13 @@
 // Mock providers over the demo week in lib/mock. Time maths uses Date.parse, which
 // respects the ISO offset, so the server's timezone never matters.
 
-import { MOCK_DEADLINES, MOCK_SEATS, MOCK_SOCIETY_EVENTS } from "../mock";
+import { MOCK_DEADLINES, MOCK_SOCIETY_EVENTS } from "../mock";
 import type { Deadline } from "../types";
 import type { DeadlinesProvider, Providers } from "./types";
 
 const MS_PER_DAY = 86_400_000;
 
 export const mockProviders: Providers = {
-  seats: {
-    async getSeats() {
-      return MOCK_SEATS;
-    },
-  },
   events: {
     async getEvents(start, end) {
       const s = Date.parse(start);

@@ -2,7 +2,9 @@
 import type { ReactNode } from "react";
 import { BUILDINGS, travelLabel, travelTime, type BuildingId } from "@/lib/buildings";
 import { isDemoMode } from "@/lib/config";
-import { MOCK_DEADLINES, MOCK_SEATS, MOCK_SOCIETY_EVENTS, MOCK_TIMETABLE } from "@/lib/mock";
+import { estimateBusyness, LIBRARY_SNAPSHOT } from "@/lib/library-busyness";
+import { londonIso, londonTodayKey } from "@/lib/london-time";
+import { MOCK_DEADLINES, MOCK_SOCIETY_EVENTS, MOCK_TIMETABLE } from "@/lib/mock";
 
 const londonDateTime = new Intl.DateTimeFormat("en-GB", {
   timeZone: "Europe/London",
@@ -21,6 +23,7 @@ const londonTime = new Intl.DateTimeFormat("en-GB", {
 
 const dt = (iso: string) => londonDateTime.format(new Date(iso));
 const t = (iso: string) => londonTime.format(new Date(iso));
+const BUSYNESS_TIMES = ["09:00", "12:00", "15:00", "18:00"];
 const buildingName = (id?: BuildingId) => (id ? BUILDINGS[id].shortName : "—");
 
 function Section({ title, count, children }: { title: string; count: number; children: ReactNode }) {
@@ -117,15 +120,16 @@ export default function DebugPage() {
         />
       </Section>
 
-      <Section title="Library seats" count={MOCK_SEATS.length}>
+      <Section title={`Library busyness (estimated for ${londonTodayKey()})`} count={LIBRARY_SNAPSHOT.length}>
         <Table
-          headers={["Library", "Available", "Total", "% free", "Updated"]}
-          rows={MOCK_SEATS.map((s) => [
+          headers={["Library", "Tue 11:40 snapshot", ...BUSYNESS_TIMES]}
+          rows={LIBRARY_SNAPSHOT.map((s) => [
             s.name,
-            s.available,
-            s.total,
-            `${Math.round((s.available / s.total) * 100)}%`,
-            dt(s.updatedAt),
+            `${s.free} / ${s.total} free`,
+            ...BUSYNESS_TIMES.map((time) => {
+              const e = estimateBusyness(s.libraryId, londonIso(londonTodayKey(), time));
+              return e ? `${e.level} (${Math.round(e.occupancy * 100)}%)` : "—";
+            }),
           ])}
         />
       </Section>

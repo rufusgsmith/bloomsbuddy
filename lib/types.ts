@@ -81,13 +81,8 @@ export interface Society {
   name: string;
 }
 
-export interface SeatAvailability {
-  libraryId: BuildingId;
-  name: string;
-  available: number;
-  total: number;
-  updatedAt: IsoDateTime;
-}
+/** How busy a library usually is at a given time. An estimate, not a live count. */
+export type BusynessLevel = "quiet" | "moderate" | "busy" | "packed";
 
 export type RecommendationType = "study" | "event" | "rest";
 
@@ -103,8 +98,8 @@ export interface RecommendationOption {
   reason: string;
   /** id of the related Deadline / SocietyEvent / library BuildingId, if any. */
   relatedId?: string;
-  /** Free-seat snapshot for study picks in a library (the same numbers Claude saw). */
-  seats?: { available: number; total: number; updatedAt: IsoDateTime };
+  /** Estimated busyness for study picks in a library (the same level Claude saw). */
+  busyness?: BusynessLevel;
 }
 
 export interface Recommendation {

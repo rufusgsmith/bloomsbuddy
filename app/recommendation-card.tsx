@@ -1,13 +1,13 @@
 "use client";
 
 import { useEffect, useState, type ReactNode } from "react";
-import type { Recommendation, RecommendationOption, RecommendationType } from "@/lib/types";
+import type { BusynessLevel, Recommendation, RecommendationOption, RecommendationType } from "@/lib/types";
 import { travelLabel } from "@/lib/buildings";
 
 export type RecState = { status: "loading" } | { status: "ok"; rec: Recommendation } | { status: "error" };
 
 const LOADING_LINES = [
-  "Counting empty seats…",
+  "Guessing how packed the libraries are…",
   "Checking what societies are up to…",
   "Peeking at your deadlines…",
   "Weighing up coffee vs. productivity ☕",
@@ -101,23 +101,14 @@ function Badges({ option }: { option: RecommendationOption }) {
   return (
     <div className="mt-2 flex flex-wrap gap-1.5">
       <Badge tone="neutral">{option.travelMins === 0 ? "Staying put" : travelLabel(option.travelMins, option.travelMode)}</Badge>
-      {option.seats && (
-        <Badge tone={seatTone(option.seats.available, option.seats.total)}>
-          🪑 {option.seats.available} / {option.seats.total} free
-        </Badge>
-      )}
+      {option.busyness && <Badge tone={BUSYNESS_TONE[option.busyness]}>🪑 Usually {option.busyness}</Badge>}
     </div>
   );
 }
 
 type Tone = "neutral" | "good" | "warn" | "bad";
 
-function seatTone(available: number, total: number): Tone {
-  const free = total > 0 ? available / total : 0;
-  if (free < 0.1) return "bad";
-  if (free < 0.3) return "warn";
-  return "good";
-}
+const BUSYNESS_TONE: Record<BusynessLevel, Tone> = { quiet: "good", moderate: "neutral", busy: "warn", packed: "bad" };
 
 const TONE_CLASSES: Record<Tone, string> = {
   neutral: "bg-zinc-100 text-zinc-700 dark:bg-zinc-800 dark:text-zinc-300",
