@@ -7,8 +7,8 @@
 import Anthropic from "@anthropic-ai/sdk";
 import { betaTool } from "@anthropic-ai/sdk/helpers/beta/json-schema";
 import { BUILDINGS, walkingMins, type BuildingId } from "../buildings";
-import { getProviders } from "../providers";
-import type { Gap, IsoDateTime, Recommendation, RecommendationOption, SeatAvailability } from "../types";
+import { deadlinesFromList, getProviders } from "../providers";
+import type { Deadline, Gap, IsoDateTime, Recommendation, RecommendationOption, SeatAvailability } from "../types";
 import { SYSTEM_PROMPT } from "./system-prompt";
 
 const MODEL = "claude-sonnet-5-5";
@@ -50,8 +50,16 @@ const isBuildingId = (x: unknown): x is BuildingId =>
  * `eventIds` collects every society event Claude was shown, so we can enforce type "event".
  * `seatsSeen` keeps the seat counts Claude was shown, so the UI's badges match the reason text.
  */
-function makeTools(gap: Gap, eventIds: Set<string>, seatsSeen: Map<string, SeatAvailability>, dayGaps: Gap[]) {
+function makeTools(
+  gap: Gap,
+  eventIds: Set<string>,
+  seatsSeen: Map<string, SeatAvailability>,
+  dayGaps: Gap[],
+  userDeadlines?: Deadline[],
+) {
   const providers = getProviders();
+  // The student's own Moodle deadlines (from onboarding) replace the mock ones when present.
+  const deadlinesProvider = userDeadlines ? deadlinesFromList(userDeadlines) : providers.deadlines;
   const here = gap.locationId;
   const next = gap.nextLocationId;
 
@@ -137,7 +145,7 @@ function makeTools(gap: Gap, eventIds: Set<string>, seatsSeen: Map<string, SeatA
     run: async ({ within_days }) => {
       debug("tool get_deadlines", { within_days });
       const days = Math.min(Math.max(Number(within_days) || 7, 1), 60);
-      const deadlines = await providers.deadlines.getDeadlines(gap.start, days);
+      const deadlines = await deadlinesProvider.getDeadlines(gap.start, days);
       const gapStart = Date.parse(gap.start);
       const laterGaps = dayGaps.filter((g) => Date.parse(g.start) > gapStart);
       const rows = deadlines.map((d) => {
@@ -258,7 +266,11 @@ function toOption(
   };
 }
 
-export async function recommendForGap(gap: Gap, dayGaps: Gap[] = []): Promise<Recommendation> {
+export async function recommendForGap(
+  gap: Gap,
+  dayGaps: Gap[] = [],
+  opts: { deadlines?: Deadline[] } = {},
+): Promise<Recommendation> {
   const client = new Anthropic(); // reads ANTHROPIC_API_KEY
   const eventIds = new Set<string>();
   const seatsSeen = new Map<string, SeatAvailability>();
@@ -268,7 +280,7 @@ export async function recommendForGap(gap: Gap, dayGaps: Gap[] = []): Promise<Re
     max_tokens: 8000,
     max_iterations: 6,
     system: SYSTEM_PROMPT,
-    tools: makeTools(gap, eventIds, seatsSeen, dayGaps),
+    tools: makeTools(gap, eventIds, seatsSeen, dayGaps, opts.deadlines),
     // "low" effort keeps thinking (billed as output) short: picking 3 options doesn't need deep reasoning.
     output_config: { effort: "low", format: { type: "json_schema", schema: OUTPUT_SCHEMA } },
     messages: [

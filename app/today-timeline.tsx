@@ -1,8 +1,10 @@
 "use client";
 
+import Link from "next/link";
 import { useState } from "react";
 import { BUILDINGS } from "@/lib/buildings";
-import type { Gap, Recommendation, TimetableEvent } from "@/lib/types";
+import { mondayOf } from "@/lib/london-time";
+import type { Deadline, Gap, Recommendation, TimetableEvent } from "@/lib/types";
 import { RecommendationPanel, type RecState } from "./recommendation-card";
 
 export interface Day {
@@ -45,7 +47,19 @@ function tagline(gaps: Gap[]): string {
 
 type Item = { kind: "event"; event: TimetableEvent } | { kind: "gap"; gap: Gap };
 
-export function TodayTimeline({ days, initialDateKey }: { days: Day[]; initialDateKey: string }) {
+export function TodayTimeline({
+  days,
+  initialDateKey,
+  mode,
+  deadlines,
+}: {
+  days: Day[];
+  initialDateKey: string;
+  /** "demo" = the mock week, "user" = the student's saved timetable. */
+  mode: "demo" | "user";
+  /** The student's own deadlines. Sent with each request so Claude uses them instead of the mocks. */
+  deadlines?: Deadline[];
+}) {
   const [dateKey, setDateKey] = useState(
     days.some((d) => d.dateKey === initialDateKey) ? initialDateKey : days[0]?.dateKey,
   );
@@ -54,6 +68,29 @@ export function TodayTimeline({ days, initialDateKey }: { days: Day[]; initialDa
   const [recs, setRecs] = useState<Record<string, RecState>>({});
 
   const day = days.find((d) => d.dateKey === dateKey);
+
+  // Days are shown a week at a time: a whole term of day buttons wouldn't fit.
+  const weekStarts = [...new Set(days.map((d) => mondayOf(d.dateKey)))];
+  const weekStart = dateKey ? mondayOf(dateKey) : weekStarts[0];
+  const weekIndex = weekStarts.indexOf(weekStart);
+  const weekDays = days.filter((d) => mondayOf(d.dateKey) === weekStart);
+
+  function selectDay(key: string) {
+    setDateKey(key);
+    setOpenGapId(null);
+  }
+
+  /** Jump a week, landing on the same weekday if it exists. */
+  function moveWeek(step: number) {
+    const target = weekStarts[weekIndex + step];
+    if (!target || !dateKey) return;
+    const sameWeekday = days.find(
+      (d) => mondayOf(d.dateKey) === target && dayDate(d.dateKey).getUTCDay() === dayDate(dateKey).getUTCDay(),
+    );
+    const fallback = days.find((d) => mondayOf(d.dateKey) === target);
+    const next = sameWeekday ?? fallback;
+    if (next) selectDay(next.dateKey);
+  }
   const items: Item[] = day
     ? [
         ...day.events.map((event): Item => ({ kind: "event", event })),
@@ -68,7 +105,7 @@ export function TodayTimeline({ days, initialDateKey }: { days: Day[]; initialDa
       const res = await fetch("/api/recommend", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ gap, dayGaps }),
+        body: JSON.stringify({ gap, dayGaps, ...(deadlines ? { deadlines } : {}) }),
       });
       if (!res.ok) throw new Error(`HTTP ${res.status}`);
       next = { status: "ok", rec: (await res.json()) as Recommendation };
@@ -92,7 +129,17 @@ export function TodayTimeline({ days, initialDateKey }: { days: Day[]; initialDa
   return (
     <main className="mx-auto w-full max-w-md px-4 pb-16 pt-8">
       <header className="mb-5">
-        <p className="text-sm font-medium text-emerald-600 dark:text-emerald-400">Bloomsbuddy</p>
+        <div className="flex items-center justify-between gap-2">
+          <p className="text-sm font-medium text-emerald-600 dark:text-emerald-400">Bloomsbuddy</p>
+          {mode === "user" && (
+            <Link
+              href="/setup"
+              className="rounded-full px-3 py-1.5 text-sm text-zinc-600 hover:bg-zinc-100 dark:text-zinc-400 dark:hover:bg-zinc-900"
+            >
+              Edit timetable
+            </Link>
+          )}
+        </div>
         <h1 className="text-3xl font-semibold tracking-tight">
           Today{" "}
           {day && (
@@ -104,18 +151,43 @@ export function TodayTimeline({ days, initialDateKey }: { days: Day[]; initialDa
         {day && <p className="mt-1 text-sm text-zinc-600 dark:text-zinc-400">{tagline(day.gaps)}</p>}
       </header>
 
-      {/* Day picker for browsing the mock week */}
+      {mode === "demo" && (
+        <Link
+          href="/setup"
+          className="mb-5 flex items-center justify-between gap-3 rounded-2xl bg-emerald-600 p-4 text-white hover:bg-emerald-700 dark:bg-emerald-500 dark:text-emerald-950 dark:hover:bg-emerald-400"
+        >
+          <span>
+            <span className="block font-semibold">This is a demo week</span>
+            <span className="block text-sm opacity-90">Snap your timetable and Moodle to make it yours.</span>
+          </span>
+          <span aria-hidden className="text-xl">
+            →
+          </span>
+        </Link>
+      )}
+
+      {weekStarts.length > 1 && (
+        <div className="mb-2 flex items-center justify-between">
+          <WeekButton label="Previous week" disabled={weekIndex <= 0} onClick={() => moveWeek(-1)}>
+            ‹
+          </WeekButton>
+          <p className="text-sm font-medium text-zinc-600 dark:text-zinc-400">
+            Week {weekIndex + 1} · w/c {londonDayMonth.format(dayDate(weekStart))}
+          </p>
+          <WeekButton label="Next week" disabled={weekIndex >= weekStarts.length - 1} onClick={() => moveWeek(1)}>
+            ›
+          </WeekButton>
+        </div>
+      )}
+
       <nav className="mb-6 flex gap-2" aria-label="Choose a day">
-        {days.map((d) => {
+        {weekDays.map((d) => {
           const active = d.dateKey === dateKey;
           return (
             <button
               key={d.dateKey}
               type="button"
-              onClick={() => {
-                setDateKey(d.dateKey);
-                setOpenGapId(null);
-              }}
+              onClick={() => selectDay(d.dateKey)}
               aria-pressed={active}
               className={`flex min-h-12 flex-1 flex-col items-center justify-center rounded-xl text-xs transition-colors ${
                 active
@@ -156,6 +228,30 @@ export function TodayTimeline({ days, initialDateKey }: { days: Day[]; initialDa
         </ol>
       )}
     </main>
+  );
+}
+
+function WeekButton({
+  label,
+  disabled,
+  onClick,
+  children,
+}: {
+  label: string;
+  disabled: boolean;
+  onClick: () => void;
+  children: string;
+}) {
+  return (
+    <button
+      type="button"
+      aria-label={label}
+      disabled={disabled}
+      onClick={onClick}
+      className="flex size-11 items-center justify-center rounded-full text-2xl text-zinc-600 hover:bg-zinc-100 disabled:opacity-30 disabled:hover:bg-transparent dark:text-zinc-400 dark:hover:bg-zinc-900"
+    >
+      {children}
+    </button>
   );
 }
 

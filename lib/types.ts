@@ -103,3 +103,40 @@ export interface Recommendation {
   alternatives: [RecommendationOption, RecommendationOption];
   generatedAt: IsoDateTime;
 }
+
+// ---- The student's own data (from onboarding), stored in localStorage ----
+
+/** "YYYY-MM-DD", a Europe/London calendar day. */
+export type DateKey = string;
+/** "HH:MM", 24-hour London wall-clock time. */
+export type WallTime = string;
+
+/**
+ * One class in the student's weekly timetable pattern. Times are wall-clock, not ISO:
+ * the pattern repeats across the BST→GMT switch, so a fixed offset would be wrong.
+ */
+export interface WeeklyClass {
+  id: string;
+  moduleCode: string;
+  title: string;
+  kind: TimetableEvent["kind"];
+  /** 1 = Monday … 7 = Sunday. */
+  dayOfWeek: number;
+  startTime: WallTime;
+  endTime: WallTime;
+  room: string;
+  buildingId: BuildingId;
+  /** True when Claude couldn't match the room to a building, so the UI asks the student to check. */
+  buildingGuessed?: boolean;
+}
+
+export interface UserData {
+  version: 1;
+  classes: WeeklyClass[];
+  /** Monday of the first teaching week. */
+  termStart: DateKey;
+  /** How many weeks the pattern repeats for, e.g. 11 for a UCL term. */
+  weeks: number;
+  deadlines: Deadline[];
+  savedAt: IsoDateTime;
+}

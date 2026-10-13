@@ -1,4 +1,6 @@
 import { mockProviders } from "./mock";
+
+export { deadlinesFromList } from "./mock";
 import type { Providers } from "./types";
 
 export type * from "./types";
