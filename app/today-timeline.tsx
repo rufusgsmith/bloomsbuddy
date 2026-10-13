@@ -6,7 +6,7 @@ import { BUILDINGS } from "@/lib/buildings";
 import { formatDuration, formatDurationShort } from "@/lib/duration";
 import { homeLabel, homeLocation } from "@/lib/home";
 import { mondayOf } from "@/lib/london-time";
-import type { Deadline, Gap, Home, Recommendation, Society, TimetableEvent } from "@/lib/types";
+import type { Deadline, Gap, Home, Recommendation, Society, TimetableEvent, Todo } from "@/lib/types";
 import { HomeSheet } from "./home-sheet";
 import { RecommendationPanel, type RecState } from "./recommendation-card";
 
@@ -51,6 +51,7 @@ export function TodayTimeline({
   deadlines,
   societies,
   home,
+  todos = [],
 }: {
   days: Day[];
   initialDateKey: string;
@@ -62,6 +63,8 @@ export function TodayTimeline({
   societies?: Society[];
   /** Where the student lives. null = not set yet. */
   home: Home | null;
+  /** The To-do tab's list. Open ones are sent so Claude can fit one into a gap. */
+  todos?: Todo[];
 }) {
   const [dateKey, setDateKey] = useState(
     days.some((d) => d.dateKey === initialDateKey) ? initialDateKey : days[0]?.dateKey,
@@ -71,6 +74,7 @@ export function TodayTimeline({
   const [recs, setRecs] = useState<Record<string, RecState>>({});
   const [homeSheetOpen, setHomeSheetOpen] = useState(false);
   const homeLoc = homeLocation(home);
+  const openTodos = todos.filter((t) => !t.done);
 
   const day = days.find((d) => d.dateKey === dateKey);
 
@@ -116,6 +120,7 @@ export function TodayTimeline({
           ...(deadlines ? { deadlines } : {}),
           ...(societies?.length ? { societies } : {}),
           ...(homeLoc ? { home: homeLoc } : {}),
+          ...(openTodos.length ? { todos: openTodos } : {}),
         }),
       });
       if (!res.ok) throw new Error(`HTTP ${res.status}`);

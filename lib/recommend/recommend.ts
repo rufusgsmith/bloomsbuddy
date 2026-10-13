@@ -1,6 +1,6 @@
 // Asks Claude what to do in a gap. Server-side only (it uses ANTHROPIC_API_KEY).
 //
-// Claude gets tools backed by the provider interfaces (plus the student's home and mock lunch
+// Claude gets tools backed by the provider interfaces (plus the student's home, to-dos and mock lunch
 // spots), so it fetches only the data it needs. The SDK's toolRunner handles the call-tool → send-result loop for us. The final answer
 // is constrained by a JSON schema (output_config.format), so we get parseable JSON back.
 
@@ -9,7 +9,9 @@ import { betaTool } from "@anthropic-ai/sdk/helpers/beta/json-schema";
 import { BUILDINGS, FOOD_SPOTS, travelTime, travelTimeBetween, type BuildingId, type TravelMode } from "../buildings";
 import { estimateBusyness } from "../library-busyness";
 import { formatDuration } from "../duration";
+import { londonDateKey } from "../gaps";
 import { lunchInfo } from "../lunch";
+import { byDueThenEstimate } from "../todos";
 import { deadlinesFromList, eventsFor, getProviders } from "../providers";
 import type {
   BusynessLevel,
@@ -20,6 +22,7 @@ import type {
   Recommendation,
   RecommendationOption,
   Society,
+  Todo,
 } from "../types";
 import { SYSTEM_PROMPT } from "./system-prompt";
 
@@ -34,6 +37,7 @@ const RECOMMENDATION_TYPES = ["study", "event", "rest", "home", "food"] as const
 const MIN_MINS_AT_HOME = 30;
 /** How many lunch spots get_food_spots returns. */
 const FOOD_SPOTS_SHOWN = 6;
+const MS_PER_DAY = 86_400_000;
 
 const londonDateTime = new Intl.DateTimeFormat("en-GB", {
   timeZone: "Europe/London",
@@ -60,6 +64,8 @@ const fmt = (iso: IsoDateTime) => londonDateTime.format(new Date(iso));
 const fmtTime = (iso: IsoDateTime) => londonTime.format(new Date(iso));
 /** "Fri 16 Oct", for events whose time isn't known. */
 const fmtDay = (iso: IsoDateTime) => londonDay.format(new Date(iso));
+/** "Thu 15 Oct" for a London day key. Midday UTC is always the same London day. */
+const fmtDateKey = (dateKey: string) => londonDay.format(new Date(`${dateKey}T12:00:00Z`));
 
 /** Dev-only logging of tool calls and Claude's raw answer. Silent in production. */
 const debug = (...args: unknown[]) => {
@@ -94,6 +100,8 @@ interface Seen {
   libraries: Map<string, BusynessLevel>;
   /** Whether get_home said going home is worth it. Undefined = never asked. */
   homeWorthIt?: boolean;
+  /** To-do ids shown, so a pick's todoId can only point at a real one. */
+  todoIds: Set<string>;
 }
 
 function makeTools(
@@ -103,6 +111,7 @@ function makeTools(
   userDeadlines?: Deadline[],
   societies?: Society[],
   home?: HomeLocation,
+  todos?: Todo[],
 ) {
   const providers = getProviders();
   // The student's own Moodle deadlines (from onboarding) replace the mock ones when present.
@@ -261,7 +270,34 @@ function makeTools(
     },
   });
 
-  const tools = [getStudySpaces, getEventsInWindow, getDeadlines, getFoodSpots];
+  // Only offered when the student has open to-dos, like get_home.
+  const getTodos = todos?.length ? betaTool({
+    name: "get_todos",
+    description:
+      "The student's own open to-do items, soonest due first. Each says when it's due (daysUntilDue counts London calendar days from the gap; negative = overdue), the student's time estimate if they gave one, and fitsInGap (whether the estimate fits the gap's usable minutes, or \"unknown\" with no estimate).",
+    inputSchema: { type: "object", properties: {}, additionalProperties: false },
+    run: async () => {
+      debug("tool get_todos", { count: todos.length });
+      const gapDay = londonDateKey(gap.start);
+      const rows = [...todos].sort(byDueThenEstimate).map((t) => {
+        seen.todoIds.add(t.id);
+        return {
+          id: t.id,
+          title: t.title,
+          due: t.due ? fmtDateKey(t.due) : null,
+          daysUntilDue: t.due
+            ? Math.round((Date.parse(`${t.due}T12:00:00Z`) - Date.parse(`${gapDay}T12:00:00Z`)) / MS_PER_DAY)
+            : null,
+          estMinutes: t.estMinutes ?? null,
+          estimate: t.estMinutes ? formatDuration(t.estMinutes) : "not estimated",
+          fitsInGap: t.estMinutes ? t.estMinutes <= gap.usableMins : "unknown",
+        };
+      });
+      return JSON.stringify(rows);
+    },
+  }) : null;
+
+  const tools = [getStudySpaces, getEventsInWindow, getDeadlines, getFoodSpots, ...(getTodos ? [getTodos] : [])];
   if (!home) return tools;
 
   const getHome = betaTool({
@@ -316,8 +352,9 @@ const OPTION_SCHEMA = {
     reason: { type: "string" },
     relatedId: { anyOf: [{ type: "string" }, { type: "null" }] },
     libraryId: { anyOf: [{ type: "string", enum: LIBRARY_IDS }, { type: "null" }] },
+    todoId: { anyOf: [{ type: "string" }, { type: "null" }] },
   },
-  required: ["title", "type", "place", "travelMins", "travelMode", "reason", "relatedId", "libraryId"],
+  required: ["title", "type", "place", "travelMins", "travelMode", "reason", "relatedId", "libraryId", "todoId"],
   additionalProperties: false,
 } as const;
 
@@ -331,7 +368,7 @@ const OUTPUT_SCHEMA = {
   additionalProperties: false,
 };
 
-function describeGap(gap: Gap, dayGaps: Gap[], home?: HomeLocation): string {
+function describeGap(gap: Gap, dayGaps: Gap[], home?: HomeLocation, todos?: Todo[]): string {
   const where = (id: BuildingId) => BUILDINGS[id].name;
   // Other gaps today, so Claude can save deep work for a longer gap. Kept compact: ~30 tokens each.
   const otherGapsToday = dayGaps
@@ -366,6 +403,7 @@ function describeGap(gap: Gap, dayGaps: Gap[], home?: HomeLocation): string {
       // Worked out here, not by Claude: it overlaps 12:00–14:00 and there was no lunch-length gap earlier.
       lunch: lunchInfo(gap, dayGaps),
       home: home ? `Saved: ${home.label}. Call get_home to see if it's worth going back.` : "Not set",
+      todos: todos?.length ? `${todos.length} open. Call get_todos.` : "None",
     },
     null,
     2,
@@ -390,6 +428,8 @@ function toOption(raw: unknown, seen: Seen): RecommendationOption {
   }
   const isSocietyEvent = typeof o.relatedId === "string" && seen.eventIds.has(o.relatedId);
   const busyness = typeof o.libraryId === "string" ? seen.libraries.get(o.libraryId) : undefined;
+  // An unknown todoId just loses its badge. Not worth failing the whole answer over.
+  const todoId = typeof o.todoId === "string" && seen.todoIds.has(o.todoId) ? o.todoId : undefined;
   return {
     title: o.title,
     type: isSocietyEvent ? "event" : (o.type as RecommendationOption["type"]),
@@ -399,29 +439,30 @@ function toOption(raw: unknown, seen: Seen): RecommendationOption {
     reason: o.reason,
     ...(typeof o.relatedId === "string" && o.relatedId ? { relatedId: o.relatedId } : {}),
     ...(busyness ? { busyness } : {}),
+    ...(todoId ? { todoId } : {}),
   };
 }
 
 export async function recommendForGap(
   gap: Gap,
   dayGaps: Gap[] = [],
-  opts: { deadlines?: Deadline[]; societies?: Society[]; home?: HomeLocation } = {},
+  opts: { deadlines?: Deadline[]; societies?: Society[]; home?: HomeLocation; todos?: Todo[] } = {},
 ): Promise<Recommendation> {
   const client = new Anthropic(); // reads ANTHROPIC_API_KEY
-  const seen: Seen = { eventIds: new Set(), libraries: new Map() };
+  const seen: Seen = { eventIds: new Set(), libraries: new Map(), todoIds: new Set() };
 
   const runner = client.beta.messages.toolRunner({
     model: MODEL,
     max_tokens: 8000,
     max_iterations: 8,
     system: SYSTEM_PROMPT,
-    tools: makeTools(gap, seen, dayGaps, opts.deadlines, opts.societies, opts.home),
+    tools: makeTools(gap, seen, dayGaps, opts.deadlines, opts.societies, opts.home, opts.todos),
     // "low" effort keeps thinking (billed as output) short: picking 3 options doesn't need deep reasoning.
     output_config: { effort: "low", format: { type: "json_schema", schema: OUTPUT_SCHEMA } },
     messages: [
       {
         role: "user",
-        content: `Here's my gap. What should I do with it?\n\n${describeGap(gap, dayGaps, opts.home)}`,
+        content: `Here's my gap. What should I do with it?\n\n${describeGap(gap, dayGaps, opts.home, opts.todos)}`,
       },
     ],
   });

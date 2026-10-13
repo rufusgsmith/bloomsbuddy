@@ -3,12 +3,16 @@
 // deadlines are the student's own (from onboarding). When sent, even empty, they replace the mock ones.
 // societies are the student's SU societies; outside demo mode their real events replace the mock ones.
 // home ({ label, lat, lng }) is where the student lives, so Claude can suggest popping back.
+// todos are the To-do tab's open items, so Claude can fit one into the gap.
 import { recommendForGap } from "@/lib/recommend/recommend";
 import { isSlug } from "@/lib/societies/su-site";
+import { isTodo } from "@/lib/todos";
 import type { Deadline, Gap, HomeLocation, Society } from "@/lib/types";
 
 /** Each society costs a scrape and a Claude call (cached for an hour), so cap how many we accept. */
 const MAX_SOCIETIES = 10;
+/** Keeps the get_todos result (and the prompt) small. */
+const MAX_TODOS = 30;
 
 function isGap(x: unknown): x is Gap {
   const g = x as Partial<Gap> | null;
@@ -56,7 +60,7 @@ function isHomeLocation(x: unknown): x is HomeLocation {
 }
 
 export async function POST(request: Request) {
-  let body: { gap?: unknown; dayGaps?: unknown; deadlines?: unknown; societies?: unknown; home?: unknown };
+  let body: { gap?: unknown; dayGaps?: unknown; deadlines?: unknown; societies?: unknown; home?: unknown; todos?: unknown };
   try {
     body = await request.json();
   } catch {
@@ -80,7 +84,10 @@ export async function POST(request: Request) {
       : undefined;
     // A home outside the commuter belt is ignored (no home picks) rather than rejected.
     const home = isHomeLocation(body.home) ? body.home : undefined;
-    return Response.json(await recommendForGap(body.gap, dayGaps, { deadlines, societies, home }));
+    const todos = Array.isArray(body.todos)
+      ? body.todos.filter(isTodo).filter((t) => !t.done).slice(0, MAX_TODOS)
+      : undefined;
+    return Response.json(await recommendForGap(body.gap, dayGaps, { deadlines, societies, home, todos }));
   } catch (err) {
     console.error("[recommend] failed:", err);
     return Response.json({ error: "Couldn't get a recommendation, try again" }, { status: 502 });

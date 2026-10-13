@@ -110,6 +110,8 @@ export interface RecommendationOption {
   relatedId?: string;
   /** Estimated busyness for study picks in a library (the same level Claude saw). */
   busyness?: BusynessLevel;
+  /** id of the student's Todo this pick is about, if any. Works with any type. */
+  todoId?: string;
 }
 
 export interface Recommendation {
@@ -137,6 +139,17 @@ export interface HomeLocation {
 }
 
 // ---- The student's own data (from onboarding), stored in localStorage ----
+
+/** One item on the To-do tab. Saved in localStorage on its own key (works in the demo week too). */
+export interface Todo {
+  id: string;
+  title: string;
+  /** London calendar day it's due. Date only, no time. */
+  due?: DateKey;
+  /** How long the student reckons it takes. */
+  estMinutes?: number;
+  done: boolean;
+}
 
 /** "YYYY-MM-DD", a Europe/London calendar day. */
 export type DateKey = string;
