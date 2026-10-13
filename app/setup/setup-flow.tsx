@@ -11,8 +11,8 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useEffect, useRef, useState, useSyncExternalStore, type ReactNode } from "react";
 import { BUILDINGS, type BuildingId } from "@/lib/buildings";
-import { londonDateKey } from "@/lib/gaps";
-import { addDays, isDateKey, isWallTime, londonIso, londonTodayKey, mondayOf } from "@/lib/london-time";
+import { blankDraft, deadlineProblem, fromDraft, newId, toDraft, type DraftDeadline } from "@/lib/deadline-draft";
+import { addDays, isDateKey, isWallTime, londonTodayKey, mondayOf } from "@/lib/london-time";
 import { isSlug, toSlug } from "@/lib/societies/slug";
 import { clearUserData, parseUserData, readRawUserData, saveUserData, subscribeUserData } from "@/lib/storage";
 import type { Deadline, Society, TimetableEvent, UserData, WeeklyClass } from "@/lib/types";
@@ -35,23 +35,6 @@ const BUILDING_GROUPS: { label: string; ids: BuildingId[] }[] = [
   { label: "Halls", ids: BUILDING_IDS.filter((id) => BUILDINGS[id].kind === "hall") },
 ];
 
-/** A deadline while it's being edited: date and time apart, weight as typed. */
-interface DraftDeadline {
-  id: string;
-  moduleCode: string;
-  title: string;
-  date: string;
-  time: string;
-  weight: string;
-  source: Deadline["source"];
-}
-
-const londonTime = new Intl.DateTimeFormat("en-GB", {
-  timeZone: "Europe/London",
-  hour: "2-digit",
-  minute: "2-digit",
-  hourCycle: "h23",
-});
 const londonDayMonth = new Intl.DateTimeFormat("en-GB", { timeZone: "Europe/London", day: "numeric", month: "short" });
 const londonWeekdayDayMonth = new Intl.DateTimeFormat("en-GB", {
   timeZone: "Europe/London",
@@ -62,42 +45,10 @@ const londonWeekdayDayMonth = new Intl.DateTimeFormat("en-GB", {
 // Midday UTC is always the same calendar day in London.
 const dayDate = (dateKey: string) => new Date(`${dateKey}T12:00:00Z`);
 
-const newId = (prefix: string) => `${prefix}-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 7)}`;
-
-function toDraft(d: Deadline): DraftDeadline {
-  return {
-    id: d.id,
-    moduleCode: d.moduleCode,
-    title: d.title,
-    date: londonDateKey(d.due),
-    time: londonTime.format(new Date(d.due)),
-    weight: d.weight === undefined ? "" : String(d.weight),
-    source: d.source,
-  };
-}
-
-function fromDraft(d: DraftDeadline): Deadline {
-  const weight = Number.parseFloat(d.weight);
-  return {
-    id: d.id,
-    moduleCode: d.moduleCode.trim().toUpperCase(),
-    title: d.title.trim(),
-    due: londonIso(d.date, d.time),
-    ...(Number.isFinite(weight) ? { weight } : {}),
-    source: d.source,
-  };
-}
-
 function classProblem(c: WeeklyClass): string | null {
   if (!c.moduleCode.trim() && !c.title.trim()) return "Give it a module code or a name";
   if (!isWallTime(c.startTime) || !isWallTime(c.endTime)) return "Needs a start and end time";
   if (c.endTime <= c.startTime) return "Ends before it starts";
-  return null;
-}
-
-function deadlineProblem(d: DraftDeadline): string | null {
-  if (!d.title.trim()) return "Give it a name";
-  if (!isDateKey(d.date) || !isWallTime(d.time)) return "Needs a due date and time";
   return null;
 }
 
@@ -164,7 +115,7 @@ function Editor({ initial }: { initial: UserData | null }) {
       classes: classes.map((c) => ({ ...c, moduleCode: c.moduleCode.trim().toUpperCase(), title: c.title.trim() })),
       termStart,
       weeks,
-      deadlines: deadlines.map(fromDraft).sort((a, b) => Date.parse(a.due) - Date.parse(b.due)),
+      deadlines: deadlines.map((d) => fromDraft(d)).sort((a, b) => Date.parse(a.due) - Date.parse(b.due)),
       societies,
       savedAt: new Date().toISOString(),
     };
@@ -516,10 +467,7 @@ function DeadlinesStep({
     setDeadlines(deadlines.map((d) => (d.id === id ? { ...d, ...patch } : d)));
   const remove = (id: string) => setDeadlines(deadlines.filter((d) => d.id !== id));
   const add = () =>
-    setDeadlines([
-      ...deadlines,
-      { id: newId("dl"), moduleCode: "", title: "", date: addDays(londonTodayKey(), 7), time: "23:59", weight: "", source: "manual" },
-    ]);
+    setDeadlines([...deadlines, blankDraft()]);
 
   return (
     <section className="flex flex-col gap-5">

@@ -75,7 +75,7 @@ function pickInitialDay(days: Day[]): string {
 
 function Skeleton() {
   return (
-    <main aria-busy="true" className="mx-auto w-full max-w-md animate-pulse px-4 pb-16 pt-8">
+    <main aria-busy="true" className="mx-auto w-full max-w-md animate-pulse px-4 pb-28 pt-8">
       <div className="mb-2 h-4 w-24 rounded bg-zinc-200 dark:bg-zinc-800" />
       <div className="mb-6 h-9 w-56 rounded bg-zinc-200 dark:bg-zinc-800" />
       <div className="mb-6 h-12 rounded-xl bg-zinc-100 dark:bg-zinc-900" />
