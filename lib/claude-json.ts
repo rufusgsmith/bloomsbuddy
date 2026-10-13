@@ -5,9 +5,14 @@
 import Anthropic from "@anthropic-ai/sdk";
 
 export const MODEL = "claude-sonnet-5-5";
-// Sonnet 5.5 prices in USD per million tokens, for the dev cost log. Thinking counts as output.
-const USD_PER_MTOK_IN = 2;
-const USD_PER_MTOK_OUT = 10;
+/** Cheap model for simple extraction (society pages). */
+export const FAST_MODEL = "claude-haiku-5-5";
+type Model = typeof MODEL | typeof FAST_MODEL;
+// Prices in USD per million tokens [input, output], for the dev cost log. Thinking counts as output.
+const USD_PER_MTOK: Record<Model, [number, number]> = {
+  [MODEL]: [2, 10],
+  [FAST_MODEL]: [0.1, 0.5],
+};
 
 /** Dev-only logging. Silent in production. */
 export function makeDebug(tag: string) {
@@ -25,18 +30,20 @@ export async function askClaudeJson(
   content: Anthropic.ContentBlockParam[],
   schema: Record<string, unknown>,
   effort: "low" | "medium" | "high",
+  model: Model = MODEL,
 ): Promise<unknown> {
   const client = new Anthropic(); // reads ANTHROPIC_API_KEY
   const message = await client.messages.create({
-    model: MODEL,
+    model,
     max_tokens: 8000,
     output_config: { effort, format: { type: "json_schema", schema } },
     messages: [{ role: "user", content }],
   });
 
   const { input_tokens, output_tokens } = message.usage;
-  const usd = (input_tokens * USD_PER_MTOK_IN + output_tokens * USD_PER_MTOK_OUT) / 1_000_000;
-  debug(`usage ${label}: ${input_tokens} in / ${output_tokens} out ≈ $${usd.toFixed(4)}`);
+  const [usdIn, usdOut] = USD_PER_MTOK[model];
+  const usd = (input_tokens * usdIn + output_tokens * usdOut) / 1_000_000;
+  debug(`usage ${label} (${model}): ${input_tokens} in / ${output_tokens} out ≈ $${usd.toFixed(4)}`);
 
   if (message.stop_reason !== "end_turn") {
     throw new Error(`Claude stopped early (${message.stop_reason})`);

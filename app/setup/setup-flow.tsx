@@ -13,6 +13,7 @@ import { useEffect, useRef, useState, useSyncExternalStore, type ReactNode } fro
 import { BUILDINGS, type BuildingId } from "@/lib/buildings";
 import { londonDateKey } from "@/lib/gaps";
 import { addDays, isDateKey, isWallTime, londonIso, londonTodayKey, mondayOf } from "@/lib/london-time";
+import { isSlug, toSlug } from "@/lib/societies/slug";
 import { clearUserData, parseUserData, readRawUserData, saveUserData, subscribeUserData } from "@/lib/storage";
 import type { Deadline, Society, TimetableEvent, UserData, WeeklyClass } from "@/lib/types";
 
@@ -634,7 +635,12 @@ function DeadlineRow({
 
 // ---------- Step 3: societies ----------
 
-type LookupState = { status: "idle" } | { status: "checking" } | { status: "error"; message: string };
+type LookupState =
+  | { status: "idle" }
+  | { status: "checking" }
+  | { status: "error"; message: string }
+  /** The name didn't match a page: let them type the slug from the SU page's address instead. */
+  | { status: "not-found"; typed: string; slug: string; checkingSlug?: boolean; slugError?: string };
 
 function SocietiesStep({
   societies,
@@ -650,6 +656,12 @@ function SocietiesStep({
   const [name, setName] = useState("");
   const [lookup, setLookup] = useState<LookupState>({ status: "idle" });
 
+  function keep(found: Society) {
+    if (!societies.some((s) => s.slug === found.slug)) setSocieties([...societies, found]);
+    setName("");
+    setLookup({ status: "idle" });
+  }
+
   async function add() {
     const typed = name.trim();
     if (!typed || lookup.status === "checking") return;
@@ -657,20 +669,36 @@ function SocietiesStep({
     try {
       const res = await fetch(`/api/societies/lookup?name=${encodeURIComponent(typed)}`);
       if (res.status === 404) {
-        setLookup({
-          status: "error",
-          message: `Couldn't find "${typed}" on the SU site. Try the name exactly as it's listed on studentsunionucl.org.`,
-        });
+        setLookup({ status: "not-found", typed, slug: toSlug(typed) });
         return;
       }
       if (!res.ok) throw new Error(`HTTP ${res.status}`);
-      const found = (await res.json()) as Society;
-      if (!societies.some((s) => s.slug === found.slug)) setSocieties([...societies, found]);
-      setName("");
-      setLookup({ status: "idle" });
+      keep((await res.json()) as Society);
     } catch (err) {
       console.warn("[societies]", err);
       setLookup({ status: "error", message: "Couldn't reach the SU website just now. Give it another go in a sec." });
+    }
+  }
+
+  async function trySlug() {
+    if (lookup.status !== "not-found" || lookup.checkingSlug) return;
+    const slug = lookup.slug.trim().toLowerCase();
+    if (!isSlug(slug)) {
+      setLookup({ ...lookup, slugError: "Slugs are lowercase words joined by dashes, like jazz-society." });
+      return;
+    }
+    setLookup({ ...lookup, checkingSlug: true, slugError: undefined });
+    try {
+      const res = await fetch(`/api/societies/lookup?slug=${encodeURIComponent(slug)}`);
+      if (res.status === 404) {
+        setLookup({ ...lookup, slug, checkingSlug: false, slugError: `No page at /clubs-societies/${slug} either. Check the address bar on the SU page.` });
+        return;
+      }
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      keep((await res.json()) as Society);
+    } catch (err) {
+      console.warn("[societies]", err);
+      setLookup({ ...lookup, checkingSlug: false, slugError: "Couldn't reach the SU website just now. Give it another go in a sec." });
     }
   }
 
@@ -698,7 +726,7 @@ function SocietiesStep({
               value={name}
               onChange={(e) => {
                 setName(e.target.value);
-                if (lookup.status === "error") setLookup({ status: "idle" });
+                if (lookup.status === "error" || lookup.status === "not-found") setLookup({ status: "idle" });
               }}
               placeholder="e.g. Chess Society"
               autoComplete="off"
@@ -718,6 +746,44 @@ function SocietiesStep({
         <p role="alert" className="text-sm text-red-600 dark:text-red-400">
           {lookup.message}
         </p>
+      )}
+
+      {lookup.status === "not-found" && (
+        <form
+          className="flex flex-col gap-2 rounded-xl border border-amber-300 bg-amber-50 p-4 dark:border-amber-800 dark:bg-amber-950/40"
+          onSubmit={(e) => {
+            e.preventDefault();
+            trySlug();
+          }}
+        >
+          <p role="alert" className="text-sm">
+            Couldn&apos;t find &ldquo;{lookup.typed}&rdquo; on the SU site. Open its page on studentsunionucl.org and copy the
+            bit after <span className="font-mono">/clubs-societies/</span> in the address:
+          </p>
+          <div className="flex items-end gap-2">
+            <div className="flex-1">
+              <Field label="Page slug">
+                <input
+                  className={`${inputClass} font-mono`}
+                  value={lookup.slug}
+                  onChange={(e) => setLookup({ ...lookup, slug: e.target.value, slugError: undefined })}
+                  placeholder="e.g. jazz-society"
+                  autoComplete="off"
+                  autoCapitalize="off"
+                  spellCheck={false}
+                />
+              </Field>
+            </div>
+            <button
+              type="submit"
+              disabled={!lookup.slug.trim() || lookup.checkingSlug}
+              className="min-h-11 shrink-0 rounded-full bg-emerald-600 px-4 text-sm font-medium text-white hover:bg-emerald-700 disabled:cursor-not-allowed disabled:opacity-40 dark:bg-emerald-500 dark:text-emerald-950 dark:hover:bg-emerald-400"
+            >
+              {lookup.checkingSlug ? "Checking…" : "Try this"}
+            </button>
+          </div>
+          {lookup.slugError && <p className="text-sm text-red-600 dark:text-red-400">{lookup.slugError}</p>}
+        </form>
       )}
 
       {societies.length > 0 && (

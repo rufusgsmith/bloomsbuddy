@@ -6,37 +6,38 @@
 // The cards don't show a venue; that's only on each event's own page, which we don't fetch.
 
 import * as cheerio from "cheerio";
+import { BlockedError, isBotChallenge } from "../bot-check";
 import type { Society } from "../types";
+import { isSlug, toSlug } from "./slug";
+
+export { isSlug, toSlug };
 
 const BASE = "https://studentsunionucl.org/clubs-societies/";
 const USER_AGENT = "Bloomsbuddy/0.1 (UCL student hackathon project; non-commercial)";
 const TIMEOUT_MS = 8000;
-/** Per page. Society pages are short; this just stops a giant page blowing up the prompt. */
-const MAX_TEXT_CHARS = 12_000;
+/** Per page. Society pages are short; this just keeps the prompt small. */
+const MAX_TEXT_CHARS = 6_000;
+/**
+ * The page body, most specific first. `.region-content` is the society's own text.
+ * `#main-content` wraps it plus the sidebar (membership price, contacts, SU disclaimer), whose
+ * "£18.00" could make Claude tag events as paid, so it's only a fallback if the theme changes.
+ */
+const CONTENT = [".region-content", "#main-content", "main", "body"];
 
-/** "UCL Chess Society" → "chess-society", "Baking & Pastry" → "baking-and-pastry". */
-export function toSlug(name: string): string {
-  return name
-    .toLowerCase()
-    .trim()
-    .replace(/^ucl\b\s*/, "")
-    .replace(/&/g, " and ")
-    .replace(/['’]/g, "")
-    .replace(/[^a-z0-9]+/g, "-")
-    .replace(/^-+|-+$/g, "");
-}
-
-export const isSlug = (s: unknown): s is string => typeof s === "string" && /^[a-z0-9]+(-[a-z0-9]+)*$/.test(s);
-
-/** The page's HTML, or null if it doesn't exist. Throws on network errors and other bad statuses. */
+/**
+ * The page's HTML, or null if it doesn't exist. Throws BlockedError on a bot check,
+ * and a plain Error on network errors and other bad statuses.
+ */
 async function fetchSuPage(path: string): Promise<string | null> {
   const res = await fetch(BASE + path, {
     headers: { "User-Agent": USER_AGENT, Accept: "text/html" },
     signal: AbortSignal.timeout(TIMEOUT_MS),
   });
   if (res.status === 404) return null;
+  const html = await res.text();
+  if (isBotChallenge(res.status, html)) throw new BlockedError(BASE + path);
   if (!res.ok) throw new Error(`SU page ${path} returned ${res.status}`);
-  return res.text();
+  return html;
 }
 
 const clean = (s: string) => s.replace(/\s+/g, " ").trim();
@@ -50,14 +51,15 @@ function pageName(html: string): string {
 /**
  * Finds the society a student typed. Tries the name as a slug, then with "-society" added
  * (students often type "Chess" for "Chess Society"). Null if neither page exists.
+ * With `exactSlug`, checks just that slug: used when the student fixes the slug by hand.
  */
-export async function lookupSociety(typed: string): Promise<Society | null> {
-  const slug = toSlug(typed);
+export async function lookupSociety(typed: string, exactSlug = false): Promise<Society | null> {
+  const slug = exactSlug ? typed.trim() : toSlug(typed);
   if (!isSlug(slug)) return null;
-  const candidates = slug.endsWith("society") ? [slug] : [slug, `${slug}-society`];
+  const candidates = exactSlug || slug.endsWith("society") ? [slug] : [slug, `${slug}-society`];
   for (const candidate of candidates) {
     const html = await fetchSuPage(candidate);
-    if (html) return { slug: candidate, name: pageName(html) || typed.trim() };
+    if (html) return { slug: candidate, name: pageName(html) || (exactSlug ? candidate : typed.trim()) };
   }
   return null;
 }
@@ -65,12 +67,16 @@ export async function lookupSociety(typed: string): Promise<Society | null> {
 /** The main content area as plain text, minus scripts, styles and menus. */
 function contentText($: cheerio.CheerioAPI): string {
   $("script, style, noscript, svg, nav, header, footer, form").remove();
-  return clean($(".region-content").text() || $("main").text() || $("body").text()).slice(0, MAX_TEXT_CHARS);
+  for (const sel of CONTENT) {
+    const text = clean($(sel).first().text());
+    if (text) return text.slice(0, MAX_TEXT_CHARS);
+  }
+  return "";
 }
 
 /** One line per event card, so Claude can tie each date line and link to the right title. */
 function eventCards($: cheerio.CheerioAPI): string {
-  const lines = $(".region-content .card")
+  const lines = $(".region-content .card, #main-content .card")
     .map((_, el) => {
       const card = $(el);
       const title = clean(card.find(".card_title_field").text());
