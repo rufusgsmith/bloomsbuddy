@@ -130,7 +130,7 @@ export function TodayTimeline({
   }
 
   return (
-    <main className="mx-auto w-full max-w-md px-4 pb-16 pt-8">
+    <main className="mx-auto w-full max-w-md px-4 pb-28 pt-8">
       <header className="mb-5">
         <div className="flex items-center justify-between gap-2">
           <p className="text-sm font-medium text-emerald-600 dark:text-emerald-400">Bloomsbuddy</p>

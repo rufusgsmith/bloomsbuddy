@@ -5,6 +5,12 @@
 import type { UserData } from "./types";
 
 const KEY = "bloomsbuddy:v1";
+/** Fired on this tab after we write. The "storage" event only reaches other tabs. */
+const CHANGE_EVENT = "bloomsbuddy:userdata";
+
+function notifyChange(): void {
+  window.dispatchEvent(new Event(CHANGE_EVENT));
+}
 
 /** The stored JSON as-is. A string is a stable snapshot for useSyncExternalStore. */
 export function readRawUserData(): string | null {
@@ -42,6 +48,7 @@ export function loadUserData(): UserData | null {
 export function saveUserData(data: UserData): boolean {
   try {
     localStorage.setItem(KEY, JSON.stringify(data));
+    notifyChange();
     return true;
   } catch {
     return false;
@@ -51,13 +58,18 @@ export function saveUserData(data: UserData): boolean {
 export function clearUserData(): void {
   try {
     localStorage.removeItem(KEY);
+    notifyChange();
   } catch {
     // Nothing to clear if storage is blocked.
   }
 }
 
-/** Calls back when another tab changes storage. */
+/** Calls back when the saved data changes, in this tab or another. */
 export function subscribeUserData(onChange: () => void): () => void {
   window.addEventListener("storage", onChange);
-  return () => window.removeEventListener("storage", onChange);
+  window.addEventListener(CHANGE_EVENT, onChange);
+  return () => {
+    window.removeEventListener("storage", onChange);
+    window.removeEventListener(CHANGE_EVENT, onChange);
+  };
 }
