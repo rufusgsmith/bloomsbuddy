@@ -12,7 +12,7 @@
 import * as cheerio from "cheerio";
 import { BlockedError, isBotChallenge } from "../bot-check";
 import { matchBuilding } from "../buildings";
-import { addDays, isDateKey, isWallTime, londonIso } from "../london-time";
+import { isDateKey, isWallTime, londonIso } from "../london-time";
 import type { DateKey, Society, SocietyEvent, WallTime } from "../types";
 import { isSlug, toSlug } from "./slug";
 
@@ -22,8 +22,8 @@ const ORIGIN = "https://studentsunionucl.org";
 const BASE = `${ORIGIN}/clubs-societies/`;
 const USER_AGENT = "Bloomsbuddy/0.1 (UCL student hackathon project; non-commercial)";
 const TIMEOUT_MS = 8000;
-/** Matches the recommender's horizon: today plus the next 13 days. */
-const HORIZON_DAYS = 14;
+/** Event pages fetched at once. A society can list a whole term of events. */
+const DETAIL_CONCURRENCY = 6;
 /** SocietyEvent needs an end. When the card gives none, assume an hour (flagged endEstimated). */
 const DEFAULT_LENGTH_MINS = 60;
 
@@ -140,16 +140,31 @@ function hash(s: string): string {
   return h.toString(36);
 }
 
+/** Like Promise.all over items.map(fn), but at most `limit` calls run at once. */
+async function mapLimited<T, R>(items: T[], limit: number, fn: (item: T) => Promise<R>): Promise<R[]> {
+  const results: R[] = new Array(items.length);
+  let next = 0;
+  const worker = async () => {
+    while (next < items.length) {
+      const i = next++;
+      results[i] = await fn(items[i]);
+    }
+  };
+  await Promise.all(Array.from({ length: Math.min(limit, items.length) }, worker));
+  return results;
+}
+
 /**
- * The society's dated events from today to today + 13 days, with venues from each event's page.
+ * The society's dated events on London days firstDay to lastDay (inclusive), with venues from
+ * each event's page. The /events page lists every upcoming event on one page; only the cards in
+ * range get their own page fetched, so a one-day window stays quick.
  * A missing /events page gives []. Throws if the page can't be fetched (network, bot check).
  */
-export async function societyEvents(society: Society, today: DateKey): Promise<SocietyEvent[]> {
+export async function societyEvents(society: Society, firstDay: DateKey, lastDay: DateKey): Promise<SocietyEvent[]> {
   const html = await fetchSuPage(`${BASE}${society.slug}/events`);
   if (!html) return [];
-  const last = addDays(today, HORIZON_DAYS - 1);
-  const cards = eventCards(html).filter((c) => c.date >= today && c.date <= last);
-  const details = await Promise.all(cards.map((c) => eventDetails(c.url)));
+  const cards = eventCards(html).filter((c) => c.date >= firstDay && c.date <= lastDay);
+  const details = await mapLimited(cards, DETAIL_CONCURRENCY, (c) => eventDetails(c.url));
 
   return cards.map((c, i): SocietyEvent => {
     const d = details[i];

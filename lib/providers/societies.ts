@@ -5,6 +5,7 @@
 // A society whose page can't be fetched (network error, bot check) falls back to its mock
 // events, if it has any. A page that loads but lists nothing gives no events: that's a real answer.
 
+import { londonDateKey } from "../gaps";
 import { londonTodayKey } from "../london-time";
 import { mockSocietyEvents } from "../mock";
 import { societyEvents, toSlug } from "../societies/su-site";
@@ -15,12 +16,16 @@ import type { EventsProvider } from "./types";
 // promise gives them one scrape per society instead of one each.
 const inFlight = new Map<string, Promise<SocietyEvent[]>>();
 
-function scrape(society: Society): Promise<SocietyEvent[]> {
+/** Scrapes the London days covering [s, e] (ms), never before today. */
+function scrape(society: Society, s: number, e: number): Promise<SocietyEvent[]> {
   const today = londonTodayKey();
-  const key = `${society.slug}:${today}`;
+  const startDay = londonDateKey(new Date(s).toISOString());
+  const first = startDay > today ? startDay : today;
+  const last = londonDateKey(new Date(e).toISOString());
+  const key = `${society.slug}:${first}:${last}`;
   const pending = inFlight.get(key);
   if (pending) return pending;
-  const result = societyEvents({ slug: society.slug, name: society.name }, today).finally(() => inFlight.delete(key));
+  const result = societyEvents({ slug: society.slug, name: society.name }, first, last).finally(() => inFlight.delete(key));
   inFlight.set(key, result);
   return result;
 }
@@ -49,7 +54,7 @@ function mockEventsFor(society: Society): SocietyEvent[] {
 /** One society's events in the window. Never throws: a failed scrape gives its mock events. */
 async function eventsForSociety(society: Society, s: number, e: number): Promise<SocietyEvent[]> {
   try {
-    return (await scrape(society)).filter((ev) => overlaps(ev, s, e));
+    return (await scrape(society, s, e)).filter((ev) => overlaps(ev, s, e));
   } catch (err) {
     console.error(`[societies] ${society.slug}: SU page unavailable, using mock:`, err);
     return mockEventsFor(society).filter((ev) => overlaps(ev, s, e));

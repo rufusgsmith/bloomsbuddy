@@ -1,18 +1,20 @@
 "use client";
 
 import Link from "next/link";
-import { useMemo, useState, useSyncExternalStore, type ReactNode } from "react";
+import { useMemo, useRef, useState, useSyncExternalStore, type ReactNode } from "react";
 import { Field, inputClass } from "../form-ui";
 import { blankDraft, deadlineProblem, fromDraft, toDraft, type DraftDeadline } from "@/lib/deadline-draft";
 import { londonDateKey } from "@/lib/gaps";
 import { addDays, londonTodayKey, mondayOf } from "@/lib/london-time";
 import { mockDeadlines } from "@/lib/mock";
+import { prepareImage } from "@/lib/prepare-image";
 import { parseUserData, readRawUserData, saveUserData, subscribeUserData } from "@/lib/storage";
 import type { DateKey, Deadline, UserData } from "@/lib/types";
 
 // The Deadlines tab. With a saved timetable the student can add, edit and delete deadlines
 // (saved straight to localStorage). Without one it shows the demo deadlines read-only:
 // deadlines live inside UserData, which needs a timetable first.
+// Hand-added and Moodle-scanned deadlines share one list; a re-scan merges into it.
 
 const MS_PER_DAY = 86_400_000;
 /** Badges turn red at this many days left or fewer. */
@@ -34,6 +36,37 @@ const daysBetween = (from: DateKey, to: DateKey) =>
   Math.round((Date.parse(`${to}T12:00:00Z`) - Date.parse(`${from}T12:00:00Z`)) / MS_PER_DAY);
 
 const byDue = (a: Deadline, b: Deadline) => Date.parse(a.due) - Date.parse(b.due);
+
+/** Module + title, lowercased with punctuation dropped: how a re-scan spots a deadline it already has. */
+const matchKey = (d: Deadline) => `${d.moduleCode}|${d.title}`.toLowerCase().replace(/[^a-z0-9|]/g, "");
+
+/**
+ * A Moodle re-scan merged into the saved list. A deadline seen before gets the new due date
+ * and weight but keeps its id and anything else the student set; a new one is added.
+ * Nothing is removed: a deadline missing from the screenshot may just be scrolled off it.
+ */
+function mergeScan(existing: Deadline[], scanned: Deadline[]): { merged: Deadline[]; added: number; updated: number } {
+  const merged = [...existing];
+  let added = 0;
+  let updated = 0;
+  for (const s of scanned) {
+    const i = merged.findIndex((d) => matchKey(d) === matchKey(s));
+    if (i === -1) {
+      merged.push(s);
+      added++;
+    } else {
+      merged[i] = { ...merged[i], due: s.due, ...(s.weight !== undefined ? { weight: s.weight } : {}) };
+      updated++;
+    }
+  }
+  return { merged, added, updated };
+}
+
+type ScanState =
+  | { status: "idle" }
+  | { status: "reading" }
+  | { status: "done"; added: number; updated: number }
+  | { status: "error"; message: string };
 
 export function DeadlinesView() {
   // "" = checked, nothing saved. null = not checked yet (server render / hydration).
@@ -95,6 +128,11 @@ function Editor({ user }: { user: UserData }) {
     if (persist(user.deadlines.filter((x) => x.id !== id))) setDraft(null);
   }
 
+  function addScanned(scanned: Deadline[]): { added: number; updated: number } | null {
+    const { merged, added, updated } = mergeScan(user.deadlines, scanned);
+    return persist(merged) ? { added, updated } : null;
+  }
+
   const form = (d: DraftDeadline) => (
     <DeadlineForm
       value={d}
@@ -116,16 +154,19 @@ function Editor({ user }: { user: UserData }) {
       {draft && isNew ? (
         <div className="mb-5">{form(draft)}</div>
       ) : (
-        <button
-          type="button"
-          onClick={() => {
-            setIsNew(true);
-            setDraft(blankDraft());
-          }}
-          className="mb-5 min-h-12 w-full rounded-full bg-emerald-600 px-5 font-medium text-white hover:bg-emerald-700 dark:bg-emerald-500 dark:text-emerald-950 dark:hover:bg-emerald-400"
-        >
-          + Add a deadline
-        </button>
+        <div className="mb-5 flex flex-wrap gap-2">
+          <button
+            type="button"
+            onClick={() => {
+              setIsNew(true);
+              setDraft(blankDraft());
+            }}
+            className="min-h-12 flex-1 rounded-full bg-emerald-600 px-4 font-medium text-white hover:bg-emerald-700 dark:bg-emerald-500 dark:text-emerald-950 dark:hover:bg-emerald-400"
+          >
+            + Add deadline
+          </button>
+          <RescanButton onScanned={addScanned} />
+        </div>
       )}
       {user.deadlines.length === 0 && !draft ? (
         <p className="rounded-2xl border border-dashed border-zinc-300 p-6 text-center text-sm text-zinc-600 dark:border-zinc-700 dark:text-zinc-400">
@@ -159,6 +200,81 @@ function Editor({ user }: { user: UserData }) {
       )}
     </>
   );
+}
+
+/**
+ * "Re-scan Moodle screenshot": pick a screenshot, Claude reads it (/api/extract), and the
+ * deadlines found are merged into the list. The result shows underneath until the next scan.
+ */
+function RescanButton({ onScanned }: { onScanned: (d: Deadline[]) => { added: number; updated: number } | null }) {
+  const [state, setState] = useState<ScanState>({ status: "idle" });
+  const inputRef = useRef<HTMLInputElement>(null);
+  const reading = state.status === "reading";
+
+  async function scan(file: File | undefined) {
+    if (!file || reading) return;
+    if (!file.type.startsWith("image/")) {
+      setState({ status: "error", message: "That doesn't look like an image. Try a PNG or JPEG screenshot." });
+      return;
+    }
+    setState({ status: "reading" });
+    try {
+      const res = await fetch("/api/extract", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ kind: "deadlines", image: await prepareImage(file) }),
+      });
+      const body = (await res.json().catch(() => ({}))) as { deadlines?: Deadline[]; error?: string };
+      if (!res.ok) throw new Error(body.error ?? `HTTP ${res.status}`);
+      const found = body.deadlines ?? [];
+      if (found.length === 0) {
+        setState({ status: "error", message: "I couldn't spot any deadlines in that one. Is it your Moodle timeline?" });
+        return;
+      }
+      const result = onScanned(found);
+      setState(result ? { status: "done", ...result } : { status: "idle" }); // a failed save shows its own alert
+    } catch (err) {
+      console.warn("[extract]", err);
+      setState({ status: "error", message: "Couldn't read that screenshot right now. Try again, or add them by hand." });
+    } finally {
+      if (inputRef.current) inputRef.current.value = "";
+    }
+  }
+
+  return (
+    <>
+      <label
+        className={`flex min-h-12 flex-1 items-center justify-center gap-1.5 rounded-full border border-emerald-500 px-4 text-center text-sm font-medium text-emerald-800 hover:bg-emerald-50 dark:text-emerald-200 dark:hover:bg-emerald-950/40 ${
+          reading ? "cursor-wait animate-pulse" : "cursor-pointer"
+        }`}
+      >
+        <input
+          ref={inputRef}
+          type="file"
+          accept="image/*"
+          disabled={reading}
+          onChange={(e) => void scan(e.target.files?.[0])}
+          className="sr-only"
+        />
+        <span aria-hidden>📸</span>
+        <span aria-live="polite">{reading ? "Squinting…" : "Re-scan Moodle screenshot"}</span>
+      </label>
+      {(state.status === "done" || state.status === "error") && (
+        <p
+          role={state.status === "error" ? "alert" : "status"}
+          className={`basis-full text-sm ${state.status === "error" ? "text-red-600 dark:text-red-400" : "text-emerald-700 dark:text-emerald-400"}`}
+        >
+          {state.status === "error" ? state.message : scanSummary(state.added, state.updated)}
+        </p>
+      )}
+    </>
+  );
+}
+
+function scanSummary(added: number, updated: number): string {
+  const total = added + updated;
+  const parts = [added > 0 && `${added} new`, updated > 0 && `${updated} updated`].filter(Boolean).join(", ");
+  return `Found ${total} ${total === 1 ? "deadline" : "deadlines"}: ${parts}.`;
 }
 
 /** "This week" (up to Sunday), "Later", then anything already past. Empty groups are hidden. */

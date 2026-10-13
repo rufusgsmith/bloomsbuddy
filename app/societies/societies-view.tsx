@@ -6,12 +6,13 @@ import { londonDateKey } from "@/lib/gaps";
 import { addDays, londonTodayKey } from "@/lib/london-time";
 import { mockSocietyEvents } from "@/lib/mock";
 import { parseUserData, readRawUserData, saveUserData, subscribeUserData } from "@/lib/storage";
+import { termEndKey } from "@/lib/term";
 import type { DateKey, Society, SocietyEvent, UserData } from "@/lib/types";
 import { SocietyPicker } from "../society-picker";
 
-// The Societies tab: the student's societies as chips (add/remove), then their events for
-// the next 14 days, grouped by day. Each society loads on its own (scraping + Claude can take
-// a few seconds), so one slow or broken SU page never holds up the rest.
+// The Societies tab: the student's societies as chips (add/remove), then all their upcoming
+// events until the end of term, grouped by day (past ones hidden). Each society loads on its
+// own (scraping can take a few seconds), so one slow or broken SU page never holds up the rest.
 // Without a saved timetable there's nowhere to save societies, so it shows the demo ones read-only.
 
 type Result = { status: "ok"; events: SocietyEvent[] } | { status: "error" };
@@ -56,7 +57,7 @@ function Mine({ user }: { user: UserData }) {
 
   function load(society: Society) {
     requested.current.add(society.slug);
-    fetchEvents(society).then((result) => setResults((prev) => ({ ...prev, [society.slug]: result })));
+    fetchEvents(society, termEndKey(user)).then((result) => setResults((prev) => ({ ...prev, [society.slug]: result })));
   }
 
   function retry(society: Society) {
@@ -169,9 +170,9 @@ function Demo() {
   );
 }
 
-async function fetchEvents(society: Society): Promise<Result> {
+async function fetchEvents(society: Society, until: DateKey): Promise<Result> {
   try {
-    const params = new URLSearchParams({ slug: society.slug, name: society.name });
+    const params = new URLSearchParams({ slug: society.slug, name: society.name, until });
     const res = await fetch(`/api/societies/events?${params}`);
     if (!res.ok) throw new Error(`HTTP ${res.status}`);
     const body = (await res.json()) as { events?: SocietyEvent[] };
@@ -258,7 +259,7 @@ function EventList({
       ) : (
         days.length === 0 && (
           <p className="rounded-2xl border border-dashed border-zinc-300 p-6 text-center text-sm text-zinc-600 dark:border-zinc-700 dark:text-zinc-400">
-            Nothing on in the next 2 weeks. Quiet fortnight.
+            Nothing else on this term. Suspiciously quiet.
           </p>
         )
       )}

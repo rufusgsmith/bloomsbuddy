@@ -29,13 +29,12 @@ import {
   saveUserData,
   subscribeUserData,
 } from "@/lib/storage";
+import { prepareImage } from "@/lib/prepare-image";
 import { parseTodos, readRawTodos, saveTodos } from "@/lib/todos";
 import type { Deadline, Society, TimetableEvent, Todo, UserData, WeeklyClass } from "@/lib/types";
 
 const DEFAULT_WEEKS = 11; // A UCL term is usually 11 teaching weeks
 const MAX_WEEKS = 15;
-// Long edge in pixels after shrinking. Keeps uploads small but timetable text still legible.
-const MAX_IMAGE_EDGE = 2000;
 
 const DAYS = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
 const KINDS: TimetableEvent["kind"][] = ["lecture", "seminar", "lab", "tutorial"];
@@ -65,23 +64,6 @@ function classProblem(c: WeeklyClass): string | null {
   if (!isWallTime(c.startTime) || !isWallTime(c.endTime)) return "Needs a start and end time";
   if (c.endTime <= c.startTime) return "Ends before it starts";
   return null;
-}
-
-/** Shrinks a screenshot to a JPEG and returns it as base64 for /api/extract. */
-async function prepareImage(file: Blob): Promise<{ mediaType: "image/jpeg"; data: string }> {
-  const bitmap = await createImageBitmap(file);
-  const scale = Math.min(1, MAX_IMAGE_EDGE / Math.max(bitmap.width, bitmap.height));
-  const canvas = document.createElement("canvas");
-  canvas.width = Math.round(bitmap.width * scale);
-  canvas.height = Math.round(bitmap.height * scale);
-  const ctx = canvas.getContext("2d");
-  if (!ctx) throw new Error("Canvas not supported");
-  ctx.fillStyle = "#fff"; // transparent PNGs would otherwise turn black
-  ctx.fillRect(0, 0, canvas.width, canvas.height);
-  ctx.drawImage(bitmap, 0, 0, canvas.width, canvas.height);
-  bitmap.close();
-  const dataUrl = canvas.toDataURL("image/jpeg", 0.85);
-  return { mediaType: "image/jpeg", data: dataUrl.slice(dataUrl.indexOf(",") + 1) };
 }
 
 // ---------- Top level ----------
