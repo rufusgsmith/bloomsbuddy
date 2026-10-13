@@ -47,9 +47,6 @@ export function TodoView() {
   function persist(next: Todo[]) {
     setSaveFailed(!saveTodos(next));
   }
-  const update = (id: string, patch: Partial<Todo>) =>
-    persist(todos.map((t) => (t.id === id ? { ...t, ...patch } : t)));
-  const remove = (id: string) => persist(todos.filter((t) => t.id !== id));
 
   return (
     <main className="mx-auto w-full max-w-md px-4 pb-28 pt-8">
@@ -69,11 +66,23 @@ export function TodoView() {
               Your browser wouldn&apos;t let us save that. Is private mode or blocked storage on?
             </p>
           )}
-          <QuickAdd onAdd={(title) => persist([...todos, { id: crypto.randomUUID(), title, done: false }])} />
-          <TodoList todos={todos} update={update} remove={remove} clearDone={() => persist(todos.filter((t) => !t.done))} />
+          <TodoEditor todos={todos} onChange={persist} />
         </>
       )}
     </main>
+  );
+}
+
+/** Add box + list. Controlled, so onboarding can use it on a draft list that isn't saved yet. */
+export function TodoEditor({ todos, onChange }: { todos: Todo[]; onChange: (next: Todo[]) => void }) {
+  const update = (id: string, patch: Partial<Todo>) =>
+    onChange(todos.map((t) => (t.id === id ? { ...t, ...patch } : t)));
+  const remove = (id: string) => onChange(todos.filter((t) => t.id !== id));
+  return (
+    <>
+      <QuickAdd onAdd={(title) => onChange([...todos, { id: crypto.randomUUID(), title, done: false }])} />
+      <TodoList todos={todos} update={update} remove={remove} clearDone={() => onChange(todos.filter((t) => !t.done))} />
+    </>
   );
 }
 

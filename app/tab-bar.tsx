@@ -5,7 +5,7 @@ import { usePathname } from "next/navigation";
 import type { ReactNode } from "react";
 
 // Fixed to the bottom of the screen so every tab is in thumb reach on a phone.
-// Hidden on /setup (it has its own Back/Next buttons at the bottom) and /debug.
+// Hidden on /setup and /timetable (they have their own buttons at the bottom) and /debug.
 
 const TABS: { href: string; label: string; icon: ReactNode }[] = [
   {
@@ -49,19 +49,9 @@ const TABS: { href: string; label: string; icon: ReactNode }[] = [
       </>
     ),
   },
-  {
-    href: "/me",
-    label: "Me",
-    icon: (
-      <>
-        <circle cx="12" cy="8" r="4" />
-        <path d="M4 21a8 8 0 0 1 16 0" />
-      </>
-    ),
-  },
 ];
 
-const HIDDEN_ON = ["/setup", "/debug"];
+const HIDDEN_ON = ["/setup", "/timetable", "/debug"];
 
 const isActive = (pathname: string, href: string) =>
   href === "/" ? pathname === "/" : pathname === href || pathname.startsWith(`${href}/`);
@@ -75,7 +65,7 @@ export function TabBar() {
       aria-label="Main"
       className="fixed inset-x-0 bottom-0 z-40 border-t border-zinc-200 bg-white/95 pb-[env(safe-area-inset-bottom)] backdrop-blur dark:border-zinc-800 dark:bg-zinc-950/95"
     >
-      <ul className="mx-auto grid w-full max-w-md grid-cols-5">
+      <ul className="mx-auto grid w-full max-w-md grid-cols-4">
         {TABS.map((tab) => {
           const active = isActive(pathname, tab.href);
           return (

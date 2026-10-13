@@ -73,3 +73,25 @@ export function subscribeUserData(onChange: () => void): () => void {
     window.removeEventListener(CHANGE_EVENT, onChange);
   };
 }
+
+const SKIPPED_KEY = "bloomsbuddy:onboarding-skipped";
+
+/**
+ * True once the student has chosen the demo week over onboarding, so Today stops sending them to /setup.
+ * Also true when storage is blocked: onboarding couldn't save anything there, so don't loop them into it.
+ */
+export function onboardingSkipped(): boolean {
+  try {
+    return localStorage.getItem(SKIPPED_KEY) === "1";
+  } catch {
+    return true;
+  }
+}
+
+export function markOnboardingSkipped(): void {
+  try {
+    localStorage.setItem(SKIPPED_KEY, "1");
+  } catch {
+    // Blocked storage already counts as skipped.
+  }
+}

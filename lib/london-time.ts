@@ -70,3 +70,25 @@ export function londonWeekdayAndMinutes(iso: IsoDateTime): { weekday: number; mi
     minutes: Number(stamp.slice(11, 13)) * 60 + Number(stamp.slice(14, 16)),
   };
 }
+
+const londonWeekdayLong = new Intl.DateTimeFormat("en-GB", { timeZone: "Europe/London", weekday: "long" });
+const londonShortDate = new Intl.DateTimeFormat("en-GB", {
+  timeZone: "Europe/London",
+  weekday: "short",
+  day: "numeric",
+  month: "short",
+});
+
+/**
+ * How a day reads relative to today: "Today", "Tomorrow", "Yesterday", the weekday name
+ * ("Thursday") up to 6 days ahead, otherwise "Mon 26 Oct".
+ */
+export function relativeDayLabel(dateKey: DateKey, todayKey: DateKey): string {
+  const date = new Date(`${dateKey}T12:00:00Z`);
+  const diff = Math.round((date.getTime() - Date.parse(`${todayKey}T12:00:00Z`)) / MS_PER_DAY);
+  if (diff === 0) return "Today";
+  if (diff === 1) return "Tomorrow";
+  if (diff === -1) return "Yesterday";
+  if (diff >= 2 && diff <= 6) return londonWeekdayLong.format(date);
+  return londonShortDate.format(date);
+}

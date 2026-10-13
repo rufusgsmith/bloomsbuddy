@@ -1,11 +1,16 @@
 "use client";
 
-// Onboarding and "edit my timetable" in one place:
+// Two routes share this file:
+// /setup is onboarding, first launch only (Today sends new visitors here):
 //   1. Timetable: screenshot or pasted text → Claude → editable weekly classes, plus how many weeks they repeat
-//   2. Deadlines: Moodle screenshot or pasted text → Claude → editable deadlines (skippable)
-//   3. Societies: typed names, checked against the SU website (skippable)
-//   4. Check and save to localStorage
-// Nothing is saved until step 4, so a bad screenshot can't break anything.
+//   2. To-do: things to fit into gaps (skippable)
+//   3. Societies: SU page links, checked against the SU website (skippable)
+//   4. Deadlines: Moodle screenshot or pasted text → Claude → editable deadlines (skippable)
+//   5. Confirm and save to localStorage
+// Nothing is saved until step 5, so a bad screenshot can't break anything.
+// /timetable ("Edit timetable") is step 1 on its own and saves straight from it. Everything else is
+// kept as it was (to-dos, societies and deadlines have their own tabs).
+// Each route redirects to the other if it doesn't fit (/setup with data saved, /timetable without).
 
 import Link from "next/link";
 import { useRouter } from "next/navigation";
@@ -13,10 +18,19 @@ import { useEffect, useRef, useState, useSyncExternalStore, type ReactNode } fro
 import { BUILDINGS, type BuildingId } from "@/lib/buildings";
 import { Field, inputClass } from "../form-ui";
 import { SocietyPicker } from "../society-picker";
+import { TodoEditor } from "../todo/todo-view";
 import { blankDraft, deadlineProblem, fromDraft, newId, toDraft, type DraftDeadline } from "@/lib/deadline-draft";
 import { addDays, isDateKey, isWallTime, londonTodayKey, mondayOf } from "@/lib/london-time";
-import { clearUserData, parseUserData, readRawUserData, saveUserData, subscribeUserData } from "@/lib/storage";
-import type { Deadline, Society, TimetableEvent, UserData, WeeklyClass } from "@/lib/types";
+import {
+  clearUserData,
+  markOnboardingSkipped,
+  parseUserData,
+  readRawUserData,
+  saveUserData,
+  subscribeUserData,
+} from "@/lib/storage";
+import { parseTodos, readRawTodos, saveTodos } from "@/lib/todos";
+import type { Deadline, Society, TimetableEvent, Todo, UserData, WeeklyClass } from "@/lib/types";
 
 const DEFAULT_WEEKS = 11; // A UCL term is usually 11 teaching weeks
 const MAX_WEEKS = 15;
@@ -72,40 +86,57 @@ async function prepareImage(file: Blob): Promise<{ mediaType: "image/jpeg"; data
 
 // ---------- Top level ----------
 
-export function SetupFlow() {
+/** "onboarding" = /setup, first launch only. "timetable" = /timetable, from "Edit timetable". */
+export type SetupMode = "onboarding" | "timetable";
+
+export function SetupFlow({ mode }: { mode: SetupMode }) {
   // localStorage only exists in the browser: null until we've looked, then the raw JSON ("" = nothing saved).
   const raw = useSyncExternalStore(subscribeUserData, () => readRawUserData() ?? "", () => null);
-  if (raw === null) {
-    return (
-      <Shell>
-        <div aria-busy="true" className="h-64 animate-pulse rounded-2xl bg-zinc-100 dark:bg-zinc-900" />
-      </Shell>
-    );
-  }
-  return <Editor initial={parseUserData(raw)} />;
+  if (raw === null) return <Loading />;
+  return <Editor mode={mode} initial={parseUserData(raw)} />;
 }
 
 function Shell({ children }: { children: ReactNode }) {
   return <main className="mx-auto w-full max-w-md px-4 pb-24 pt-8">{children}</main>;
 }
 
-type Step = 0 | 1 | 2 | 3;
-const STEP_LABELS = ["Timetable", "Deadlines", "Societies", "Save"];
+function Loading() {
+  return (
+    <Shell>
+      <div aria-busy="true" className="h-64 animate-pulse rounded-2xl bg-zinc-100 dark:bg-zinc-900" />
+    </Shell>
+  );
+}
 
-function Editor({ initial }: { initial: UserData | null }) {
+type Step = 0 | 1 | 2 | 3 | 4;
+const STEP_LABELS = ["Timetable", "To-do", "Societies", "Deadlines", "Confirm"];
+
+function Editor({ mode, initial }: { mode: SetupMode; initial: UserData | null }) {
   const router = useRouter();
+  // Decided once on mount: saving changes `initial`, and that mustn't bounce us to the other route.
+  const [redirectTo] = useState(() =>
+    mode === "onboarding" && initial ? "/timetable" : mode === "timetable" && !initial ? "/setup" : null,
+  );
   const [step, setStep] = useState<Step>(0);
   const [classes, setClasses] = useState<WeeklyClass[]>(initial?.classes ?? []);
   const [termStart, setTermStart] = useState(initial?.termStart ?? mondayOf(londonTodayKey()));
   const [weeks, setWeeks] = useState(initial?.weeks ?? DEFAULT_WEEKS);
   const [deadlines, setDeadlines] = useState<DraftDeadline[]>(initial?.deadlines.map(toDraft) ?? []);
   const [societies, setSocieties] = useState<Society[]>(initial?.societies ?? []);
+  // A draft until Confirm. Starts from any to-dos made while trying the demo week.
+  const [todos, setTodos] = useState<Todo[]>(() => parseTodos(readRawTodos()));
   const [saveError, setSaveError] = useState(false);
+
+  useEffect(() => {
+    if (redirectTo) router.replace(redirectTo);
+  }, [redirectTo, router]);
 
   // Scroll to the top on step change, so each step starts at its heading.
   useEffect(() => {
     window.scrollTo({ top: 0 });
   }, [step]);
+
+  if (redirectTo) return <Loading />;
 
   const classesOk = classes.length > 0 && classes.every((c) => !classProblem(c));
   const deadlinesOk = deadlines.every((d) => !deadlineProblem(d));
@@ -120,16 +151,57 @@ function Editor({ initial }: { initial: UserData | null }) {
       societies,
       savedAt: new Date().toISOString(),
     };
-    if (!saveUserData(data)) {
+    // The timetable editor leaves to-dos alone: they're edited on the To-do tab.
+    if (!saveUserData(data) || (mode === "onboarding" && !saveTodos(todos))) {
       setSaveError(true);
       return;
     }
     router.push("/");
   }
 
+  function skip() {
+    markOnboardingSkipped();
+    router.push("/");
+  }
+
   function useDemo() {
     clearUserData();
+    markOnboardingSkipped(); // otherwise Today would send them straight back to onboarding
     router.push("/");
+  }
+
+  if (mode === "timetable") {
+    return (
+      <Shell>
+        <header className="mb-6">
+          <div className="flex items-center justify-between gap-2">
+            <p className="text-sm font-medium text-emerald-600 dark:text-emerald-400">Bloomsbuddy</p>
+            <Link
+              href="/"
+              className="rounded-full px-3 py-1.5 text-sm text-zinc-600 hover:bg-zinc-100 dark:text-zinc-400 dark:hover:bg-zinc-900"
+            >
+              Cancel
+            </Link>
+          </div>
+          <h1 className="text-3xl font-semibold tracking-tight">Edit timetable</h1>
+        </header>
+        <div className="flex flex-col gap-5">
+          <TimetableStep
+            classes={classes}
+            setClasses={setClasses}
+            termStart={termStart}
+            setTermStart={setTermStart}
+            weeks={weeks}
+            setWeeks={setWeeks}
+            canContinue={classesOk}
+            onNext={save}
+            nextLabel="Save timetable"
+          />
+          {saveError && <SaveError />}
+          <UseDemoButton onClick={useDemo} />
+        </div>
+      </Shell>
+    );
   }
 
   return (
@@ -137,26 +209,28 @@ function Editor({ initial }: { initial: UserData | null }) {
       <header className="mb-6">
         <div className="flex items-center justify-between gap-2">
           <p className="text-sm font-medium text-emerald-600 dark:text-emerald-400">Bloomsbuddy</p>
-          <Link
-            href="/"
+          <button
+            type="button"
+            onClick={skip}
             className="rounded-full px-3 py-1.5 text-sm text-zinc-600 hover:bg-zinc-100 dark:text-zinc-400 dark:hover:bg-zinc-900"
           >
-            {initial ? "Cancel" : "Back"}
-          </Link>
+            Skip, show the demo week
+          </button>
         </div>
-        <h1 className="text-3xl font-semibold tracking-tight">{initial ? "Your timetable" : "Let's get you set up"}</h1>
+        <h1 className="text-3xl font-semibold tracking-tight">Let&apos;s get you set up</h1>
         <ol className="mt-4 flex gap-2" aria-label="Steps">
           {STEP_LABELS.map((label, i) => {
-            // Societies can't be invalid, so anything past deadlines is reachable once they're fine.
-            const reachable = i <= step || (i === 1 && classesOk) || (i >= 2 && classesOk && deadlinesOk);
+            // To-dos and societies can't be invalid, so only the timetable gates the middle steps,
+            // and Confirm also needs the deadlines to be fine.
+            const reachable = i <= step || (i <= 3 && classesOk) || (classesOk && deadlinesOk);
             return (
-              <li key={label} className="flex-1">
+              <li key={label} className="min-w-0 flex-1">
                 <button
                   type="button"
                   disabled={!reachable}
                   onClick={() => setStep(i as Step)}
                   aria-current={i === step ? "step" : undefined}
-                  className={`w-full border-t-4 pt-2 text-left text-xs font-medium transition-colors disabled:cursor-not-allowed ${
+                  className={`w-full truncate border-t-4 pt-2 text-left text-xs font-medium transition-colors disabled:cursor-not-allowed ${
                     i <= step
                       ? "border-emerald-500 text-emerald-700 dark:text-emerald-300"
                       : "border-zinc-200 text-zinc-500 dark:border-zinc-800"
@@ -182,15 +256,7 @@ function Editor({ initial }: { initial: UserData | null }) {
           onNext={() => setStep(1)}
         />
       )}
-      {step === 1 && (
-        <DeadlinesStep
-          deadlines={deadlines}
-          setDeadlines={setDeadlines}
-          canContinue={deadlinesOk}
-          onBack={() => setStep(0)}
-          onNext={() => setStep(2)}
-        />
-      )}
+      {step === 1 && <TodosStep todos={todos} setTodos={setTodos} onBack={() => setStep(0)} onNext={() => setStep(2)} />}
       {step === 2 && (
         <SocietiesStep
           societies={societies}
@@ -200,17 +266,25 @@ function Editor({ initial }: { initial: UserData | null }) {
         />
       )}
       {step === 3 && (
+        <DeadlinesStep
+          deadlines={deadlines}
+          setDeadlines={setDeadlines}
+          canContinue={deadlinesOk}
+          onBack={() => setStep(2)}
+          onNext={() => setStep(4)}
+        />
+      )}
+      {step === 4 && (
         <ReviewStep
           classes={classes}
           termStart={termStart}
           weeks={weeks}
-          deadlines={deadlines}
+          todos={todos}
           societies={societies}
-          hasSavedData={initial !== null}
+          deadlines={deadlines}
           saveError={saveError}
-          onBack={() => setStep(2)}
+          onBack={() => setStep(3)}
           onSave={save}
-          onUseDemo={useDemo}
         />
       )}
     </Shell>
@@ -228,6 +302,7 @@ function TimetableStep({
   setWeeks,
   canContinue,
   onNext,
+  nextLabel,
 }: {
   classes: WeeklyClass[];
   setClasses: (c: WeeklyClass[]) => void;
@@ -237,6 +312,7 @@ function TimetableStep({
   setWeeks: (n: number) => void;
   canContinue: boolean;
   onNext: () => void;
+  nextLabel?: string;
 }) {
   const update = (id: string, patch: Partial<WeeklyClass>) =>
     setClasses(classes.map((c) => (c.id === id ? { ...c, ...patch } : c)));
@@ -343,7 +419,7 @@ function TimetableStep({
         </p>
       </fieldset>
 
-      <StepNav canContinue={canContinue} onNext={onNext} blockedHint={classes.length === 0 ? "Add at least one class" : "Fix the highlighted classes first"} />
+      <StepNav canContinue={canContinue} onNext={onNext} nextLabel={nextLabel} blockedHint={classes.length === 0 ? "Add at least one class" : "Fix the highlighted classes first"} />
     </section>
   );
 }
@@ -449,7 +525,7 @@ function ClassRow({
   );
 }
 
-// ---------- Step 2: deadlines ----------
+// ---------- Step 4: deadlines ----------
 
 function DeadlinesStep({
   deadlines,
@@ -582,6 +658,39 @@ function DeadlineRow({
   );
 }
 
+// ---------- Step 2: to-do ----------
+
+function TodosStep({
+  todos,
+  setTodos,
+  onBack,
+  onNext,
+}: {
+  todos: Todo[];
+  setTodos: (t: Todo[]) => void;
+  onBack: () => void;
+  onNext: () => void;
+}) {
+  return (
+    <section className="flex flex-col gap-5">
+      <div>
+        <h2 className="text-lg font-semibold">Your to-do list</h2>
+        <p className="mt-1 text-sm text-zinc-600 dark:text-zinc-400">
+          Anything you need to get done? Tap one to add a due date and a time estimate, and I&apos;ll fit it into a
+          gap. You can skip this.
+        </p>
+      </div>
+      <TodoEditor todos={todos} onChange={setTodos} />
+      <StepNav
+        onBack={onBack}
+        canContinue
+        onNext={onNext}
+        nextLabel={todos.some((t) => !t.done) ? "Next" : "Skip for now"}
+      />
+    </section>
+  );
+}
+
 // ---------- Step 3: societies ----------
 
 function SocietiesStep({
@@ -626,35 +735,34 @@ function SocietiesStep({
   );
 }
 
-// ---------- Step 4: review & save ----------
+// ---------- Step 5: confirm & save ----------
 
 function ReviewStep({
   classes,
   termStart,
   weeks,
-  deadlines,
+  todos,
   societies,
-  hasSavedData,
+  deadlines,
   saveError,
   onBack,
   onSave,
-  onUseDemo,
 }: {
   classes: WeeklyClass[];
   termStart: string;
   weeks: number;
-  deadlines: DraftDeadline[];
+  todos: Todo[];
   societies: Society[];
-  hasSavedData: boolean;
+  deadlines: DraftDeadline[];
   saveError: boolean;
   onBack: () => void;
   onSave: () => void;
-  onUseDemo: () => void;
 }) {
   const byDay = DAYS.map((label, i) => ({
     label,
     rows: classes.filter((c) => c.dayOfWeek === i + 1).sort((a, b) => a.startTime.localeCompare(b.startTime)),
   })).filter((d) => d.rows.length > 0);
+  const openTodos = todos.filter((t) => !t.done);
   const sortedDeadlines = [...deadlines].sort((a, b) => `${a.date} ${a.time}`.localeCompare(`${b.date} ${b.time}`));
 
   return (
@@ -663,8 +771,8 @@ function ReviewStep({
         <h2 className="text-lg font-semibold">Look right?</h2>
         <p className="mt-1 text-sm text-zinc-600 dark:text-zinc-400">
           {classes.length} {classes.length === 1 ? "class" : "classes"} a week, repeating for {weeks}{" "}
-          {weeks === 1 ? "week" : "weeks"} from {londonDayMonth.format(dayDate(termStart))}. You can change any of
-          this later from &ldquo;Edit timetable&rdquo;.
+          {weeks === 1 ? "week" : "weeks"} from {londonDayMonth.format(dayDate(termStart))}. You can change your
+          timetable later from &ldquo;Edit timetable&rdquo;.
         </p>
       </div>
 
@@ -690,6 +798,28 @@ function ReviewStep({
       </div>
 
       <div className="rounded-2xl border border-zinc-200 bg-white p-4 dark:border-zinc-800 dark:bg-zinc-950">
+        <h3 className="font-semibold">To-do</h3>
+        {openTodos.length === 0 ? (
+          <p className="mt-1 text-sm text-zinc-600 dark:text-zinc-400">Nothing yet. Enjoy it while it lasts ✨</p>
+        ) : (
+          <ul className="mt-2 flex flex-col gap-1 text-sm">
+            {openTodos.map((t) => (
+              <li key={t.id}>{t.title}</li>
+            ))}
+          </ul>
+        )}
+      </div>
+
+      <div className="rounded-2xl border border-zinc-200 bg-white p-4 dark:border-zinc-800 dark:bg-zinc-950">
+        <h3 className="font-semibold">Societies</h3>
+        {societies.length === 0 ? (
+          <p className="mt-1 text-sm text-zinc-600 dark:text-zinc-400">None yet. Free pizza waits for no one 🍕</p>
+        ) : (
+          <p className="mt-1 text-sm">{societies.map((s) => s.name).join(", ")}</p>
+        )}
+      </div>
+
+      <div className="rounded-2xl border border-zinc-200 bg-white p-4 dark:border-zinc-800 dark:bg-zinc-950">
         <h3 className="font-semibold">Deadlines</h3>
         {sortedDeadlines.length === 0 ? (
           <p className="mt-1 text-sm text-zinc-600 dark:text-zinc-400">None added. Lucky you, or in denial? 👀</p>
@@ -708,33 +838,30 @@ function ReviewStep({
         )}
       </div>
 
-      <div className="rounded-2xl border border-zinc-200 bg-white p-4 dark:border-zinc-800 dark:bg-zinc-950">
-        <h3 className="font-semibold">Societies</h3>
-        {societies.length === 0 ? (
-          <p className="mt-1 text-sm text-zinc-600 dark:text-zinc-400">None yet. Free pizza waits for no one 🍕</p>
-        ) : (
-          <p className="mt-1 text-sm">{societies.map((s) => s.name).join(", ")}</p>
-        )}
-      </div>
-
-      {saveError && (
-        <p role="alert" className="text-sm text-red-600 dark:text-red-400">
-          Your browser wouldn&apos;t let me save (private browsing?). Try a normal window.
-        </p>
-      )}
+      {saveError && <SaveError />}
 
       <StepNav onBack={onBack} canContinue onNext={onSave} nextLabel="Save and show my gaps" />
-
-      {hasSavedData && (
-        <button
-          type="button"
-          onClick={onUseDemo}
-          className="self-center rounded-full px-3 py-2 text-sm text-zinc-500 underline-offset-4 hover:underline"
-        >
-          Delete my timetable and use the demo week
-        </button>
-      )}
     </section>
+  );
+}
+
+function SaveError() {
+  return (
+    <p role="alert" className="text-sm text-red-600 dark:text-red-400">
+      Your browser wouldn&apos;t let me save (private browsing?). Try a normal window.
+    </p>
+  );
+}
+
+function UseDemoButton({ onClick }: { onClick: () => void }) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      className="self-center rounded-full px-3 py-2 text-sm text-zinc-500 underline-offset-4 hover:underline"
+    >
+      Delete my timetable and use the demo week
+    </button>
   );
 }
 
