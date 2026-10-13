@@ -69,10 +69,20 @@ export interface SocietyEvent {
   /** Set when the venue is a known UCL building (so we can compute travel time). */
   buildingId?: BuildingId;
   url?: string;
-  /** Real events also carry one cost tag: "free-food", "free" or "paid". */
+  /** Real events also carry one cost tag ("free-food", "free" or "paid") when the page states the cost. */
   tags: string[];
-  free: boolean;
+  /** true = free, false = paid. Missing when the page doesn't say. */
+  free?: boolean;
+  /** The page says you need to be a member to go. */
+  membersOnly?: true;
+  /** The page gives no end time: `end` is a guess (start + 1 hour) and mustn't be shown as fact. */
+  endEstimated?: true;
+  /** A repeating session with a day but no time ("Thursday evenings"). start/end span a rough window for partOfDay. */
+  timeTBC?: true;
+  partOfDay?: PartOfDay;
 }
+
+export type PartOfDay = "morning" | "afternoon" | "evening";
 
 /** A UCL Students' Union club or society, e.g. { slug: "chess-society", name: "Chess Society" }. */
 export interface Society {

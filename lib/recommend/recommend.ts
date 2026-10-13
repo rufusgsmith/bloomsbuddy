@@ -35,6 +35,12 @@ const londonDateTime = new Intl.DateTimeFormat("en-GB", {
   hour: "2-digit",
   minute: "2-digit",
 });
+const londonDay = new Intl.DateTimeFormat("en-GB", {
+  timeZone: "Europe/London",
+  weekday: "short",
+  day: "numeric",
+  month: "short",
+});
 const londonTime = new Intl.DateTimeFormat("en-GB", {
   timeZone: "Europe/London",
   hour: "2-digit",
@@ -44,6 +50,8 @@ const londonTime = new Intl.DateTimeFormat("en-GB", {
 /** "Fri 16 Oct, 14:30" in London time, so Claude never does timezone maths. */
 const fmt = (iso: IsoDateTime) => londonDateTime.format(new Date(iso));
 const fmtTime = (iso: IsoDateTime) => londonTime.format(new Date(iso));
+/** "Fri 16 Oct", for events whose time isn't known. */
+const fmtDay = (iso: IsoDateTime) => londonDay.format(new Date(iso));
 
 /** Dev-only logging of tool calls and Claude's raw answer. Silent in production. */
 const debug = (...args: unknown[]) => {
@@ -144,13 +152,14 @@ function makeTools(
         id: e.id,
         society: e.society,
         title: e.title,
-        starts: fmt(e.start),
-        ends: fmtTime(e.end),
-        venue: e.venue,
+        starts: e.timeTBC ? `${fmtDay(e.start)}, ${e.partOfDay ?? "time"} (time TBC)` : fmt(e.start),
+        ends: e.endEstimated ? "not stated" : fmtTime(e.end),
+        venue: e.venue || "not stated",
         ...(e.buildingId
           ? { ...travelFields("FromHere", here, e.buildingId), ...travelFields("ToNextLecture", e.buildingId, next) }
           : { minsFromHere: "off campus", minsToNextLecture: "off campus" }),
-        free: e.free,
+        free: e.free ?? "not stated",
+        ...(e.membersOnly ? { membersOnly: true } : {}),
         tags: e.tags,
       }));
       return rows.length ? JSON.stringify(rows) : "No society events in that window.";

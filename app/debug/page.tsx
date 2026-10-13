@@ -114,7 +114,7 @@ export default function DebugPage() {
             s.title,
             s.venue,
             buildingName(s.buildingId),
-            s.free ? "yes" : "no",
+            s.free === undefined ? "—" : s.free ? "yes" : "no",
             s.tags.join(", "),
           ])}
         />
