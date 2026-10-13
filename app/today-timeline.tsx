@@ -1,9 +1,10 @@
 "use client";
 
 import Link from "next/link";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { BUILDINGS } from "@/lib/buildings";
 import { formatDuration, formatDurationShort } from "@/lib/duration";
+import { londonDateKey } from "@/lib/gaps";
 import { homeLabel, homeLocation } from "@/lib/home";
 import { londonTodayKey, mondayOf, relativeDayLabel } from "@/lib/london-time";
 import type { Deadline, Gap, Home, Recommendation, Society, TimetableEvent, Todo } from "@/lib/types";
@@ -48,7 +49,40 @@ function tagline(gaps: Gap[]): string {
   return `${gaps.length} ${noun}, ${formatDuration(usable)} of free time. Let's not waste it.`;
 }
 
-type Item = { kind: "event"; event: TimetableEvent } | { kind: "gap"; gap: Gap };
+type Item = { kind: "event"; event: TimetableEvent } | { kind: "gap"; gap: Gap } | { kind: "now"; at: number };
+
+/** The current time in ms, updated on each minute boundary. */
+function useNow(): number {
+  const [now, setNow] = useState(Date.now);
+  useEffect(() => {
+    let interval: ReturnType<typeof setInterval> | undefined;
+    const tick = () => setNow(Date.now());
+    // Line up with the clock's minute, so the label changes when the phone's clock does.
+    const timeout = setTimeout(() => {
+      tick();
+      interval = setInterval(tick, 60_000);
+    }, 60_000 - (Date.now() % 60_000));
+    return () => {
+      clearTimeout(timeout);
+      clearInterval(interval);
+    };
+  }, []);
+  return now;
+}
+
+/**
+ * The day's items with a "now" marker slotted in by time. Only on today, and only between
+ * the first item's start and the last item's end: outside that there's no timeline to mark.
+ */
+function withNowLine(items: Item[], dateKey: string, now: number): Item[] {
+  if (items.length === 0 || londonDateKey(new Date(now).toISOString()) !== dateKey) return items;
+  const first = Date.parse(startOf(items[0]));
+  const last = Math.max(...items.map((i) => Date.parse(endOf(i))));
+  if (now < first || now > last) return items;
+  const at = items.findIndex((i) => Date.parse(startOf(i)) > now);
+  const marker: Item = { kind: "now", at: now };
+  return at === -1 ? [...items, marker] : [...items.slice(0, at), marker, ...items.slice(at)];
+}
 
 export function TodayTimeline({
   days,
@@ -106,12 +140,14 @@ export function TodayTimeline({
     const next = sameWeekday ?? fallback;
     if (next) selectDay(next.dateKey);
   }
-  const items: Item[] = day
+  const now = useNow();
+  const sorted: Item[] = day
     ? [
         ...day.events.map((event): Item => ({ kind: "event", event })),
         ...day.gaps.map((gap): Item => ({ kind: "gap", gap })),
       ].sort((a, b) => Date.parse(startOf(a)) - Date.parse(startOf(b)))
     : [];
+  const items = day ? withNowLine(sorted, day.dateKey, now) : sorted;
 
   async function loadRec(gap: Gap, dayGaps: Gap[]) {
     setRecs((r) => ({ ...r, [gap.id]: { status: "loading" } }));
@@ -251,7 +287,11 @@ export function TodayTimeline({
       ) : (
         <ol className="flex flex-col gap-3">
           {items.map((item) =>
-            item.kind === "event" ? (
+            item.kind === "now" ? (
+              <li key="now">
+                <NowLine at={item.at} />
+              </li>
+            ) : item.kind === "event" ? (
               <li key={item.event.id}>
                 <EventBlock event={item.event} />
               </li>
@@ -298,7 +338,25 @@ function WeekButton({
 }
 
 function startOf(item: Item): string {
+  if (item.kind === "now") return new Date(item.at).toISOString();
   return item.kind === "event" ? item.event.start : item.gap.start;
+}
+
+function endOf(item: Item): string {
+  if (item.kind === "now") return new Date(item.at).toISOString();
+  return item.kind === "event" ? item.event.end : item.gap.end;
+}
+
+/** A red rule across the timeline at the current time, e.g. "● 14:52 ────". */
+function NowLine({ at }: { at: number }) {
+  const label = time(new Date(at).toISOString());
+  return (
+    <div role="separator" aria-label={`Now, ${label}`} className="flex items-center gap-2">
+      <span aria-hidden className="size-2.5 shrink-0 rounded-full bg-red-500" />
+      <span className="text-xs font-semibold tabular-nums text-red-600 dark:text-red-400">{label}</span>
+      <span aria-hidden className="h-0.5 flex-1 bg-red-500" />
+    </div>
+  );
 }
 
 function EventBlock({ event }: { event: TimetableEvent }) {

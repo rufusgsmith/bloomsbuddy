@@ -46,10 +46,12 @@ Every data source sits behind a **provider interface** with a `mock` and a `real
 - `lib/todos.ts`: the to-do list in localStorage (`bloomsbuddy:todos`), plus `isTodo` (shared with the API route) and the 15/30/60/90 estimate chips
 - `lib/recommend/`: Claude tool loop (`recommend.ts`: `get_study_spaces`, `get_events_in_window`, `get_deadlines`, `get_food_spots`, `get_todos` when there are open to-dos, and `get_home` when a home is set) and the editable `system-prompt.ts`
 - `lib/config.ts`: `isDemoMode()`
+- `lib/term.ts`: `termEndKey(user)`, the end of term (the timetable's last week, else UCL's Term 1 end). The Societies tab lists events up to it
+- `lib/prepare-image.ts`: shrinks a screenshot before `/api/extract` (setup and the Deadlines tab's "Re-scan Moodle screenshot")
 - `lib/mock/`: one realistic student week, written as Mon 12 – Fri 16 Oct 2026 and moved to the current London week on every call (`week.ts`; at the weekend, next week)
 - `lib/providers/`: provider interfaces + mocks; `societies.ts` is the real SU events provider (scraped on every request, no cache; parallel requests share one in-flight scrape per society)
 - `lib/library-busyness.ts`: library busyness estimates (not a provider; Claude and the UI only see the level, never seat numbers)
-- `lib/societies/su-site.ts`: SU website fetching, society lookup by slug, and event parsing (cheerio): `/events` cards + each event's page for venue and the "Free" tag
+- `lib/societies/su-site.ts`: SU website fetching, society lookup by slug, and event parsing (cheerio): `/events` cards (all upcoming events on one page) filtered to a London day range, then each in-range event's page for venue and the "Free" tag
 - `lib/societies/slug.ts`: SU page link → slug (`slugFromLink`) and society name → slug. Pure, so client components can use it
 - `lib/bot-check.ts`: detects bot walls (Cloudflare's "Just a moment…" etc.) and `BlockedError`
 - `lib/claude-json.ts`: shared schema-constrained Claude call
