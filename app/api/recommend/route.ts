@@ -2,9 +2,10 @@
 // dayGaps (the rest of that day's gaps) is optional context so Claude can plan around longer gaps.
 // deadlines are the student's own (from onboarding). When sent, even empty, they replace the mock ones.
 // societies are the student's SU societies; outside demo mode their real events replace the mock ones.
+// home ({ label, lat, lng }) is where the student lives, so Claude can suggest popping back.
 import { recommendForGap } from "@/lib/recommend/recommend";
 import { isSlug } from "@/lib/societies/su-site";
-import type { Deadline, Gap, Society } from "@/lib/types";
+import type { Deadline, Gap, HomeLocation, Society } from "@/lib/types";
 
 /** Each society costs a scrape and a Claude call (cached for an hour), so cap how many we accept. */
 const MAX_SOCIETIES = 10;
@@ -39,8 +40,23 @@ function isSociety(x: unknown): x is Society {
   return isSlug(s?.slug) && typeof s.name === "string";
 }
 
+/** London and the commuter belt. Our tube estimate means nothing further out, so we ignore it. */
+function isHomeLocation(x: unknown): x is HomeLocation {
+  const h = x as Partial<HomeLocation> | null;
+  return (
+    typeof h?.label === "string" &&
+    h.label.length <= 60 &&
+    typeof h.lat === "number" &&
+    typeof h.lng === "number" &&
+    h.lat > 51.0 &&
+    h.lat < 52.2 &&
+    h.lng > -1.2 &&
+    h.lng < 0.8
+  );
+}
+
 export async function POST(request: Request) {
-  let body: { gap?: unknown; dayGaps?: unknown; deadlines?: unknown; societies?: unknown };
+  let body: { gap?: unknown; dayGaps?: unknown; deadlines?: unknown; societies?: unknown; home?: unknown };
   try {
     body = await request.json();
   } catch {
@@ -62,7 +78,9 @@ export async function POST(request: Request) {
     const societies = Array.isArray(body.societies)
       ? body.societies.filter(isSociety).slice(0, MAX_SOCIETIES)
       : undefined;
-    return Response.json(await recommendForGap(body.gap, dayGaps, { deadlines, societies }));
+    // A home outside the commuter belt is ignored (no home picks) rather than rejected.
+    const home = isHomeLocation(body.home) ? body.home : undefined;
+    return Response.json(await recommendForGap(body.gap, dayGaps, { deadlines, societies, home }));
   } catch (err) {
     console.error("[recommend] failed:", err);
     return Response.json({ error: "Couldn't get a recommendation, try again" }, { status: 502 });

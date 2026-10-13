@@ -94,7 +94,7 @@ export interface Society {
 /** How busy a library usually is at a given time. An estimate, not a live count. */
 export type BusynessLevel = "quiet" | "moderate" | "busy" | "packed";
 
-export type RecommendationType = "study" | "event" | "rest";
+export type RecommendationType = "study" | "event" | "rest" | "home" | "food";
 
 export interface RecommendationOption {
   title: string;
@@ -106,7 +106,7 @@ export interface RecommendationOption {
   travelMode: TravelMode;
   /** Short, friendly reason in Bloomsbuddy's voice, citing real details. */
   reason: string;
-  /** id of the related Deadline / SocietyEvent / library BuildingId, if any. */
+  /** id of the related Deadline / SocietyEvent / library BuildingId / FoodSpot, if any. */
   relatedId?: string;
   /** Estimated busyness for study picks in a library (the same level Claude saw). */
   busyness?: BusynessLevel;
@@ -118,6 +118,22 @@ export interface Recommendation {
   /** Exactly two alternatives. The tuple type enforces it. */
   alternatives: [RecommendationOption, RecommendationOption];
   generatedAt: IsoDateTime;
+}
+
+/**
+ * Where the student lives, saved in localStorage on its own key (it works in the demo week too).
+ * "none" = they chose "Don't use my home". No saved value at all = not set yet.
+ */
+export type Home =
+  | { kind: "hall"; buildingId: BuildingId }
+  | { kind: "private"; postcode: string; lat: number; lng: number }
+  | { kind: "none" };
+
+/** What the Today page sends to /api/recommend: just enough to measure trips home. */
+export interface HomeLocation {
+  label: string;
+  lat: number;
+  lng: number;
 }
 
 // ---- The student's own data (from onboarding), stored in localStorage ----

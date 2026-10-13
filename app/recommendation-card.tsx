@@ -10,10 +10,11 @@ const LOADING_LINES = [
   "Guessing how packed the libraries are…",
   "Checking what societies are up to…",
   "Peeking at your deadlines…",
+  "Checking if home's worth the walk…",
   "Weighing up coffee vs. productivity ☕",
 ];
 
-const TYPE_EMOJI: Record<RecommendationType, string> = { study: "📚", event: "🎉", rest: "☕" };
+const TYPE_EMOJI: Record<RecommendationType, string> = { study: "📚", event: "🎉", rest: "☕", home: "🏠", food: "🍜" };
 
 export function RecommendationPanel({ state, onRetry }: { state: RecState; onRetry: () => void }) {
   if (state.status === "loading") return <Loading />;

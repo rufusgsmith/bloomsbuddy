@@ -2,6 +2,7 @@
 
 import { useMemo, useSyncExternalStore } from "react";
 import { eventsOnDay, findGaps, londonDateKey } from "@/lib/gaps";
+import { parseHome, readRawHome, subscribeHome } from "@/lib/home";
 import { addDays, dayOfWeek, londonTodayKey } from "@/lib/london-time";
 import { demoMonday, mockTimetable } from "@/lib/mock";
 import { parseUserData, readRawUserData, subscribeUserData } from "@/lib/storage";
@@ -18,6 +19,8 @@ export function Home() {
   // "" = checked, nothing saved. null = not checked yet (server render / hydration).
   const raw = useSyncExternalStore(subscribeUserData, () => readRawUserData() ?? "", () => null);
   const user = useMemo(() => parseUserData(raw), [raw]);
+  const rawHome = useSyncExternalStore(subscribeHome, () => readRawHome() ?? "", () => null);
+  const home = useMemo(() => parseHome(rawHome), [rawHome]);
   const userDays = useMemo(() => (user ? buildDays(user) : null), [user]);
   // Only built in the browser, once we know there's no usable saved timetable, so the server
   // never renders a week from its own clock.
@@ -26,17 +29,27 @@ export function Home() {
   if (raw === null) return <Skeleton />;
   if (!user || !userDays) {
     if (!demo) return <Skeleton />;
-    return <TodayTimeline days={demo.days} initialDateKey={demo.initialDateKey} mode="demo" />;
+    return (
+      <TodayTimeline
+        // Remount when home changes, so cached recommendations that assumed the old home are dropped.
+        key={rawHome ?? ""}
+        days={demo.days}
+        initialDateKey={demo.initialDateKey}
+        mode="demo"
+        home={home}
+      />
+    );
   }
   return (
     <TodayTimeline
-      // Remount when the data changes, so cached recommendations for old gaps are dropped.
-      key={user.savedAt}
+      // Remount when the data or home changes, so cached recommendations for old gaps are dropped.
+      key={`${user.savedAt}|${rawHome ?? ""}`}
       days={userDays}
       initialDateKey={pickInitialDay(userDays)}
       mode="user"
       deadlines={user.deadlines}
       societies={user.societies}
+      home={home}
     />
   );
 }
