@@ -157,7 +157,7 @@ function makeTools(
         venue: e.venue || "not stated",
         ...(e.buildingId
           ? { ...travelFields("FromHere", here, e.buildingId), ...travelFields("ToNextLecture", e.buildingId, next) }
-          : { minsFromHere: "off campus", minsToNextLecture: "off campus" }),
+          : { minsFromHere: "unknown (venue isn't a mapped UCL building)", minsToNextLecture: "unknown" }),
         free: e.free ?? "not stated",
         ...(e.membersOnly ? { membersOnly: true } : {}),
         tags: e.tags,
