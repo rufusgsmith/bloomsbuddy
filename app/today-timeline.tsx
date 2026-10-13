@@ -317,7 +317,7 @@ function GapBlock({
           {duration(gap.durationMins)} free · {duration(gap.usableMins)} usable
         </span>
         <span className="block mt-0.5 text-sm text-emerald-800 dark:text-emerald-200">
-          {sameBuilding ? `Staying in ${from}, no walk needed` : `${from} → ${to}, ${gap.walkMins} min walk`}
+          {sameBuilding ? `Staying in ${from}, no walk needed` : `${from} → ${to}, ${gap.travelMins} min ${gap.travelMode === "tube" ? "by tube" : "walk"}`}
         </span>
       </button>
 

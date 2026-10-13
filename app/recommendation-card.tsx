@@ -2,6 +2,7 @@
 
 import { useEffect, useState, type ReactNode } from "react";
 import type { Recommendation, RecommendationOption, RecommendationType } from "@/lib/types";
+import { travelLabel } from "@/lib/buildings";
 
 export type RecState = { status: "loading" } | { status: "ok"; rec: Recommendation } | { status: "error" };
 
@@ -99,7 +100,7 @@ function Alternative({ option }: { option: RecommendationOption }) {
 function Badges({ option }: { option: RecommendationOption }) {
   return (
     <div className="mt-2 flex flex-wrap gap-1.5">
-      <Badge tone="neutral">{option.walkMins === 0 ? "Staying put" : `🚶 ${option.walkMins} min walk`}</Badge>
+      <Badge tone="neutral">{option.travelMins === 0 ? "Staying put" : travelLabel(option.travelMins, option.travelMode)}</Badge>
       {option.seats && (
         <Badge tone={seatTone(option.seats.available, option.seats.total)}>
           🪑 {option.seats.available} / {option.seats.total} free

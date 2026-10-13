@@ -2,7 +2,7 @@
 // All maths is on absolute instants (Date.parse respects the ISO offset), so the
 // server's timezone never matters. See "Time rules" in CLAUDE.md.
 
-import { walkingMins, type BuildingId } from "./buildings";
+import { travelTime, type BuildingId } from "./buildings";
 import type { Gap, IsoDateTime, TimetableEvent } from "./types";
 
 /** Gaps shorter than this aren't worth recommending anything for. */
@@ -48,14 +48,15 @@ export function findGaps(
 
       if (durationMins >= MIN_GAP_MINS) {
         const locationId = opts.locationOverride ?? latest.buildingId;
-        const walkMins = walkingMins(locationId, next.buildingId);
+        const travel = travelTime(locationId, next.buildingId);
         gaps.push({
           id: `gap-${latest.id}-${next.id}`,
           start: latest.end,
           end: next.start,
           durationMins,
-          usableMins: Math.max(0, durationMins - walkMins),
-          walkMins,
+          usableMins: Math.max(0, durationMins - travel.mins),
+          travelMins: travel.mins,
+          travelMode: travel.mode,
           prevEvent: latest,
           nextEvent: next,
           prevLocationId: latest.buildingId,

@@ -4,7 +4,7 @@
 // All timestamps are ISO 8601 strings WITH an explicit offset, in Europe/London time,
 // e.g. "2026-10-16T10:00:00+01:00". See "Time rules" in CLAUDE.md.
 
-import type { BuildingId } from "./buildings";
+import type { BuildingId, TravelMode } from "./buildings";
 
 export type { BuildingId };
 
@@ -25,17 +25,19 @@ export interface TimetableEvent {
 /**
  * Free time between two timetable events on the same day. We skip time before the first
  * event and after the last one: we don't know where the student is then, so we can't
- * work out walking time.
+ * work out travel time.
  */
 export interface Gap {
   id: string;
   start: IsoDateTime;
   end: IsoDateTime;
   durationMins: number;
-  /** durationMins minus the walk to the next event (never below 0). */
+  /** durationMins minus the trip to the next event (never below 0). */
   usableMins: number;
-  /** Walking time from locationId to nextLocationId. */
-  walkMins: number;
+  /** Travel time from locationId to nextLocationId. */
+  travelMins: number;
+  /** How that trip is made: on foot, or by tube when walking is unrealistic. */
+  travelMode: TravelMode;
   prevEvent: TimetableEvent;
   nextEvent: TimetableEvent;
   prevLocationId: BuildingId;
@@ -64,7 +66,7 @@ export interface SocietyEvent {
   start: IsoDateTime;
   end: IsoDateTime;
   venue: string;
-  /** Set when the venue is a known UCL building (so we can compute walking time). */
+  /** Set when the venue is a known UCL building (so we can compute travel time). */
   buildingId?: BuildingId;
   url?: string;
   tags: string[];
@@ -86,8 +88,9 @@ export interface RecommendationOption {
   type: RecommendationType;
   /** Human-readable place, e.g. "SSEES Library". */
   place: string;
-  /** Walking time from where the student is at the start of the gap. */
-  walkMins: number;
+  /** Travel time from where the student is at the start of the gap. */
+  travelMins: number;
+  travelMode: TravelMode;
   /** Short, friendly reason in Bloomsbuddy's voice, citing real details. */
   reason: string;
   /** id of the related Deadline / SocietyEvent / library BuildingId, if any. */

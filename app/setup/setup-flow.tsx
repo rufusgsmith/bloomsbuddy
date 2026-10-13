@@ -25,6 +25,13 @@ const KINDS: TimetableEvent["kind"][] = ["lecture", "seminar", "lab", "tutorial"
 const BUILDING_IDS = (Object.keys(BUILDINGS) as BuildingId[]).sort((a, b) =>
   BUILDINGS[a].name.localeCompare(BUILDINGS[b].name),
 );
+// ~70 buildings is a long list, so the dropdown groups them. Halls go together wherever they are.
+const BUILDING_GROUPS: { label: string; ids: BuildingId[] }[] = [
+  { label: "Bloomsbury", ids: BUILDING_IDS.filter((id) => BUILDINGS[id].area === "bloomsbury" && BUILDINGS[id].kind !== "hall") },
+  { label: "UCL East", ids: BUILDING_IDS.filter((id) => BUILDINGS[id].area === "ucl-east") },
+  { label: "Canary Wharf", ids: BUILDING_IDS.filter((id) => BUILDINGS[id].area === "canary-wharf") },
+  { label: "Halls", ids: BUILDING_IDS.filter((id) => BUILDINGS[id].kind === "hall") },
+];
 
 /** A deadline while it's being edited: date and time apart, weight as typed. */
 interface DraftDeadline {
@@ -450,16 +457,20 @@ function ClassRow({
       </div>
       <div className="mt-2 flex items-end gap-2">
         <div className="flex-1">
-          <Field label={c.buildingGuessed ? "Building: please check, I couldn't tell" : "Building (for walking times)"}>
+          <Field label={c.buildingGuessed ? "Building: please check, I couldn't tell" : "Building (for travel times)"}>
             <select
               value={c.buildingId}
               onChange={(e) => onChange({ buildingId: e.target.value as BuildingId, buildingGuessed: false })}
               className={`${inputClass} ${c.buildingGuessed ? "ring-2 ring-amber-400" : ""}`}
             >
-              {BUILDING_IDS.map((id) => (
-                <option key={id} value={id}>
-                  {BUILDINGS[id].name}
-                </option>
+              {BUILDING_GROUPS.map((group) => (
+                <optgroup key={group.label} label={group.label}>
+                  {group.ids.map((id) => (
+                    <option key={id} value={id}>
+                      {BUILDINGS[id].name}
+                    </option>
+                  ))}
+                </optgroup>
               ))}
             </select>
           </Field>

@@ -1,6 +1,6 @@
 // TEMPORARY: a page for eyeballing mock data in the browser. Delete before the demo.
 import type { ReactNode } from "react";
-import { BUILDINGS, walkingMins, type BuildingId } from "@/lib/buildings";
+import { BUILDINGS, travelLabel, travelTime, type BuildingId } from "@/lib/buildings";
 import { isDemoMode } from "@/lib/config";
 import { MOCK_DEADLINES, MOCK_SEATS, MOCK_SOCIETY_EVENTS, MOCK_TIMETABLE } from "@/lib/mock";
 
@@ -132,14 +132,16 @@ export default function DebugPage() {
 
       <Section title="Buildings" count={buildingIds.length}>
         <Table
-          headers={["Id", "Name", "Lat", "Lng", "Library", "Walk from Roberts"]}
+          headers={["Id", "Name", "Area", "Kind", "Lat", "Lng", "Library", "Travel from Roberts"]}
           rows={buildingIds.map((id) => [
             <code key="id">{id}</code>,
             BUILDINGS[id].name,
+            BUILDINGS[id].area,
+            BUILDINGS[id].kind,
             BUILDINGS[id].lat.toFixed(4),
             BUILDINGS[id].lng.toFixed(4),
             BUILDINGS[id].isLibrary ? "yes" : "",
-            `${walkingMins("roberts", id)} min`,
+            ((trip) => travelLabel(trip.mins, trip.mode))(travelTime("roberts", id)),
           ])}
         />
       </Section>

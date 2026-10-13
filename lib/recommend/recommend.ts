@@ -6,7 +6,7 @@
 
 import Anthropic from "@anthropic-ai/sdk";
 import { betaTool } from "@anthropic-ai/sdk/helpers/beta/json-schema";
-import { BUILDINGS, walkingMins, type BuildingId } from "../buildings";
+import { BUILDINGS, travelTime, type BuildingId, type TravelMode } from "../buildings";
 import { deadlinesFromList, getProviders } from "../providers";
 import type { Deadline, Gap, IsoDateTime, Recommendation, RecommendationOption, SeatAvailability } from "../types";
 import { SYSTEM_PROMPT } from "./system-prompt";
@@ -46,6 +46,13 @@ const debug = (...args: unknown[]) => {
 const isBuildingId = (x: unknown): x is BuildingId =>
   typeof x === "string" && (BUILDING_IDS as string[]).includes(x);
 
+/** travelTime as tool-result fields, e.g. suffix "FromNear" gives { minsFromNear, modeFromNear }. */
+function travelFields<S extends string>(suffix: S, from: BuildingId, to: BuildingId) {
+  const { mins, mode } = travelTime(from, to);
+  return { [`mins${suffix}`]: mins, [`mode${suffix}`]: mode } as Record<`mins${S}`, number> &
+    Record<`mode${S}`, TravelMode>;
+}
+
 /**
  * `eventIds` collects every society event Claude was shown, so we can enforce type "event".
  * `seatsSeen` keeps the seat counts Claude was shown, so the UI's badges match the reason text.
@@ -66,11 +73,11 @@ function makeTools(
   const getFreeSeats = betaTool({
     name: "get_free_seats",
     description:
-      "Live free-seat counts for UCL libraries, sorted by walking time from `near`. Each entry includes walk minutes from `near` and onward to the student's next lecture.",
+      "Live free-seat counts for UCL libraries, sorted by travel time from `near`. Each entry includes travel minutes and mode (walk or tube) from `near` and onward to the student's next lecture.",
     inputSchema: {
       type: "object",
       properties: {
-        near: { type: "string", enum: BUILDING_IDS, description: "Building id to measure walks from." },
+        near: { type: "string", enum: BUILDING_IDS, description: "Building id to measure travel from." },
       },
       required: ["near"],
       additionalProperties: false,
@@ -86,11 +93,11 @@ function makeTools(
           name: s.name,
           available: s.available,
           total: s.total,
-          walkMinsFromNear: walkingMins(from, s.libraryId),
-          walkMinsToNextLecture: walkingMins(s.libraryId, next),
+          ...travelFields("FromNear", from, s.libraryId),
+          ...travelFields("ToNextLecture", s.libraryId, next),
           updatedAt: fmt(s.updatedAt),
         }))
-        .sort((a, b) => a.walkMinsFromNear - b.walkMinsFromNear);
+        .sort((a, b) => a.minsFromNear - b.minsFromNear);
       return JSON.stringify(rows);
     },
   });
@@ -98,7 +105,7 @@ function makeTools(
   const getEventsInWindow = betaTool({
     name: "get_events_in_window",
     description:
-      "Society events that overlap a time window. Pass ISO 8601 timestamps with offset (e.g. the gap's start and end). Walk minutes are from the student's current location when the venue is on campus.",
+      "Society events that overlap a time window. Pass ISO 8601 timestamps with offset (e.g. the gap's start and end). Travel minutes and mode (walk or tube) are from the student's current location when the venue is a UCL building.",
     inputSchema: {
       type: "object",
       properties: {
@@ -122,8 +129,9 @@ function makeTools(
         starts: fmt(e.start),
         ends: fmtTime(e.end),
         venue: e.venue,
-        walkMinsFromHere: e.buildingId ? walkingMins(here, e.buildingId) : "off campus",
-        walkMinsToNextLecture: e.buildingId ? walkingMins(e.buildingId, next) : "off campus",
+        ...(e.buildingId
+          ? { ...travelFields("FromHere", here, e.buildingId), ...travelFields("ToNextLecture", e.buildingId, next) }
+          : { minsFromHere: "off campus", minsToNextLecture: "off campus" }),
         free: e.free,
         tags: e.tags,
       }));
@@ -185,12 +193,13 @@ const OPTION_SCHEMA = {
     title: { type: "string" },
     type: { type: "string", enum: ["study", "event", "rest"] },
     place: { type: "string" },
-    walkMins: { type: "integer" },
+    travelMins: { type: "integer" },
+    travelMode: { type: "string", enum: ["walk", "tube"] },
     reason: { type: "string" },
     relatedId: { anyOf: [{ type: "string" }, { type: "null" }] },
     libraryId: { anyOf: [{ type: "string", enum: LIBRARY_IDS }, { type: "null" }] },
   },
-  required: ["title", "type", "place", "walkMins", "reason", "relatedId", "libraryId"],
+  required: ["title", "type", "place", "travelMins", "travelMode", "reason", "relatedId", "libraryId"],
   additionalProperties: false,
 } as const;
 
@@ -229,7 +238,8 @@ function describeGap(gap: Gap, dayGaps: Gap[]): string {
         starts: fmtTime(gap.nextEvent.start),
         room: gap.nextEvent.room,
         buildingId: gap.nextLocationId,
-        walkMinsFromCurrentLocation: gap.walkMins,
+        travelMinsFromCurrentLocation: gap.travelMins,
+        travelMode: gap.travelMode,
       },
       otherGapsToday,
     },
@@ -248,7 +258,8 @@ function toOption(
     typeof o?.title !== "string" ||
     !["study", "event", "rest"].includes(o.type as string) ||
     typeof o.place !== "string" ||
-    typeof o.walkMins !== "number" ||
+    typeof o.travelMins !== "number" ||
+    !["walk", "tube"].includes(o.travelMode as string) ||
     typeof o.reason !== "string"
   ) {
     throw new Error("Claude returned a malformed option");
@@ -259,7 +270,8 @@ function toOption(
     title: o.title,
     type: isSocietyEvent ? "event" : (o.type as RecommendationOption["type"]),
     place: o.place,
-    walkMins: o.walkMins,
+    travelMins: o.travelMins,
+    travelMode: o.travelMode as RecommendationOption["travelMode"],
     reason: o.reason,
     ...(typeof o.relatedId === "string" && o.relatedId ? { relatedId: o.relatedId } : {}),
     ...(seat ? { seats: { available: seat.available, total: seat.total, updatedAt: seat.updatedAt } } : {}),
