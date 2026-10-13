@@ -1,4 +1,4 @@
-import { isDemoMode } from "../config";
+import { toSlug } from "../societies/slug";
 import type { Society } from "../types";
 import { mockProviders } from "./mock";
 import { societyEventsProvider } from "./societies";
@@ -8,7 +8,7 @@ export { deadlinesFromList } from "./mock";
 
 export type * from "./types";
 
-/** Scraping a few societies plus a Claude call each can take a while, but not this long. */
+/** Scraping a few societies and their event pages can take a while, but not this long. */
 const EVENTS_TIMEOUT_MS = 20_000;
 
 /**
@@ -20,11 +20,11 @@ export function getProviders(): Providers {
 }
 
 /**
- * Society events for the student's societies: real SU pages, unless we're in demo mode or
- * they haven't picked any. A throw or timeout falls back to the mock events.
+ * Society events for the student's societies: real SU pages, even in demo mode (scraping
+ * costs no API tokens). Mock events when they haven't picked any, or on a throw or timeout.
  */
 export function eventsFor(societies?: Society[]): EventsProvider {
-  if (isDemoMode() || !societies?.length) return mockProviders.events;
+  if (!societies?.length) return mockProviders.events;
   const real = societyEventsProvider(societies);
   return {
     async getEvents(start, end) {
@@ -33,6 +33,30 @@ export function eventsFor(societies?: Society[]): EventsProvider {
       } catch (err) {
         console.error("[providers] society events failed, using mock:", err);
         return mockProviders.events.getEvents(start, end);
+      }
+    },
+  };
+}
+
+/**
+ * One society's events, for the Societies tab (which loads each society on its own).
+ * Unlike eventsFor(), the mock fallback only has this society's mock events, if any.
+ */
+export function eventsForSociety(society: Society): EventsProvider {
+  const mock: EventsProvider = {
+    async getEvents(start, end) {
+      const events = await mockProviders.events.getEvents(start, end);
+      return events.filter((ev) => toSlug(ev.society) === society.slug);
+    },
+  };
+  const real = societyEventsProvider([society]);
+  return {
+    async getEvents(start, end) {
+      try {
+        return await withTimeout(real.getEvents(start, end), EVENTS_TIMEOUT_MS);
+      } catch (err) {
+        console.error(`[providers] ${society.slug} events failed, using mock:`, err);
+        return mock.getEvents(start, end);
       }
     },
   };

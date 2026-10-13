@@ -113,6 +113,25 @@ export function getBuilding(id: BuildingId): Building {
   return BUILDINGS[id];
 }
 
+/**
+ * The UCL building a free-text venue is in, e.g. "Roberts G06 Sir Ambrose Fleming LT" → "roberts".
+ * Matches whole words of a building's name or short name; the longest match wins, so
+ * "Main Library" beats "Main Building". Undefined when nothing matches: we never guess.
+ */
+export function matchBuilding(venue: string): BuildingId | undefined {
+  const text = ` ${venue.toLowerCase().replace(/[^a-z0-9]+/g, " ")} `;
+  let best: { id: BuildingId; length: number } | undefined;
+  for (const id of Object.keys(BUILDINGS) as BuildingId[]) {
+    for (const label of [BUILDINGS[id].name, BUILDINGS[id].shortName]) {
+      const words = label.toLowerCase().replace(/\(.*?\)/g, "").replace(/[^a-z0-9]+/g, " ").trim();
+      if (words && text.includes(` ${words} `) && (!best || words.length > best.length)) {
+        best = { id, length: words.length };
+      }
+    }
+  }
+  return best?.id;
+}
+
 interface LatLng {
   lat: number;
   lng: number;

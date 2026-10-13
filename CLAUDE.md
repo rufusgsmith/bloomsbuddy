@@ -8,14 +8,14 @@ Hackathon project for the UCL Claude Campus Hackathon (Fri 16 Oct 2026, "Better 
 UCL students have gaps between lectures and waste them. Bloomsbuddy finds the gaps in a student's timetable and uses Claude to recommend the best thing to do in each one: **a top pick + 2 alternatives, each with a reason**. Inputs:
 - **Timetable and Moodle deadlines**: added by uploading screenshots, which Claude reads with vision
 - **Estimated library busyness**: one real seat snapshot (Tue 11:40) scaled by time of day and weekday. The live UCL seat page is behind Cloudflare's bot check, so seats are mock only and there is no scraper
-- **Society events**: scraped from Students' Union pages, then read by Claude Haiku
+- **Society events**: scraped straight from each society's Students' Union `/events` page (no Claude, no tokens). Students add a society by pasting its SU page link
 - **Location**: inferred from the previous lecture's room, with a manual override
 
 **Voice**: warm, casual, a bit cheeky. Like a friend who knows UCL's campus.
 
 ## Stack (keep it minimal)
 - Next.js (App Router) + TypeScript + Tailwind
-- `@anthropic-ai/sdk`: `claude-sonnet-5-5` for recommendations and screenshot extraction, `claude-haiku-5-5` for society page extraction (`MODEL` / `FAST_MODEL` in `lib/claude-json.ts`). Haiku 5.5 rejects a non-default `temperature`, so don't set one
+- `@anthropic-ai/sdk`: `claude-sonnet-5-5` for recommendations and screenshot extraction (`MODEL` in `lib/claude-json.ts`). `FAST_MODEL` (`claude-haiku-5-5`) is defined but currently unused; Haiku 5.5 rejects a non-default `temperature`, so don't set one
 - `cheerio` for scraping
 - `localStorage` for user data: no database, no login
 - Deployed on Vercel
@@ -25,6 +25,7 @@ Every data source sits behind a **provider interface** with a `mock` and a `real
 - Build against mock data first.
 - **Demo mode must always keep working as a fallback.** It's ON unless `DEMO_MODE=false`, so a missing env var can't break the demo.
 - If a real provider throws or times out, fall back to its mock and don't crash the page.
+- Exception: society events are always scraped live, even in demo mode (it costs no API tokens). Mock events only when the student has no societies or the SU site fails.
 
 ## Time rules (important)
 - Everything is **Europe/London**. Servers (Vercel) run in UTC, so never rely on the machine's local time.
@@ -38,10 +39,10 @@ Every data source sits behind a **provider interface** with a `mock` and a `real
 - `lib/buildings.ts`: UCL building coordinates + `walkingMins()`
 - `lib/config.ts`: `isDemoMode()`
 - `lib/mock/`: one realistic student week, written as Mon 12 – Fri 16 Oct 2026 and moved to the current London week on every call (`week.ts`; at the weekend, next week)
-- `lib/providers/`: provider interfaces + mocks; `societies.ts` is the real SU events provider (cached for an hour per society per day with `'use cache: remote'`, shared across Vercel instances)
+- `lib/providers/`: provider interfaces + mocks; `societies.ts` is the real SU events provider (scraped on every request, no cache; parallel requests share one in-flight scrape per society)
 - `lib/library-busyness.ts`: library busyness estimates (not a provider; Claude and the UI only see the level, never seat numbers)
-- `lib/societies/su-site.ts`: SU website fetching and society lookup (cheerio)
-- `lib/societies/slug.ts`: society name → SU slug. Pure, so client components can use it
+- `lib/societies/su-site.ts`: SU website fetching, society lookup by slug, and event parsing (cheerio): `/events` cards + each event's page for venue and the "Free" tag
+- `lib/societies/slug.ts`: SU page link → slug (`slugFromLink`) and society name → slug. Pure, so client components can use it
 - `lib/bot-check.ts`: detects bot walls (Cloudflare's "Just a moment…" etc.) and `BlockedError`
 - `lib/claude-json.ts`: shared schema-constrained Claude call
 
