@@ -1,11 +1,12 @@
 "use client";
 
-import { useMemo, useSyncExternalStore } from "react";
+import { useRouter } from "next/navigation";
+import { useEffect, useMemo, useSyncExternalStore } from "react";
 import { eventsOnDay, findGaps, londonDateKey } from "@/lib/gaps";
 import { parseHome, readRawHome, subscribeHome } from "@/lib/home";
 import { addDays, dayOfWeek, londonTodayKey } from "@/lib/london-time";
 import { demoMonday, mockTimetable } from "@/lib/mock";
-import { parseUserData, readRawUserData, subscribeUserData } from "@/lib/storage";
+import { onboardingSkipped, parseUserData, readRawUserData, subscribeUserData } from "@/lib/storage";
 import { parseTodos, readRawTodos, subscribeTodos } from "@/lib/todos";
 import { expandWeekly } from "@/lib/timetable";
 import type { UserData } from "@/lib/types";
@@ -13,6 +14,7 @@ import { TodayTimeline, type Day } from "./today-timeline";
 
 /**
  * Shows the student's own timetable when they've saved one, otherwise the demo week.
+ * A first-time visitor (nothing saved, onboarding not skipped) is sent to /setup instead.
  * localStorage only exists in the browser, so the server renders a skeleton and the
  * real content appears right after hydration (no flash of the demo week).
  */
@@ -28,9 +30,14 @@ export function Home() {
   const userDays = useMemo(() => (user ? buildDays(user) : null), [user]);
   // Only built in the browser, once we know there's no usable saved timetable, so the server
   // never renders a week from its own clock.
-  const demo = useMemo(() => (raw !== null && !user ? buildDemo() : null), [raw, user]);
+  const firstVisit = raw === "" && !onboardingSkipped();
+  const demo = useMemo(() => (raw !== null && !user && !firstVisit ? buildDemo() : null), [raw, user, firstVisit]);
+  const router = useRouter();
+  useEffect(() => {
+    if (firstVisit) router.replace("/setup");
+  }, [firstVisit, router]);
 
-  if (raw === null) return <Skeleton />;
+  if (raw === null || firstVisit) return <Skeleton />;
   if (!user || !userDays) {
     if (!demo) return <Skeleton />;
     return (

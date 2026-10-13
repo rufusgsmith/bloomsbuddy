@@ -2,9 +2,9 @@ import type { Metadata } from "next";
 import { SetupFlow } from "./setup-flow";
 
 export const metadata: Metadata = {
-  title: "Your timetable · Bloomsbuddy",
+  title: "Get set up · Bloomsbuddy",
 };
 
 export default function SetupPage() {
-  return <SetupFlow />;
+  return <SetupFlow mode="onboarding" />;
 }

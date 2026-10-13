@@ -5,7 +5,7 @@ import { useState } from "react";
 import { BUILDINGS } from "@/lib/buildings";
 import { formatDuration, formatDurationShort } from "@/lib/duration";
 import { homeLabel, homeLocation } from "@/lib/home";
-import { mondayOf } from "@/lib/london-time";
+import { londonTodayKey, mondayOf, relativeDayLabel } from "@/lib/london-time";
 import type { Deadline, Gap, Home, Recommendation, Society, TimetableEvent, Todo } from "@/lib/types";
 import { HomeSheet } from "./home-sheet";
 import { RecommendationPanel, type RecState } from "./recommendation-card";
@@ -27,6 +27,12 @@ const londonDayMonth = new Intl.DateTimeFormat("en-GB", {
   timeZone: "Europe/London",
   day: "numeric",
   month: "short",
+});
+const londonFullDate = new Intl.DateTimeFormat("en-GB", {
+  timeZone: "Europe/London",
+  weekday: "long",
+  day: "numeric",
+  month: "long",
 });
 
 const time = (iso: string) => londonTime.format(new Date(iso));
@@ -149,22 +155,23 @@ export function TodayTimeline({
           <p className="text-sm font-medium text-emerald-600 dark:text-emerald-400">Bloomsbuddy</p>
           {mode === "user" && (
             <Link
-              href="/setup"
+              href="/timetable"
               className="rounded-full px-3 py-1.5 text-sm text-zinc-600 hover:bg-zinc-100 dark:text-zinc-400 dark:hover:bg-zinc-900"
             >
               Edit timetable
             </Link>
           )}
         </div>
+        {/* Only rendered in the browser (<Home> shows a skeleton on the server), so reading today here can't mismatch. */}
         <h1 className="text-3xl font-semibold tracking-tight">
-          Today{" "}
-          {day && (
-            <span className="text-zinc-400 dark:text-zinc-500">
-              · {londonWeekday.format(dayDate(day.dateKey))} {londonDayMonth.format(dayDate(day.dateKey))}
-            </span>
-          )}
+          {day ? relativeDayLabel(day.dateKey, londonTodayKey()) : "Today"}
         </h1>
-        {day && <p className="mt-1 text-sm text-zinc-600 dark:text-zinc-400">{tagline(day.gaps)}</p>}
+        {day && (
+          <>
+            <p className="text-zinc-500 dark:text-zinc-400">{londonFullDate.format(dayDate(day.dateKey))}</p>
+            <p className="mt-1 text-sm text-zinc-600 dark:text-zinc-400">{tagline(day.gaps)}</p>
+          </>
+        )}
         <div className="mt-3 flex flex-wrap gap-2">
           <button
             type="button"
