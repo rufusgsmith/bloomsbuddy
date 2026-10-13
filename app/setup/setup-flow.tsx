@@ -11,9 +11,10 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useEffect, useRef, useState, useSyncExternalStore, type ReactNode } from "react";
 import { BUILDINGS, type BuildingId } from "@/lib/buildings";
+import { Field, inputClass } from "../form-ui";
+import { SocietyPicker } from "../society-picker";
 import { blankDraft, deadlineProblem, fromDraft, newId, toDraft, type DraftDeadline } from "@/lib/deadline-draft";
 import { addDays, isDateKey, isWallTime, londonTodayKey, mondayOf } from "@/lib/london-time";
-import { isSlug, toSlug } from "@/lib/societies/slug";
 import { clearUserData, parseUserData, readRawUserData, saveUserData, subscribeUserData } from "@/lib/storage";
 import type { Deadline, Society, TimetableEvent, UserData, WeeklyClass } from "@/lib/types";
 
@@ -583,13 +584,6 @@ function DeadlineRow({
 
 // ---------- Step 3: societies ----------
 
-type LookupState =
-  | { status: "idle" }
-  | { status: "checking" }
-  | { status: "error"; message: string }
-  /** The name didn't match a page: let them type the slug from the SU page's address instead. */
-  | { status: "not-found"; typed: string; slug: string; checkingSlug?: boolean; slugError?: string };
-
 function SocietiesStep({
   societies,
   setSocieties,
@@ -601,138 +595,17 @@ function SocietiesStep({
   onBack: () => void;
   onNext: () => void;
 }) {
-  const [name, setName] = useState("");
-  const [lookup, setLookup] = useState<LookupState>({ status: "idle" });
-
-  function keep(found: Society) {
-    if (!societies.some((s) => s.slug === found.slug)) setSocieties([...societies, found]);
-    setName("");
-    setLookup({ status: "idle" });
-  }
-
-  async function add() {
-    const typed = name.trim();
-    if (!typed || lookup.status === "checking") return;
-    setLookup({ status: "checking" });
-    try {
-      const res = await fetch(`/api/societies/lookup?name=${encodeURIComponent(typed)}`);
-      if (res.status === 404) {
-        setLookup({ status: "not-found", typed, slug: toSlug(typed) });
-        return;
-      }
-      if (!res.ok) throw new Error(`HTTP ${res.status}`);
-      keep((await res.json()) as Society);
-    } catch (err) {
-      console.warn("[societies]", err);
-      setLookup({ status: "error", message: "Couldn't reach the SU website just now. Give it another go in a sec." });
-    }
-  }
-
-  async function trySlug() {
-    if (lookup.status !== "not-found" || lookup.checkingSlug) return;
-    const slug = lookup.slug.trim().toLowerCase();
-    if (!isSlug(slug)) {
-      setLookup({ ...lookup, slugError: "Slugs are lowercase words joined by dashes, like jazz-society." });
-      return;
-    }
-    setLookup({ ...lookup, checkingSlug: true, slugError: undefined });
-    try {
-      const res = await fetch(`/api/societies/lookup?slug=${encodeURIComponent(slug)}`);
-      if (res.status === 404) {
-        setLookup({ ...lookup, slug, checkingSlug: false, slugError: `No page at /clubs-societies/${slug} either. Check the address bar on the SU page.` });
-        return;
-      }
-      if (!res.ok) throw new Error(`HTTP ${res.status}`);
-      keep((await res.json()) as Society);
-    } catch (err) {
-      console.warn("[societies]", err);
-      setLookup({ ...lookup, checkingSlug: false, slugError: "Couldn't reach the SU website just now. Give it another go in a sec." });
-    }
-  }
-
   return (
     <section className="flex flex-col gap-5">
       <div>
         <h2 className="text-lg font-semibold">My societies</h2>
         <p className="mt-1 text-sm text-zinc-600 dark:text-zinc-400">
-          Which clubs and societies are you in? I&apos;ll check their SU pages for events that fit your gaps (free
-          pizza included). You can skip this.
+          Which clubs and societies are you in? Paste the link to each one&apos;s SU page and I&apos;ll check it for
+          events that fit your gaps (free pizza included). You can skip this.
         </p>
       </div>
 
-      <form
-        className="flex items-end gap-2"
-        onSubmit={(e) => {
-          e.preventDefault();
-          add();
-        }}
-      >
-        <div className="flex-1">
-          <Field label="Society name">
-            <input
-              className={inputClass}
-              value={name}
-              onChange={(e) => {
-                setName(e.target.value);
-                if (lookup.status === "error" || lookup.status === "not-found") setLookup({ status: "idle" });
-              }}
-              placeholder="e.g. Chess Society"
-              autoComplete="off"
-            />
-          </Field>
-        </div>
-        <button
-          type="submit"
-          disabled={!name.trim() || lookup.status === "checking"}
-          className="min-h-11 shrink-0 rounded-full bg-emerald-600 px-4 text-sm font-medium text-white hover:bg-emerald-700 disabled:cursor-not-allowed disabled:opacity-40 dark:bg-emerald-500 dark:text-emerald-950 dark:hover:bg-emerald-400"
-        >
-          {lookup.status === "checking" ? "Checking…" : "Add"}
-        </button>
-      </form>
-
-      {lookup.status === "error" && (
-        <p role="alert" className="text-sm text-red-600 dark:text-red-400">
-          {lookup.message}
-        </p>
-      )}
-
-      {lookup.status === "not-found" && (
-        <form
-          className="flex flex-col gap-2 rounded-xl border border-amber-300 bg-amber-50 p-4 dark:border-amber-800 dark:bg-amber-950/40"
-          onSubmit={(e) => {
-            e.preventDefault();
-            trySlug();
-          }}
-        >
-          <p role="alert" className="text-sm">
-            Couldn&apos;t find &ldquo;{lookup.typed}&rdquo; on the SU site. Open its page on studentsunionucl.org and copy the
-            bit after <span className="font-mono">/clubs-societies/</span> in the address:
-          </p>
-          <div className="flex items-end gap-2">
-            <div className="flex-1">
-              <Field label="Page slug">
-                <input
-                  className={`${inputClass} font-mono`}
-                  value={lookup.slug}
-                  onChange={(e) => setLookup({ ...lookup, slug: e.target.value, slugError: undefined })}
-                  placeholder="e.g. jazz-society"
-                  autoComplete="off"
-                  autoCapitalize="off"
-                  spellCheck={false}
-                />
-              </Field>
-            </div>
-            <button
-              type="submit"
-              disabled={!lookup.slug.trim() || lookup.checkingSlug}
-              className="min-h-11 shrink-0 rounded-full bg-emerald-600 px-4 text-sm font-medium text-white hover:bg-emerald-700 disabled:cursor-not-allowed disabled:opacity-40 dark:bg-emerald-500 dark:text-emerald-950 dark:hover:bg-emerald-400"
-            >
-              {lookup.checkingSlug ? "Checking…" : "Try this"}
-            </button>
-          </div>
-          {lookup.slugError && <p className="text-sm text-red-600 dark:text-red-400">{lookup.slugError}</p>}
-        </form>
-      )}
+      <SocietyPicker existing={societies} onAdd={(s) => setSocieties([...societies, s])} />
 
       {societies.length > 0 && (
         <ul className="flex flex-col gap-2">
@@ -1079,17 +952,7 @@ function Uploader<K extends "timetable" | "deadlines">({
 
 // ---------- Small bits ----------
 
-const inputClass =
-  "min-h-11 w-full rounded-lg border border-zinc-300 bg-white px-2.5 text-base text-zinc-900 dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-100 sm:text-sm";
 
-function Field({ label, children }: { label: string; children: ReactNode }) {
-  return (
-    <label className="flex min-w-0 flex-col gap-1">
-      <span className="text-xs font-medium text-zinc-500">{label}</span>
-      {children}
-    </label>
-  );
-}
 
 function RemoveButton({ label, onClick }: { label: string; onClick: () => void }) {
   return (
