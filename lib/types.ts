@@ -92,6 +92,8 @@ export interface RecommendationOption {
   reason: string;
   /** id of the related Deadline / SocietyEvent / library BuildingId, if any. */
   relatedId?: string;
+  /** Free-seat snapshot for study picks in a library (the same numbers Claude saw). */
+  seats?: { available: number; total: number; updatedAt: IsoDateTime };
 }
 
 export interface Recommendation {

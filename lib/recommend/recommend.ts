@@ -8,7 +8,7 @@ import Anthropic from "@anthropic-ai/sdk";
 import { betaTool } from "@anthropic-ai/sdk/helpers/beta/json-schema";
 import { BUILDINGS, walkingMins, type BuildingId } from "../buildings";
 import { getProviders } from "../providers";
-import type { Gap, IsoDateTime, Recommendation, RecommendationOption } from "../types";
+import type { Gap, IsoDateTime, Recommendation, RecommendationOption, SeatAvailability } from "../types";
 import { SYSTEM_PROMPT } from "./system-prompt";
 
 const MODEL = "claude-sonnet-5-5";
@@ -16,6 +16,7 @@ const MODEL = "claude-sonnet-5-5";
 const USD_PER_MTOK_IN = 2;
 const USD_PER_MTOK_OUT = 10;
 const BUILDING_IDS = Object.keys(BUILDINGS) as BuildingId[];
+const LIBRARY_IDS = BUILDING_IDS.filter((id) => BUILDINGS[id].isLibrary);
 
 const londonDateTime = new Intl.DateTimeFormat("en-GB", {
   timeZone: "Europe/London",
@@ -45,8 +46,11 @@ const debug = (...args: unknown[]) => {
 const isBuildingId = (x: unknown): x is BuildingId =>
   typeof x === "string" && (BUILDING_IDS as string[]).includes(x);
 
-/** `eventIds` collects every society event Claude was shown, so we can enforce type "event". */
-function makeTools(gap: Gap, eventIds: Set<string>, dayGaps: Gap[]) {
+/**
+ * `eventIds` collects every society event Claude was shown, so we can enforce type "event".
+ * `seatsSeen` keeps the seat counts Claude was shown, so the UI's badges match the reason text.
+ */
+function makeTools(gap: Gap, eventIds: Set<string>, seatsSeen: Map<string, SeatAvailability>, dayGaps: Gap[]) {
   const providers = getProviders();
   const here = gap.locationId;
   const next = gap.nextLocationId;
@@ -67,6 +71,7 @@ function makeTools(gap: Gap, eventIds: Set<string>, dayGaps: Gap[]) {
       debug("tool get_free_seats", { near });
       const from = isBuildingId(near) ? near : here;
       const seats = await providers.seats.getSeats();
+      for (const s of seats) seatsSeen.set(s.libraryId, s);
       const rows = seats
         .map((s) => ({
           libraryId: s.libraryId,
@@ -175,8 +180,9 @@ const OPTION_SCHEMA = {
     walkMins: { type: "integer" },
     reason: { type: "string" },
     relatedId: { anyOf: [{ type: "string" }, { type: "null" }] },
+    libraryId: { anyOf: [{ type: "string", enum: LIBRARY_IDS }, { type: "null" }] },
   },
-  required: ["title", "type", "place", "walkMins", "reason", "relatedId"],
+  required: ["title", "type", "place", "walkMins", "reason", "relatedId", "libraryId"],
   additionalProperties: false,
 } as const;
 
@@ -224,7 +230,11 @@ function describeGap(gap: Gap, dayGaps: Gap[]): string {
   );
 }
 
-function toOption(raw: unknown, eventIds: Set<string>): RecommendationOption {
+function toOption(
+  raw: unknown,
+  eventIds: Set<string>,
+  seatsSeen: Map<string, SeatAvailability>,
+): RecommendationOption {
   const o = raw as Record<string, unknown>;
   if (
     typeof o?.title !== "string" ||
@@ -236,6 +246,7 @@ function toOption(raw: unknown, eventIds: Set<string>): RecommendationOption {
     throw new Error("Claude returned a malformed option");
   }
   const isSocietyEvent = typeof o.relatedId === "string" && eventIds.has(o.relatedId);
+  const seat = typeof o.libraryId === "string" ? seatsSeen.get(o.libraryId) : undefined;
   return {
     title: o.title,
     type: isSocietyEvent ? "event" : (o.type as RecommendationOption["type"]),
@@ -243,19 +254,21 @@ function toOption(raw: unknown, eventIds: Set<string>): RecommendationOption {
     walkMins: o.walkMins,
     reason: o.reason,
     ...(typeof o.relatedId === "string" && o.relatedId ? { relatedId: o.relatedId } : {}),
+    ...(seat ? { seats: { available: seat.available, total: seat.total, updatedAt: seat.updatedAt } } : {}),
   };
 }
 
 export async function recommendForGap(gap: Gap, dayGaps: Gap[] = []): Promise<Recommendation> {
   const client = new Anthropic(); // reads ANTHROPIC_API_KEY
   const eventIds = new Set<string>();
+  const seatsSeen = new Map<string, SeatAvailability>();
 
   const runner = client.beta.messages.toolRunner({
     model: MODEL,
     max_tokens: 8000,
     max_iterations: 6,
     system: SYSTEM_PROMPT,
-    tools: makeTools(gap, eventIds, dayGaps),
+    tools: makeTools(gap, eventIds, seatsSeen, dayGaps),
     // "low" effort keeps thinking (billed as output) short: picking 3 options doesn't need deep reasoning.
     output_config: { effort: "low", format: { type: "json_schema", schema: OUTPUT_SCHEMA } },
     messages: [
@@ -289,10 +302,18 @@ export async function recommendForGap(gap: Gap, dayGaps: Gap[] = []): Promise<Re
     throw new Error(`Expected 2 alternatives, got ${parsed.alternatives?.length}`);
   }
 
+  // Claude should always call get_free_seats, but if it didn't, fetch counts once for the badges.
+  if (seatsSeen.size === 0) {
+    for (const s of await getProviders().seats.getSeats()) seatsSeen.set(s.libraryId, s);
+  }
+
   return {
     gapId: gap.id,
-    top: toOption(parsed.top, eventIds),
-    alternatives: [toOption(parsed.alternatives[0], eventIds), toOption(parsed.alternatives[1], eventIds)],
+    top: toOption(parsed.top, eventIds, seatsSeen),
+    alternatives: [
+      toOption(parsed.alternatives[0], eventIds, seatsSeen),
+      toOption(parsed.alternatives[1], eventIds, seatsSeen),
+    ],
     generatedAt: new Date().toISOString(),
   };
 }

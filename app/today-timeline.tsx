@@ -2,7 +2,8 @@
 
 import { useState } from "react";
 import { BUILDINGS } from "@/lib/buildings";
-import type { Gap, TimetableEvent } from "@/lib/types";
+import type { Gap, Recommendation, TimetableEvent } from "@/lib/types";
+import { RecommendationPanel, type RecState } from "./recommendation-card";
 
 export interface Day {
   dateKey: string; // "YYYY-MM-DD", London calendar day
@@ -49,6 +50,8 @@ export function TodayTimeline({ days, initialDateKey }: { days: Day[]; initialDa
     days.some((d) => d.dateKey === initialDateKey) ? initialDateKey : days[0]?.dateKey,
   );
   const [openGapId, setOpenGapId] = useState<string | null>(null);
+  // Cached per gap, so collapsing and reopening a gap doesn't call Claude (and spend tokens) again.
+  const [recs, setRecs] = useState<Record<string, RecState>>({});
 
   const day = days.find((d) => d.dateKey === dateKey);
   const items: Item[] = day
@@ -57,6 +60,34 @@ export function TodayTimeline({ days, initialDateKey }: { days: Day[]; initialDa
         ...day.gaps.map((gap): Item => ({ kind: "gap", gap })),
       ].sort((a, b) => Date.parse(startOf(a)) - Date.parse(startOf(b)))
     : [];
+
+  async function loadRec(gap: Gap, dayGaps: Gap[]) {
+    setRecs((r) => ({ ...r, [gap.id]: { status: "loading" } }));
+    let next: RecState;
+    try {
+      const res = await fetch("/api/recommend", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ gap, dayGaps }),
+      });
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      next = { status: "ok", rec: (await res.json()) as Recommendation };
+    } catch (err) {
+      console.warn("[recommend]", err); // warn, not error: the fallback handles it, so no dev-overlay alarm
+      next = { status: "error" };
+    }
+    // Keyed by gap id, so a slow reply can never land on a different gap.
+    setRecs((r) => ({ ...r, [gap.id]: next }));
+  }
+
+  function toggleGap(gap: Gap) {
+    if (openGapId === gap.id) {
+      setOpenGapId(null);
+      return;
+    }
+    setOpenGapId(gap.id);
+    if (!recs[gap.id] && day) void loadRec(gap, day.gaps);
+  }
 
   return (
     <main className="mx-auto w-full max-w-md px-4 pb-16 pt-8">
@@ -115,7 +146,9 @@ export function TodayTimeline({ days, initialDateKey }: { days: Day[]; initialDa
                 <GapBlock
                   gap={item.gap}
                   open={openGapId === item.gap.id}
-                  onToggle={() => setOpenGapId(openGapId === item.gap.id ? null : item.gap.id)}
+                  onToggle={() => toggleGap(item.gap)}
+                  rec={recs[item.gap.id]}
+                  onRetry={() => day && loadRec(item.gap, day.gaps)}
                 />
               </li>
             ),
@@ -149,46 +182,62 @@ function EventBlock({ event }: { event: TimetableEvent }) {
   );
 }
 
-function GapBlock({ gap, open, onToggle }: { gap: Gap; open: boolean; onToggle: () => void }) {
+function GapBlock({
+  gap,
+  open,
+  onToggle,
+  rec,
+  onRetry,
+}: {
+  gap: Gap;
+  open: boolean;
+  onToggle: () => void;
+  rec: RecState | undefined;
+  onRetry: () => void;
+}) {
   const from = place(gap.locationId);
   const to = place(gap.nextLocationId);
   const sameBuilding = gap.locationId === gap.nextLocationId;
 
+  // The header and the panel are siblings: the panel has its own buttons, and buttons can't nest.
   return (
-    <button
-      type="button"
-      onClick={onToggle}
-      aria-expanded={open}
-      className="block w-full rounded-2xl border-2 border-dashed border-emerald-400 bg-emerald-50 p-4 text-left transition-colors hover:bg-emerald-100 active:bg-emerald-100 dark:border-emerald-700 dark:bg-emerald-950/40 dark:hover:bg-emerald-950/70"
-    >
-      <span className="flex items-center justify-between gap-2 text-sm text-emerald-700 dark:text-emerald-300">
-        <span className="tabular-nums">
-          {time(gap.start)}–{time(gap.end)}
+    <div className="rounded-2xl border-2 border-dashed border-emerald-400 bg-emerald-50 dark:border-emerald-700 dark:bg-emerald-950/40">
+      <button
+        type="button"
+        onClick={onToggle}
+        aria-expanded={open}
+        aria-controls={`${gap.id}-panel`}
+        className="block w-full rounded-2xl p-4 text-left transition-colors hover:bg-emerald-100 active:bg-emerald-100 dark:hover:bg-emerald-950/70"
+      >
+        <span className="flex items-center justify-between gap-2 text-sm text-emerald-700 dark:text-emerald-300">
+          <span className="tabular-nums">
+            {time(gap.start)}–{time(gap.end)}
+          </span>
+          <span aria-hidden className={`transition-transform ${open ? "rotate-180" : ""}`}>
+            ▾
+          </span>
         </span>
-        <span aria-hidden className={`transition-transform ${open ? "rotate-180" : ""}`}>
-          ▾
+        <span className="block mt-1 font-semibold text-emerald-900 dark:text-emerald-100">
+          {duration(gap.durationMins)} free · {duration(gap.usableMins)} usable
         </span>
-      </span>
-      <span className="block mt-1 font-semibold text-emerald-900 dark:text-emerald-100">
-        {duration(gap.durationMins)} free · {duration(gap.usableMins)} usable
-      </span>
-      <span className="block mt-0.5 text-sm text-emerald-800 dark:text-emerald-200">
-        {sameBuilding ? `Staying in ${from}, no walk needed` : `${from} → ${to}, ${gap.walkMins} min walk`}
-      </span>
+        <span className="block mt-0.5 text-sm text-emerald-800 dark:text-emerald-200">
+          {sameBuilding ? `Staying in ${from}, no walk needed` : `${from} → ${to}, ${gap.walkMins} min walk`}
+        </span>
+      </button>
 
       {open && (
-        <span className="block mt-3 border-t border-emerald-200 pt-3 text-sm text-emerald-900 dark:border-emerald-800 dark:text-emerald-100">
-          <span className="block">
-            After <strong>{gap.prevEvent.title}</strong> ({place(gap.prevLocationId)})
-          </span>
-          <span className="block">
-            Before <strong>{gap.nextEvent.title}</strong> at {time(gap.end)} ({gap.nextEvent.room})
-          </span>
-          <span className="block mt-3 italic text-emerald-700 dark:text-emerald-300">
-            Picks for this gap coming soon ✨
-          </span>
-        </span>
+        <div id={`${gap.id}-panel`} className="mx-4 mb-4 border-t border-emerald-200 pt-3 dark:border-emerald-800">
+          <div className="mb-3 text-sm text-emerald-900 dark:text-emerald-100">
+            <p>
+              After <strong>{gap.prevEvent.title}</strong> ({place(gap.prevLocationId)})
+            </p>
+            <p>
+              Before <strong>{gap.nextEvent.title}</strong> at {time(gap.end)} ({gap.nextEvent.room})
+            </p>
+          </div>
+          <RecommendationPanel state={rec ?? { status: "loading" }} onRetry={onRetry} />
+        </div>
       )}
-    </button>
+    </div>
   );
 }

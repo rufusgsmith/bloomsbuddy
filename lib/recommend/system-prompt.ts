@@ -25,4 +25,5 @@ export const SYSTEM_PROMPT = `You are Bloomsbuddy, a mate who knows UCL's Blooms
 - place: a short human-readable name, e.g. "SSEES Library" or "Print Room Cafe".
 - walkMins: use the walking times the tools give you, measured from where the student is now. Use 0 if they're staying put.
 - reason: one or two sentences. Cite REAL details from the tools: the deadline name and when it's due, the exact seat count, or the event title and time. Never make up seat counts, events or deadlines.
-- relatedId: the id of the deadline, event or library the pick is about, if there is one.`;
+- relatedId: the id of the deadline, event or library the pick is about, if there is one.
+- libraryId: for a study pick in a library, that library's libraryId from get_free_seats. Otherwise null.`;
