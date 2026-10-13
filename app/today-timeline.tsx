@@ -3,8 +3,11 @@
 import Link from "next/link";
 import { useState } from "react";
 import { BUILDINGS } from "@/lib/buildings";
+import { formatDuration, formatDurationShort } from "@/lib/duration";
+import { homeLabel, homeLocation } from "@/lib/home";
 import { mondayOf } from "@/lib/london-time";
-import type { Deadline, Gap, Recommendation, Society, TimetableEvent } from "@/lib/types";
+import type { Deadline, Gap, Home, Recommendation, Society, TimetableEvent } from "@/lib/types";
+import { HomeSheet } from "./home-sheet";
 import { RecommendationPanel, type RecState } from "./recommendation-card";
 
 export interface Day {
@@ -31,18 +34,12 @@ const time = (iso: string) => londonTime.format(new Date(iso));
 const dayDate = (dateKey: string) => new Date(`${dateKey}T12:00:00Z`);
 const place = (id: keyof typeof BUILDINGS) => BUILDINGS[id].shortName;
 
-function duration(mins: number): string {
-  const h = Math.floor(mins / 60);
-  const m = Math.round(mins % 60);
-  if (h === 0) return `${m}m`;
-  return m === 0 ? `${h}h` : `${h}h ${m}m`;
-}
 
 function tagline(gaps: Gap[]): string {
   if (gaps.length === 0) return "Back-to-back today. Hydrate and survive 💪";
   const usable = gaps.reduce((sum, g) => sum + g.usableMins, 0);
   const noun = gaps.length === 1 ? "gap" : "gaps";
-  return `${gaps.length} ${noun}, ${duration(usable)} of free time. Let's not waste it.`;
+  return `${gaps.length} ${noun}, ${formatDuration(usable)} of free time. Let's not waste it.`;
 }
 
 type Item = { kind: "event"; event: TimetableEvent } | { kind: "gap"; gap: Gap };
@@ -53,6 +50,7 @@ export function TodayTimeline({
   mode,
   deadlines,
   societies,
+  home,
 }: {
   days: Day[];
   initialDateKey: string;
@@ -62,6 +60,8 @@ export function TodayTimeline({
   deadlines?: Deadline[];
   /** The student's SU societies. Sent with each request so Claude sees their real events. */
   societies?: Society[];
+  /** Where the student lives. null = not set yet. */
+  home: Home | null;
 }) {
   const [dateKey, setDateKey] = useState(
     days.some((d) => d.dateKey === initialDateKey) ? initialDateKey : days[0]?.dateKey,
@@ -69,6 +69,8 @@ export function TodayTimeline({
   const [openGapId, setOpenGapId] = useState<string | null>(null);
   // Cached per gap, so collapsing and reopening a gap doesn't call Claude (and spend tokens) again.
   const [recs, setRecs] = useState<Record<string, RecState>>({});
+  const [homeSheetOpen, setHomeSheetOpen] = useState(false);
+  const homeLoc = homeLocation(home);
 
   const day = days.find((d) => d.dateKey === dateKey);
 
@@ -108,7 +110,13 @@ export function TodayTimeline({
       const res = await fetch("/api/recommend", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ gap, dayGaps, ...(deadlines ? { deadlines } : {}), ...(societies?.length ? { societies } : {}) }),
+        body: JSON.stringify({
+          gap,
+          dayGaps,
+          ...(deadlines ? { deadlines } : {}),
+          ...(societies?.length ? { societies } : {}),
+          ...(homeLoc ? { home: homeLoc } : {}),
+        }),
       });
       if (!res.ok) throw new Error(`HTTP ${res.status}`);
       next = { status: "ok", rec: (await res.json()) as Recommendation };
@@ -152,7 +160,26 @@ export function TodayTimeline({
           )}
         </h1>
         {day && <p className="mt-1 text-sm text-zinc-600 dark:text-zinc-400">{tagline(day.gaps)}</p>}
+        <div className="mt-3 flex flex-wrap gap-2">
+          <button
+            type="button"
+            onClick={() => setHomeSheetOpen(true)}
+            aria-haspopup="dialog"
+            className={`inline-flex min-h-11 max-w-full items-center gap-1.5 rounded-full px-3.5 text-sm font-medium transition-colors ${
+              home
+                ? "bg-zinc-100 text-zinc-800 hover:bg-zinc-200 dark:bg-zinc-900 dark:text-zinc-200 dark:hover:bg-zinc-800"
+                : "border border-dashed border-emerald-500 text-emerald-700 hover:bg-emerald-50 dark:text-emerald-300 dark:hover:bg-emerald-950/40"
+            }`}
+          >
+            <span aria-hidden>🏠</span>
+            <span className="truncate">{home ? `Home: ${homeLabel(home)}` : "Add home"}</span>
+            <span aria-hidden className="text-zinc-400">
+              {home ? "›" : "+"}
+            </span>
+          </button>
+        </div>
       </header>
+      {homeSheetOpen && <HomeSheet home={home} onClose={() => setHomeSheetOpen(false)} />}
 
       {mode === "demo" && (
         <Link
@@ -317,10 +344,10 @@ function GapBlock({
           </span>
         </span>
         <span className="block mt-1 font-semibold text-emerald-900 dark:text-emerald-100">
-          {duration(gap.durationMins)} free · {duration(gap.usableMins)} usable
+          {formatDurationShort(gap.durationMins)} free · {formatDurationShort(gap.usableMins)} usable
         </span>
         <span className="block mt-0.5 text-sm text-emerald-800 dark:text-emerald-200">
-          {sameBuilding ? `Staying in ${from}, no walk needed` : `${from} → ${to}, ${gap.travelMins} min ${gap.travelMode === "tube" ? "by tube" : "walk"}`}
+          {sameBuilding ? `Staying in ${from}, no walk needed` : `${from} → ${to}, ${formatDurationShort(gap.travelMins)} ${gap.travelMode === "tube" ? "by tube" : "walk"}`}
         </span>
       </button>
 

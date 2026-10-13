@@ -1,18 +1,21 @@
 // Asks Claude what to do in a gap. Server-side only (it uses ANTHROPIC_API_KEY).
 //
-// Claude gets three tools backed by the provider interfaces, so it fetches only the data it
-// needs. The SDK's toolRunner handles the call-tool → send-result loop for us. The final answer
+// Claude gets tools backed by the provider interfaces (plus the student's home and mock lunch
+// spots), so it fetches only the data it needs. The SDK's toolRunner handles the call-tool → send-result loop for us. The final answer
 // is constrained by a JSON schema (output_config.format), so we get parseable JSON back.
 
 import Anthropic from "@anthropic-ai/sdk";
 import { betaTool } from "@anthropic-ai/sdk/helpers/beta/json-schema";
-import { BUILDINGS, travelTime, type BuildingId, type TravelMode } from "../buildings";
+import { BUILDINGS, FOOD_SPOTS, travelTime, travelTimeBetween, type BuildingId, type TravelMode } from "../buildings";
 import { estimateBusyness } from "../library-busyness";
+import { formatDuration } from "../duration";
+import { lunchInfo } from "../lunch";
 import { deadlinesFromList, eventsFor, getProviders } from "../providers";
 import type {
   BusynessLevel,
   Deadline,
   Gap,
+  HomeLocation,
   IsoDateTime,
   Recommendation,
   RecommendationOption,
@@ -26,6 +29,11 @@ const USD_PER_MTOK_IN = 2;
 const USD_PER_MTOK_OUT = 10;
 const BUILDING_IDS = Object.keys(BUILDINGS) as BuildingId[];
 const LIBRARY_IDS = BUILDING_IDS.filter((id) => BUILDINGS[id].isLibrary);
+const RECOMMENDATION_TYPES = ["study", "event", "rest", "home", "food"] as const;
+/** Only suggest going home when the round trip still leaves this long there. */
+const MIN_MINS_AT_HOME = 30;
+/** How many lunch spots get_food_spots returns. */
+const FOOD_SPOTS_SHOWN = 6;
 
 const londonDateTime = new Intl.DateTimeFormat("en-GB", {
   timeZone: "Europe/London",
@@ -78,17 +86,23 @@ function travelFields<S extends string>(suffix: S, from: BuildingId, to: Buildin
     Record<`mode${S}`, TravelMode>;
 }
 
-/**
- * `eventIds` collects every society event Claude was shown, so we can enforce type "event".
- * `librariesSeen` keeps the busyness levels Claude was shown, so the UI's badges match the reason text.
- */
+/** What the tools showed Claude, so we can check its answer against it. */
+interface Seen {
+  /** Every society event shown, so we can enforce type "event". */
+  eventIds: Set<string>;
+  /** Busyness levels shown, so the UI's badges match the reason text. */
+  libraries: Map<string, BusynessLevel>;
+  /** Whether get_home said going home is worth it. Undefined = never asked. */
+  homeWorthIt?: boolean;
+}
+
 function makeTools(
   gap: Gap,
-  eventIds: Set<string>,
-  librariesSeen: Map<string, BusynessLevel>,
+  seen: Seen,
   dayGaps: Gap[],
   userDeadlines?: Deadline[],
   societies?: Society[],
+  home?: HomeLocation,
 ) {
   const providers = getProviders();
   // The student's own Moodle deadlines (from onboarding) replace the mock ones when present.
@@ -114,7 +128,7 @@ function makeTools(
       const from = isBuildingId(near) ? near : here;
       const rows = studySpaces(gap.start)
         .map(({ libraryId, busyness }) => {
-          librariesSeen.set(libraryId, busyness);
+          seen.libraries.set(libraryId, busyness);
           return {
             libraryId,
             name: BUILDINGS[libraryId].shortName,
@@ -147,7 +161,7 @@ function makeTools(
         return "Error: start and end must be ISO 8601 timestamps with an offset.";
       }
       const events = await eventsProvider.getEvents(start, end);
-      for (const e of events) eventIds.add(e.id);
+      for (const e of events) seen.eventIds.add(e.id);
       const rows = events.map((e) => ({
         id: e.id,
         society: e.society,
@@ -211,14 +225,91 @@ function makeTools(
     },
   });
 
-  return [getStudySpaces, getEventsInWindow, getDeadlines];
+  const getFoodSpots = betaTool({
+    name: "get_food_spots",
+    description:
+      "Places to grab lunch near campus, sorted by travel time from `near`. Each has a kind (cafe, canteen, takeaway, meal-deal), a price band, a short note, and travel minutes and mode from `near` and onward to the student's next lecture. The notes are typical patterns, not live queue data.",
+    inputSchema: {
+      type: "object",
+      properties: {
+        near: { type: "string", enum: BUILDING_IDS, description: "Building id to measure travel from." },
+      },
+      required: ["near"],
+      additionalProperties: false,
+    },
+    run: async ({ near }) => {
+      debug("tool get_food_spots", { near });
+      const from = BUILDINGS[isBuildingId(near) ? near : here];
+      const rows = FOOD_SPOTS.map((f) => {
+        const there = travelTimeBetween(from, f);
+        const onward = travelTimeBetween(f, BUILDINGS[next]);
+        return {
+          foodSpotId: f.id,
+          name: f.name,
+          kind: f.kind,
+          price: f.price,
+          note: f.note,
+          minsFromNear: there.mins,
+          modeFromNear: there.mode,
+          minsToNextLecture: onward.mins,
+          modeToNextLecture: onward.mode,
+        };
+      })
+        .sort((a, b) => a.minsFromNear - b.minsFromNear)
+        .slice(0, FOOD_SPOTS_SHOWN);
+      return JSON.stringify(rows);
+    },
+  });
+
+  const tools = [getStudySpaces, getEventsInWindow, getDeadlines, getFoodSpots];
+  if (!home) return tools;
+
+  const getHome = betaTool({
+    name: "get_home",
+    description:
+      "How long it takes to get from `from` to the student's home and from home on to their next lecture, and how many minutes they'd actually get at home in this gap. worthIt is false when that's under 30 minutes: then never suggest going home.",
+    inputSchema: {
+      type: "object",
+      properties: {
+        from: { type: "string", enum: BUILDING_IDS, description: "Building id the student would leave from." },
+      },
+      required: ["from"],
+      additionalProperties: false,
+    },
+    run: async ({ from }) => {
+      debug("tool get_home", { from });
+      const start = isBuildingId(from) ? from : here;
+      const toHome = travelTimeBetween(BUILDINGS[start], home);
+      const toNext = travelTimeBetween(home, BUILDINGS[next]);
+      // Gap length minus both legs. Measured from `from`, which is normally where they are now.
+      const minsAtHome = Math.round(gap.durationMins - toHome.mins - toNext.mins);
+      const worthIt = minsAtHome >= MIN_MINS_AT_HOME;
+      // A "go home" pick is only allowed if at least one answer from this tool said yes.
+      seen.homeWorthIt = seen.homeWorthIt || worthIt;
+      return JSON.stringify({
+        home: home.label,
+        minsToHome: toHome.mins,
+        modeToHome: toHome.mode,
+        minsHomeToNextLecture: toNext.mins,
+        modeHomeToNextLecture: toNext.mode,
+        minsAtHome: Math.max(0, minsAtHome),
+        timeAtHome: formatDuration(minsAtHome),
+        worthIt,
+        ...(worthIt
+          ? {}
+          : { advice: `Only ${formatDuration(minsAtHome)} at home after the round trip. Don't suggest going home.` }),
+      });
+    },
+  });
+
+  return [...tools, getHome];
 }
 
 const OPTION_SCHEMA = {
   type: "object",
   properties: {
     title: { type: "string" },
-    type: { type: "string", enum: ["study", "event", "rest"] },
+    type: { type: "string", enum: RECOMMENDATION_TYPES },
     place: { type: "string" },
     travelMins: { type: "integer" },
     travelMode: { type: "string", enum: ["walk", "tube"] },
@@ -240,7 +331,7 @@ const OUTPUT_SCHEMA = {
   additionalProperties: false,
 };
 
-function describeGap(gap: Gap, dayGaps: Gap[]): string {
+function describeGap(gap: Gap, dayGaps: Gap[], home?: HomeLocation): string {
   const where = (id: BuildingId) => BUILDINGS[id].name;
   // Other gaps today, so Claude can save deep work for a longer gap. Kept compact: ~30 tokens each.
   const otherGapsToday = dayGaps
@@ -258,6 +349,9 @@ function describeGap(gap: Gap, dayGaps: Gap[]): string {
       gap: `${fmt(gap.start)} – ${fmtTime(gap.end)}`,
       durationMins: gap.durationMins,
       usableMins: gap.usableMins,
+      // Pre-formatted, so Claude quotes "3 hours and 12 minutes" rather than "192 minutes".
+      length: formatDuration(gap.durationMins),
+      usableTime: formatDuration(gap.usableMins),
       studentIsAt: { buildingId: gap.locationId, name: where(gap.locationId), source: gap.locationSource },
       justFinished: `${gap.prevEvent.moduleCode} ${gap.prevEvent.title} (${gap.prevEvent.kind}) in ${gap.prevEvent.room}`,
       nextUp: {
@@ -269,21 +363,20 @@ function describeGap(gap: Gap, dayGaps: Gap[]): string {
         travelMode: gap.travelMode,
       },
       otherGapsToday,
+      // Worked out here, not by Claude: it overlaps 12:00–14:00 and there was no lunch-length gap earlier.
+      lunch: lunchInfo(gap, dayGaps),
+      home: home ? `Saved: ${home.label}. Call get_home to see if it's worth going back.` : "Not set",
     },
     null,
     2,
   );
 }
 
-function toOption(
-  raw: unknown,
-  eventIds: Set<string>,
-  librariesSeen: Map<string, BusynessLevel>,
-): RecommendationOption {
+function toOption(raw: unknown, seen: Seen): RecommendationOption {
   const o = raw as Record<string, unknown>;
   if (
     typeof o?.title !== "string" ||
-    !["study", "event", "rest"].includes(o.type as string) ||
+    !(RECOMMENDATION_TYPES as readonly unknown[]).includes(o.type) ||
     typeof o.place !== "string" ||
     typeof o.travelMins !== "number" ||
     !["walk", "tube"].includes(o.travelMode as string) ||
@@ -291,8 +384,12 @@ function toOption(
   ) {
     throw new Error("Claude returned a malformed option");
   }
-  const isSocietyEvent = typeof o.relatedId === "string" && eventIds.has(o.relatedId);
-  const busyness = typeof o.libraryId === "string" ? librariesSeen.get(o.libraryId) : undefined;
+  // Never ship a "go home" that breaks the 30-minute rule. Throwing shows the UI's retry fallback.
+  if (o.type === "home" && !seen.homeWorthIt) {
+    throw new Error("Claude suggested going home without get_home saying it's worth it");
+  }
+  const isSocietyEvent = typeof o.relatedId === "string" && seen.eventIds.has(o.relatedId);
+  const busyness = typeof o.libraryId === "string" ? seen.libraries.get(o.libraryId) : undefined;
   return {
     title: o.title,
     type: isSocietyEvent ? "event" : (o.type as RecommendationOption["type"]),
@@ -308,24 +405,23 @@ function toOption(
 export async function recommendForGap(
   gap: Gap,
   dayGaps: Gap[] = [],
-  opts: { deadlines?: Deadline[]; societies?: Society[] } = {},
+  opts: { deadlines?: Deadline[]; societies?: Society[]; home?: HomeLocation } = {},
 ): Promise<Recommendation> {
   const client = new Anthropic(); // reads ANTHROPIC_API_KEY
-  const eventIds = new Set<string>();
-  const librariesSeen = new Map<string, BusynessLevel>();
+  const seen: Seen = { eventIds: new Set(), libraries: new Map() };
 
   const runner = client.beta.messages.toolRunner({
     model: MODEL,
     max_tokens: 8000,
-    max_iterations: 6,
+    max_iterations: 8,
     system: SYSTEM_PROMPT,
-    tools: makeTools(gap, eventIds, librariesSeen, dayGaps, opts.deadlines, opts.societies),
+    tools: makeTools(gap, seen, dayGaps, opts.deadlines, opts.societies, opts.home),
     // "low" effort keeps thinking (billed as output) short: picking 3 options doesn't need deep reasoning.
     output_config: { effort: "low", format: { type: "json_schema", schema: OUTPUT_SCHEMA } },
     messages: [
       {
         role: "user",
-        content: `Here's my gap. What should I do with it?\n\n${describeGap(gap, dayGaps)}`,
+        content: `Here's my gap. What should I do with it?\n\n${describeGap(gap, dayGaps, opts.home)}`,
       },
     ],
   });
@@ -354,17 +450,14 @@ export async function recommendForGap(
   }
 
   // Claude should always call get_study_spaces, but if it didn't, estimate once for the badges.
-  if (librariesSeen.size === 0) {
-    for (const s of studySpaces(gap.start)) librariesSeen.set(s.libraryId, s.busyness);
+  if (seen.libraries.size === 0) {
+    for (const s of studySpaces(gap.start)) seen.libraries.set(s.libraryId, s.busyness);
   }
 
   return {
     gapId: gap.id,
-    top: toOption(parsed.top, eventIds, librariesSeen),
-    alternatives: [
-      toOption(parsed.alternatives[0], eventIds, librariesSeen),
-      toOption(parsed.alternatives[1], eventIds, librariesSeen),
-    ],
+    top: toOption(parsed.top, seen),
+    alternatives: [toOption(parsed.alternatives[0], seen), toOption(parsed.alternatives[1], seen)],
     generatedAt: new Date().toISOString(),
   };
 }

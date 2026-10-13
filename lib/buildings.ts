@@ -3,6 +3,8 @@
 // Coordinates are APPROXIMATE. Bloomsbury buildings are estimated to ~30m. Halls, UCL East and
 // Canary Wharf were placed from their street addresses (~50-100m). Either is plenty for travel estimates.
 
+import { formatDurationShort } from "./duration";
+
 export type Area = "bloomsbury" | "ucl-east" | "canary-wharf" | "elsewhere";
 export type BuildingKind = "teaching" | "library" | "hall" | "other";
 
@@ -14,6 +16,8 @@ export interface Building {
   isLibrary: boolean;
   area: Area;
   kind: BuildingKind;
+  /** A University of London intercollegiate hall: UCL students live there alongside other colleges'. */
+  intercollegiate?: boolean;
 }
 
 export const BUILDINGS = {
@@ -83,7 +87,7 @@ export const BUILDINGS = {
   // ---- Canary Wharf ----
   "one-canada-square": { name: "One Canada Square (School of Management)", shortName: "One Canada Sq", lat: 51.5049, lng: -0.0195, isLibrary: false, area: "canary-wharf", kind: "teaching" },
 
-  // ---- Halls (placed from their addresses) ----
+  // ---- Halls (placed from their addresses or postcodes) ----
   "arthur-tattersall-house": { name: "Arthur Tattersall House", shortName: "Arthur Tattersall", lat: 51.5255, lng: -0.1347, isLibrary: false, area: "bloomsbury", kind: "hall" }, // 115–131 Gower St
   "john-tovell-house": { name: "John Tovell House", shortName: "John Tovell", lat: 51.5243, lng: -0.1338, isLibrary: false, area: "bloomsbury", kind: "hall" }, // 89–97 Gower St
   "campbell-house-east": { name: "Campbell House East", shortName: "Campbell East", lat: 51.5258, lng: -0.1303, isLibrary: false, area: "bloomsbury", kind: "hall" }, // Taviton St
@@ -103,11 +107,49 @@ export const BUILDINGS = {
   "ann-stephenson-house": { name: "Ann Stephenson House", shortName: "Ann Stephenson", lat: 51.5436, lng: -0.1325, isLibrary: false, area: "elsewhere", kind: "hall" }, // 109 Camden Rd
   "max-rayne-house": { name: "Max Rayne House", shortName: "Max Rayne", lat: 51.5430, lng: -0.1320, isLibrary: false, area: "elsewhere", kind: "hall" }, // Camden Rd
   "new-hall": { name: "New Hall", shortName: "New Hall", lat: 51.5513, lng: -0.1180, isLibrary: false, area: "elsewhere", kind: "hall" }, // 465 Caledonian Rd, N7
-  "goldsmid-house": { name: "Goldsmid House", shortName: "Goldsmid", lat: 51.5136, lng: -0.1580, isLibrary: false, area: "elsewhere", kind: "hall" }, // North Row, Mayfair
+  "goldsmid-house": { name: "Goldsmid House", shortName: "Goldsmid", lat: 51.4934, lng: -0.1429, isLibrary: false, area: "elsewhere", kind: "hall" }, // 36 Gillingham St, SW1V
   "bernard-johnson-house": { name: "Bernard Johnson House", shortName: "Bernard Johnson", lat: 51.5900, lng: -0.1600, isLibrary: false, area: "elsewhere", kind: "hall" }, // 78 Fortis Green, N2
+  "st-pancras-way": { name: "St Pancras Way", shortName: "St Pancras Way", lat: 51.5379, lng: -0.1334, isLibrary: false, area: "elsewhere", kind: "hall" }, // 11–13 St Pancras Way, NW1
+  // Same building as the teaching entry above, which stays first so matchBuilding("One Pool Street") still finds teaching.
+  "one-pool-street-hall": { name: "One Pool Street", shortName: "One Pool St", lat: 51.5385, lng: -0.0096, isLibrary: false, area: "ucl-east", kind: "hall" }, // 1 Pool St, E20 2AF
+  // University of London intercollegiate halls.
+  "garden-halls": { name: "The Garden Halls", shortName: "Garden Halls", lat: 51.5269, lng: -0.1260, isLibrary: false, area: "bloomsbury", kind: "hall", intercollegiate: true }, // Cartwright Gardens, WC1H 9EN
+  "connaught-hall": { name: "Connaught Hall", shortName: "Connaught", lat: 51.5244, lng: -0.1296, isLibrary: false, area: "bloomsbury", kind: "hall", intercollegiate: true }, // Tavistock Sq, WC1H 9EX
+  "international-hall": { name: "International Hall", shortName: "International Hall", lat: 51.5236, lng: -0.1216, isLibrary: false, area: "bloomsbury", kind: "hall", intercollegiate: true }, // Lansdowne Terrace, WC1N 1AS
+  "nutford-house": { name: "Nutford House", shortName: "Nutford", lat: 51.5170, lng: -0.1630, isLibrary: false, area: "elsewhere", kind: "hall", intercollegiate: true }, // Brown St, W1H 5UL
+  "lillian-penson-hall": { name: "Lillian Penson Hall", shortName: "Lillian Penson", lat: 51.5152, lng: -0.1750, isLibrary: false, area: "elsewhere", kind: "hall", intercollegiate: true }, // Talbot Sq, W2 1TT
+  "eleanor-rosa-house": { name: "Eleanor Rosa House", shortName: "Eleanor Rosa", lat: 51.5420, lng: -0.0092, isLibrary: false, area: "ucl-east", kind: "hall", intercollegiate: true }, // Stratford, E20 1JN
 } as const satisfies Record<string, Building>;
 
 export type BuildingId = keyof typeof BUILDINGS;
+
+/** Every hall (UCL and intercollegiate) for the home picker, A–Z. */
+export const HALL_IDS = (Object.keys(BUILDINGS) as BuildingId[])
+  .filter((id) => BUILDINGS[id].kind === "hall")
+  .sort((a, b) => BUILDINGS[a].name.localeCompare(BUILDINGS[b].name));
+
+// ---- Lunch spots near Bloomsbury campus ----
+// MOCK data: plausible places with approximate coordinates and made-up queue notes. Not a live
+// feed and not a provider: like the buildings, it's static reference data.
+
+export interface FoodSpot extends LatLng {
+  id: string;
+  name: string;
+  kind: "cafe" | "canteen" | "takeaway" | "meal-deal";
+  price: "£" | "££";
+  note: string;
+}
+
+export const FOOD_SPOTS: FoodSpot[] = [
+  { id: "food-print-room", name: "Print Room Cafe", lat: 51.5246, lng: -0.1337, kind: "cafe", price: "£", note: "Sandwiches and soup; the queue peaks 12:30–13:00." },
+  { id: "food-lower-refectory", name: "Lower Refectory", lat: 51.5245, lng: -0.1342, kind: "canteen", price: "£", note: "Hot meals and a salad bar under the Wilkins Building. Loads of seats." },
+  { id: "food-student-centre", name: "Student Centre Cafe", lat: 51.5252, lng: -0.1326, kind: "cafe", price: "£", note: "Grab-and-go wraps; you can eat on the ground floor but not in the study floors." },
+  { id: "food-bloomsbury-theatre", name: "Bloomsbury Theatre Cafe", lat: 51.5254, lng: -0.1324, kind: "cafe", price: "££", note: "Quieter, nicer coffee, small hot menu." },
+  { id: "food-cruciform", name: "Cruciform Cafe", lat: 51.5242, lng: -0.1351, kind: "cafe", price: "£", note: "Handy for medics; busy right on the hour." },
+  { id: "food-tesco-gower", name: "Tesco Express (Goodge St)", lat: 51.5208, lng: -0.1342, kind: "meal-deal", price: "£", note: "Meal deal; eat it in Gordon Square if it's dry." },
+  { id: "food-pret-tcr", name: "Pret (Tottenham Court Rd)", lat: 51.5222, lng: -0.1348, kind: "takeaway", price: "££", note: "Fast, rarely a long wait." },
+  { id: "food-brunswick", name: "Brunswick Centre (Waitrose and cafes)", lat: 51.5243, lng: -0.1235, kind: "takeaway", price: "££", note: "More choice, but a walk from main campus." },
+];
 
 export function getBuilding(id: BuildingId): Building {
   return BUILDINGS[id];
@@ -132,7 +174,7 @@ export function matchBuilding(venue: string): BuildingId | undefined {
   return best?.id;
 }
 
-interface LatLng {
+export interface LatLng {
   lat: number;
   lng: number;
 }
@@ -189,6 +231,8 @@ const STATIONS: (LatLng & { name: string })[] = [
   { name: "Mornington Crescent", lat: 51.5342, lng: -0.1387 },
   { name: "Caledonian Road", lat: 51.5482, lng: -0.1185 },
   { name: "Marble Arch", lat: 51.5136, lng: -0.1586 },
+  { name: "Lancaster Gate", lat: 51.5119, lng: -0.1756 },
+  { name: "Victoria", lat: 51.4965, lng: -0.1447 },
   { name: "East Finchley", lat: 51.5874, lng: -0.1650 },
   { name: "Stratford", lat: 51.5416, lng: -0.0033 },
   { name: "Hackney Wick", lat: 51.5434, lng: -0.0249 },
@@ -217,13 +261,18 @@ function nearestStation(p: LatLng) {
   return { station: best, metres: bestMetres };
 }
 
+// Our station list only covers UCL's areas. A private home far out is nowhere near any of them, so
+// we assume it has a station of its own within this walk instead of marching to the nearest listed one.
+const MAX_STATION_WALK_MINS = 15;
+
 /** Unrounded tube minutes, or Infinity when both ends share a station (the tube doesn't help). */
-function tubeMins(from: BuildingId, to: BuildingId): number {
-  const start = nearestStation(BUILDINGS[from]);
-  const end = nearestStation(BUILDINGS[to]);
+function tubeMins(from: LatLng, to: LatLng): number {
+  const start = nearestStation(from);
+  const end = nearestStation(to);
   if (start.station === end.station) return Infinity;
   const ride = (metresBetween(start.station, end.station) / TUBE_METRES_PER_MIN) * TUBE_OVERESTIMATE;
-  return walkMinsFor(start.metres) + ride + TUBE_WAIT_AND_CHANGE_MINS + walkMinsFor(end.metres);
+  const stationWalk = (metres: number) => Math.min(MAX_STATION_WALK_MINS, walkMinsFor(metres));
+  return stationWalk(start.metres) + ride + TUBE_WAIT_AND_CHANGE_MINS + stationWalk(end.metres);
 }
 
 export type TravelMode = "walk" | "tube";
@@ -233,13 +282,20 @@ export type TravelMode = "walk" | "tube";
  * otherwise picks whichever of walking and the tube is faster.
  */
 export function travelTime(from: BuildingId, to: BuildingId): { mins: number; mode: TravelMode } {
-  const walk = walkingMins(from, to);
+  if (from === to) return { mins: 0, mode: "walk" };
+  return travelTimeBetween(BUILDINGS[from], BUILDINGS[to]);
+}
+
+/** travelTime for any two points, e.g. a private home's postcode or a food spot. */
+export function travelTimeBetween(from: LatLng, to: LatLng): { mins: number; mode: TravelMode } {
+  const walk = Math.max(MIN_WALK_MINS, Math.ceil(walkMinsFor(metresBetween(from, to))));
   if (walk <= MAX_ALWAYS_WALK_MINS) return { mins: walk, mode: "walk" };
   const tube = Math.ceil(tubeMins(from, to));
   return tube < walk ? { mins: tube, mode: "tube" } : { mins: walk, mode: "walk" };
 }
 
-/** "🚶 5 min walk" / "🚇 40 min by tube". */
+/** "🚶 5 min walk" / "🚇 40 min by tube" / "🚇 1h 5m by tube". */
 export function travelLabel(mins: number, mode: TravelMode): string {
-  return mode === "tube" ? `🚇 ${mins} min by tube` : `🚶 ${mins} min walk`;
+  const time = formatDurationShort(mins);
+  return mode === "tube" ? `🚇 ${time} by tube` : `🚶 ${time} walk`;
 }

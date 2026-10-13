@@ -5,11 +5,14 @@
 Hackathon project for the UCL Claude Campus Hackathon (Fri 16 Oct 2026, "Better Student Life" track). Solo builder with some coding experience — explain key decisions briefly.
 
 ## What it does
-UCL students have gaps between lectures and waste them. Bloomsbuddy finds the gaps in a student's timetable and uses Claude to recommend the best thing to do in each one: **a top pick + 2 alternatives, each with a reason**. Inputs:
+UCL students have gaps between lectures and waste them. Bloomsbuddy finds the gaps in a student's timetable and uses Claude to recommend the best thing to do in each one: **a top pick + 2 alternatives, each with a reason**. Pick types: `study`, `event`, `rest`, `home`, `food`. Inputs:
 - **Timetable and Moodle deadlines**: added by uploading screenshots, which Claude reads with vision
 - **Estimated library busyness**: one real seat snapshot (Tue 11:40) scaled by time of day and weekday. The live UCL seat page is behind Cloudflare's bot check, so seats are mock only and there is no scraper
 - **Society events**: scraped straight from each society's Students' Union `/events` page (no Claude, no tokens). Students add a society by pasting its SU page link
-- **Location**: inferred from the previous lecture's room, with a manual override
+- **Location**: inferred from the previous lecture's room (`findGaps` supports a manual override, but no UI sets it yet)
+- **Home**: a hall (from `BUILDINGS`: every UCL hall, including One Pool Street at UCL East, plus the University of London intercollegiate halls), a private UK postcode (turned into lat/lng server-side by `/api/postcode` via postcodes.io), or "Don't use my home". Set from the 🏠 chip on the Today page, saved in localStorage under its own key (works in the demo week too). Claude only suggests going home when `get_home` says the round trip leaves 30+ min there; `recommend.ts` rejects a `home` pick otherwise
+- **Lunch**: `lib/lunch.ts` flags a gap with 15+ usable min inside 12:00–14:00 London when no earlier gap that day had 30+ min there. Claude then usually includes a `food` pick from `get_food_spots`
+- **Lunch spots**: MOCK `FOOD_SPOTS` in `lib/buildings.ts` (approx coordinates, made-up queue notes). Static reference data like the buildings, so no provider
 
 **Voice**: warm, casual, a bit cheeky. Like a friend who knows UCL's campus.
 
@@ -36,7 +39,10 @@ Every data source sits behind a **provider interface** with a `mock` and a `real
 ## Layout
 - `app/`: Next.js routes and UI. Claude calls go in route handlers (server-side only).
 - `lib/types.ts`: shared domain types (serialisable; they go to localStorage and into prompts)
-- `lib/buildings.ts`: UCL building coordinates + `walkingMins()`
+- `lib/buildings.ts`: UCL building and hall coordinates, mock `FOOD_SPOTS`, `walkingMins()`, `travelTime()` (buildings) and `travelTimeBetween()` (any lat/lng, e.g. a postcode)
+- `lib/home.ts`: the student's home in localStorage (`bloomsbuddy:home`) + `homeLocation()` for the recommend request
+- `lib/lunch.ts`: `lunchInfo(gap, dayGaps)`, the lunch rule above
+- `lib/recommend/`: Claude tool loop (`recommend.ts`: `get_study_spaces`, `get_events_in_window`, `get_deadlines`, `get_food_spots`, and `get_home` when a home is set) and the editable `system-prompt.ts`
 - `lib/config.ts`: `isDemoMode()`
 - `lib/mock/`: one realistic student week, written as Mon 12 – Fri 16 Oct 2026 and moved to the current London week on every call (`week.ts`; at the weekend, next week)
 - `lib/providers/`: provider interfaces + mocks; `societies.ts` is the real SU events provider (scraped on every request, no cache; parallel requests share one in-flight scrape per society)
@@ -47,6 +53,7 @@ Every data source sits behind a **provider interface** with a `mock` and a `real
 - `lib/claude-json.ts`: shared schema-constrained Claude call
 
 ## Conventions
+- Durations of 60+ minutes are shown in hours and minutes, never as a big minute count: "3 hours and 12 minutes" in prose, "3h 12m" in tight labels. Use `formatDuration` / `formatDurationShort` from `lib/duration.ts`; Claude follows the same rule via the system prompt.
 - Secrets live only in `.env.local` (gitignored). `ANTHROPIC_API_KEY` is server-side only and never imported into client components.
 - `.env.example` documents every env var.
 - Keep dependencies minimal and ask before adding new ones.
