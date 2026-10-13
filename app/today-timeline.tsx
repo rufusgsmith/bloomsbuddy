@@ -4,7 +4,7 @@ import Link from "next/link";
 import { useState } from "react";
 import { BUILDINGS } from "@/lib/buildings";
 import { mondayOf } from "@/lib/london-time";
-import type { Deadline, Gap, Recommendation, TimetableEvent } from "@/lib/types";
+import type { Deadline, Gap, Recommendation, Society, TimetableEvent } from "@/lib/types";
 import { RecommendationPanel, type RecState } from "./recommendation-card";
 
 export interface Day {
@@ -52,6 +52,7 @@ export function TodayTimeline({
   initialDateKey,
   mode,
   deadlines,
+  societies,
 }: {
   days: Day[];
   initialDateKey: string;
@@ -59,6 +60,8 @@ export function TodayTimeline({
   mode: "demo" | "user";
   /** The student's own deadlines. Sent with each request so Claude uses them instead of the mocks. */
   deadlines?: Deadline[];
+  /** The student's SU societies. Sent with each request so Claude sees their real events. */
+  societies?: Society[];
 }) {
   const [dateKey, setDateKey] = useState(
     days.some((d) => d.dateKey === initialDateKey) ? initialDateKey : days[0]?.dateKey,
@@ -105,7 +108,7 @@ export function TodayTimeline({
       const res = await fetch("/api/recommend", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ gap, dayGaps, ...(deadlines ? { deadlines } : {}) }),
+        body: JSON.stringify({ gap, dayGaps, ...(deadlines ? { deadlines } : {}), ...(societies?.length ? { societies } : {}) }),
       });
       if (!res.ok) throw new Error(`HTTP ${res.status}`);
       next = { status: "ok", rec: (await res.json()) as Recommendation };

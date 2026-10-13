@@ -7,8 +7,16 @@
 import Anthropic from "@anthropic-ai/sdk";
 import { betaTool } from "@anthropic-ai/sdk/helpers/beta/json-schema";
 import { BUILDINGS, travelTime, type BuildingId, type TravelMode } from "../buildings";
-import { deadlinesFromList, getProviders } from "../providers";
-import type { Deadline, Gap, IsoDateTime, Recommendation, RecommendationOption, SeatAvailability } from "../types";
+import { deadlinesFromList, eventsFor, getProviders } from "../providers";
+import type {
+  Deadline,
+  Gap,
+  IsoDateTime,
+  Recommendation,
+  RecommendationOption,
+  SeatAvailability,
+  Society,
+} from "../types";
 import { SYSTEM_PROMPT } from "./system-prompt";
 
 const MODEL = "claude-sonnet-5-5";
@@ -63,10 +71,12 @@ function makeTools(
   seatsSeen: Map<string, SeatAvailability>,
   dayGaps: Gap[],
   userDeadlines?: Deadline[],
+  societies?: Society[],
 ) {
   const providers = getProviders();
   // The student's own Moodle deadlines (from onboarding) replace the mock ones when present.
   const deadlinesProvider = userDeadlines ? deadlinesFromList(userDeadlines) : providers.deadlines;
+  const eventsProvider = eventsFor(societies);
   const here = gap.locationId;
   const next = gap.nextLocationId;
 
@@ -120,7 +130,7 @@ function makeTools(
       if (Number.isNaN(Date.parse(start)) || Number.isNaN(Date.parse(end))) {
         return "Error: start and end must be ISO 8601 timestamps with an offset.";
       }
-      const events = await providers.events.getEvents(start, end);
+      const events = await eventsProvider.getEvents(start, end);
       for (const e of events) eventIds.add(e.id);
       const rows = events.map((e) => ({
         id: e.id,
@@ -281,7 +291,7 @@ function toOption(
 export async function recommendForGap(
   gap: Gap,
   dayGaps: Gap[] = [],
-  opts: { deadlines?: Deadline[] } = {},
+  opts: { deadlines?: Deadline[]; societies?: Society[] } = {},
 ): Promise<Recommendation> {
   const client = new Anthropic(); // reads ANTHROPIC_API_KEY
   const eventIds = new Set<string>();
@@ -292,7 +302,7 @@ export async function recommendForGap(
     max_tokens: 8000,
     max_iterations: 6,
     system: SYSTEM_PROMPT,
-    tools: makeTools(gap, eventIds, seatsSeen, dayGaps, opts.deadlines),
+    tools: makeTools(gap, eventIds, seatsSeen, dayGaps, opts.deadlines, opts.societies),
     // "low" effort keeps thinking (billed as output) short: picking 3 options doesn't need deep reasoning.
     output_config: { effort: "low", format: { type: "json_schema", schema: OUTPUT_SCHEMA } },
     messages: [

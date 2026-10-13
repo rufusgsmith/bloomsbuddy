@@ -38,7 +38,9 @@ Every data source sits behind a **provider interface** with a `mock` and a `real
 - `lib/buildings.ts`: UCL building coordinates + `walkingMins()`
 - `lib/config.ts`: `isDemoMode()`
 - `lib/mock/`: one realistic student week (Mon 12 – Fri 16 Oct 2026)
-- `lib/providers/` (planned): provider interfaces with mock and real implementations
+- `lib/providers/`: provider interfaces + mocks; `societies.ts` is the real SU events provider (seats are still mock-only)
+- `lib/societies/su-site.ts`: SU website fetching/slugs (cheerio)
+- `lib/claude-json.ts`: shared schema-constrained Claude call
 
 ## Conventions
 - Secrets live only in `.env.local` (gitignored). `ANTHROPIC_API_KEY` is server-side only and never imported into client components.

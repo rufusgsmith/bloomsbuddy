@@ -1,8 +1,13 @@
 // POST /api/recommend  body: { gap: Gap, dayGaps?: Gap[], deadlines?: Deadline[] }  →  Recommendation
 // dayGaps (the rest of that day's gaps) is optional context so Claude can plan around longer gaps.
 // deadlines are the student's own (from onboarding). When sent, even empty, they replace the mock ones.
+// societies are the student's SU societies; outside demo mode their real events replace the mock ones.
 import { recommendForGap } from "@/lib/recommend/recommend";
-import type { Deadline, Gap } from "@/lib/types";
+import { isSlug } from "@/lib/societies/su-site";
+import type { Deadline, Gap, Society } from "@/lib/types";
+
+/** Each society costs a scrape and a Claude call (cached for an hour), so cap how many we accept. */
+const MAX_SOCIETIES = 10;
 
 function isGap(x: unknown): x is Gap {
   const g = x as Partial<Gap> | null;
@@ -29,8 +34,13 @@ function isDeadline(x: unknown): x is Deadline {
   );
 }
 
+function isSociety(x: unknown): x is Society {
+  const s = x as Partial<Society> | null;
+  return isSlug(s?.slug) && typeof s.name === "string";
+}
+
 export async function POST(request: Request) {
-  let body: { gap?: unknown; dayGaps?: unknown; deadlines?: unknown };
+  let body: { gap?: unknown; dayGaps?: unknown; deadlines?: unknown; societies?: unknown };
   try {
     body = await request.json();
   } catch {
@@ -49,7 +59,10 @@ export async function POST(request: Request) {
     // Malformed dayGaps are dropped rather than rejected: they're only extra context.
     const dayGaps = Array.isArray(body.dayGaps) ? body.dayGaps.filter(isGap) : [];
     const deadlines = Array.isArray(body.deadlines) ? body.deadlines.filter(isDeadline) : undefined;
-    return Response.json(await recommendForGap(body.gap, dayGaps, { deadlines }));
+    const societies = Array.isArray(body.societies)
+      ? body.societies.filter(isSociety).slice(0, MAX_SOCIETIES)
+      : undefined;
+    return Response.json(await recommendForGap(body.gap, dayGaps, { deadlines, societies }));
   } catch (err) {
     console.error("[recommend] failed:", err);
     return Response.json({ error: "Couldn't get a recommendation, try again" }, { status: 502 });

@@ -31,6 +31,7 @@ export function Home({ demoDays, demoDateKey }: { demoDays: Day[]; demoDateKey: 
       initialDateKey={pickInitialDay(userDays)}
       mode="user"
       deadlines={user.deadlines}
+      societies={user.societies}
     />
   );
 }

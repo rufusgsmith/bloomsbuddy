@@ -69,8 +69,16 @@ export interface SocietyEvent {
   /** Set when the venue is a known UCL building (so we can compute travel time). */
   buildingId?: BuildingId;
   url?: string;
+  /** Real events also carry one cost tag: "free-food", "free" or "paid". */
   tags: string[];
   free: boolean;
+}
+
+/** A UCL Students' Union club or society, e.g. { slug: "chess-society", name: "Chess Society" }. */
+export interface Society {
+  /** Path segment on studentsunionucl.org/clubs-societies/<slug>. */
+  slug: string;
+  name: string;
 }
 
 export interface SeatAvailability {
@@ -141,5 +149,7 @@ export interface UserData {
   /** How many weeks the pattern repeats for, e.g. 11 for a UCL term. */
   weeks: number;
   deadlines: Deadline[];
+  /** Optional so data saved before societies existed still loads. */
+  societies?: Society[];
   savedAt: IsoDateTime;
 }

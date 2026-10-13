@@ -3,8 +3,9 @@
 // Onboarding and "edit my timetable" in one place:
 //   1. Timetable: screenshot → Claude → editable weekly classes, plus how many weeks they repeat
 //   2. Deadlines: Moodle screenshot → Claude → editable deadlines (skippable)
-//   3. Check and save to localStorage
-// Nothing is saved until step 3, so a bad screenshot can't break anything.
+//   3. Societies: typed names, checked against the SU website (skippable)
+//   4. Check and save to localStorage
+// Nothing is saved until step 4, so a bad screenshot can't break anything.
 
 import Link from "next/link";
 import { useRouter } from "next/navigation";
@@ -13,7 +14,7 @@ import { BUILDINGS, type BuildingId } from "@/lib/buildings";
 import { londonDateKey } from "@/lib/gaps";
 import { addDays, isDateKey, isWallTime, londonIso, londonTodayKey, mondayOf } from "@/lib/london-time";
 import { clearUserData, parseUserData, readRawUserData, saveUserData, subscribeUserData } from "@/lib/storage";
-import type { Deadline, TimetableEvent, UserData, WeeklyClass } from "@/lib/types";
+import type { Deadline, Society, TimetableEvent, UserData, WeeklyClass } from "@/lib/types";
 
 const DEFAULT_WEEKS = 11; // A UCL term is usually 11 teaching weeks
 const MAX_WEEKS = 15;
@@ -135,8 +136,8 @@ function Shell({ children }: { children: ReactNode }) {
   return <main className="mx-auto w-full max-w-md px-4 pb-24 pt-8">{children}</main>;
 }
 
-type Step = 0 | 1 | 2;
-const STEP_LABELS = ["Timetable", "Deadlines", "Save"];
+type Step = 0 | 1 | 2 | 3;
+const STEP_LABELS = ["Timetable", "Deadlines", "Societies", "Save"];
 
 function Editor({ initial }: { initial: UserData | null }) {
   const router = useRouter();
@@ -145,6 +146,7 @@ function Editor({ initial }: { initial: UserData | null }) {
   const [termStart, setTermStart] = useState(initial?.termStart ?? mondayOf(londonTodayKey()));
   const [weeks, setWeeks] = useState(initial?.weeks ?? DEFAULT_WEEKS);
   const [deadlines, setDeadlines] = useState<DraftDeadline[]>(initial?.deadlines.map(toDraft) ?? []);
+  const [societies, setSocieties] = useState<Society[]>(initial?.societies ?? []);
   const [saveError, setSaveError] = useState(false);
 
   // Scroll to the top on step change, so each step starts at its heading.
@@ -162,6 +164,7 @@ function Editor({ initial }: { initial: UserData | null }) {
       termStart,
       weeks,
       deadlines: deadlines.map(fromDraft).sort((a, b) => Date.parse(a.due) - Date.parse(b.due)),
+      societies,
       savedAt: new Date().toISOString(),
     };
     if (!saveUserData(data)) {
@@ -191,7 +194,8 @@ function Editor({ initial }: { initial: UserData | null }) {
         <h1 className="text-3xl font-semibold tracking-tight">{initial ? "Your timetable" : "Let's get you set up"}</h1>
         <ol className="mt-4 flex gap-2" aria-label="Steps">
           {STEP_LABELS.map((label, i) => {
-            const reachable = i <= step || (i === 1 && classesOk) || (i === 2 && classesOk && deadlinesOk);
+            // Societies can't be invalid, so anything past deadlines is reachable once they're fine.
+            const reachable = i <= step || (i === 1 && classesOk) || (i >= 2 && classesOk && deadlinesOk);
             return (
               <li key={label} className="flex-1">
                 <button
@@ -235,14 +239,23 @@ function Editor({ initial }: { initial: UserData | null }) {
         />
       )}
       {step === 2 && (
+        <SocietiesStep
+          societies={societies}
+          setSocieties={setSocieties}
+          onBack={() => setStep(1)}
+          onNext={() => setStep(3)}
+        />
+      )}
+      {step === 3 && (
         <ReviewStep
           classes={classes}
           termStart={termStart}
           weeks={weeks}
           deadlines={deadlines}
+          societies={societies}
           hasSavedData={initial !== null}
           saveError={saveError}
-          onBack={() => setStep(1)}
+          onBack={() => setStep(2)}
           onSave={save}
           onUseDemo={useDemo}
         />
@@ -617,13 +630,121 @@ function DeadlineRow({
   );
 }
 
-// ---------- Step 3: review & save ----------
+// ---------- Step 3: societies ----------
+
+type LookupState = { status: "idle" } | { status: "checking" } | { status: "error"; message: string };
+
+function SocietiesStep({
+  societies,
+  setSocieties,
+  onBack,
+  onNext,
+}: {
+  societies: Society[];
+  setSocieties: (s: Society[]) => void;
+  onBack: () => void;
+  onNext: () => void;
+}) {
+  const [name, setName] = useState("");
+  const [lookup, setLookup] = useState<LookupState>({ status: "idle" });
+
+  async function add() {
+    const typed = name.trim();
+    if (!typed || lookup.status === "checking") return;
+    setLookup({ status: "checking" });
+    try {
+      const res = await fetch(`/api/societies/lookup?name=${encodeURIComponent(typed)}`);
+      if (res.status === 404) {
+        setLookup({
+          status: "error",
+          message: `Couldn't find "${typed}" on the SU site. Try the name exactly as it's listed on studentsunionucl.org.`,
+        });
+        return;
+      }
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      const found = (await res.json()) as Society;
+      if (!societies.some((s) => s.slug === found.slug)) setSocieties([...societies, found]);
+      setName("");
+      setLookup({ status: "idle" });
+    } catch (err) {
+      console.warn("[societies]", err);
+      setLookup({ status: "error", message: "Couldn't reach the SU website just now. Give it another go in a sec." });
+    }
+  }
+
+  return (
+    <section className="flex flex-col gap-5">
+      <div>
+        <h2 className="text-lg font-semibold">My societies</h2>
+        <p className="mt-1 text-sm text-zinc-600 dark:text-zinc-400">
+          Which clubs and societies are you in? I&apos;ll check their SU pages for events that fit your gaps (free
+          pizza included). You can skip this.
+        </p>
+      </div>
+
+      <form
+        className="flex items-end gap-2"
+        onSubmit={(e) => {
+          e.preventDefault();
+          add();
+        }}
+      >
+        <div className="flex-1">
+          <Field label="Society name">
+            <input
+              className={inputClass}
+              value={name}
+              onChange={(e) => {
+                setName(e.target.value);
+                if (lookup.status === "error") setLookup({ status: "idle" });
+              }}
+              placeholder="e.g. Chess Society"
+              autoComplete="off"
+            />
+          </Field>
+        </div>
+        <button
+          type="submit"
+          disabled={!name.trim() || lookup.status === "checking"}
+          className="min-h-11 shrink-0 rounded-full bg-emerald-600 px-4 text-sm font-medium text-white hover:bg-emerald-700 disabled:cursor-not-allowed disabled:opacity-40 dark:bg-emerald-500 dark:text-emerald-950 dark:hover:bg-emerald-400"
+        >
+          {lookup.status === "checking" ? "Checking…" : "Add"}
+        </button>
+      </form>
+
+      {lookup.status === "error" && (
+        <p role="alert" className="text-sm text-red-600 dark:text-red-400">
+          {lookup.message}
+        </p>
+      )}
+
+      {societies.length > 0 && (
+        <ul className="flex flex-col gap-2">
+          {societies.map((s) => (
+            <li
+              key={s.slug}
+              className="flex items-center justify-between gap-2 rounded-xl border border-zinc-200 bg-white pl-4 dark:border-zinc-800 dark:bg-zinc-950"
+            >
+              <span className="min-w-0 truncate text-sm font-medium">{s.name}</span>
+              <RemoveButton label={`Remove ${s.name}`} onClick={() => setSocieties(societies.filter((x) => x.slug !== s.slug))} />
+            </li>
+          ))}
+        </ul>
+      )}
+
+      <StepNav onBack={onBack} canContinue onNext={onNext} nextLabel={societies.length === 0 ? "Skip for now" : "Next"} />
+    </section>
+  );
+}
+
+// ---------- Step 4: review & save ----------
 
 function ReviewStep({
   classes,
   termStart,
   weeks,
   deadlines,
+  societies,
   hasSavedData,
   saveError,
   onBack,
@@ -634,6 +755,7 @@ function ReviewStep({
   termStart: string;
   weeks: number;
   deadlines: DraftDeadline[];
+  societies: Society[];
   hasSavedData: boolean;
   saveError: boolean;
   onBack: () => void;
@@ -694,6 +816,15 @@ function ReviewStep({
               </li>
             ))}
           </ul>
+        )}
+      </div>
+
+      <div className="rounded-2xl border border-zinc-200 bg-white p-4 dark:border-zinc-800 dark:bg-zinc-950">
+        <h3 className="font-semibold">Societies</h3>
+        {societies.length === 0 ? (
+          <p className="mt-1 text-sm text-zinc-600 dark:text-zinc-400">None yet. Free pizza waits for no one 🍕</p>
+        ) : (
+          <p className="mt-1 text-sm">{societies.map((s) => s.name).join(", ")}</p>
         )}
       </div>
 

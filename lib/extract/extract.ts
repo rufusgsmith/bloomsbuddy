@@ -4,15 +4,11 @@
 // (output_config.format), then checked again here, because a misread screenshot is the
 // likeliest thing to go wrong. The student reviews everything before it's saved anyway.
 
-import Anthropic from "@anthropic-ai/sdk";
 import { BUILDINGS, type BuildingId } from "../buildings";
+import { askClaudeJson } from "../claude-json";
 import { isDateKey, isWallTime, londonIso } from "../london-time";
 import type { DateKey, Deadline, TimetableEvent, WeeklyClass } from "../types";
 
-const MODEL = "claude-sonnet-5-5";
-// Sonnet 5.5 prices in USD per million tokens, for the dev cost log. Thinking counts as output.
-const USD_PER_MTOK_IN = 2;
-const USD_PER_MTOK_OUT = 10;
 const BUILDING_IDS = Object.keys(BUILDINGS) as BuildingId[];
 const KINDS: TimetableEvent["kind"][] = ["lecture", "seminar", "lab", "tutorial"];
 /** Used when Claude can't match a room to a known building. The UI flags it for the student to fix. */
@@ -27,13 +23,6 @@ export interface ImageInput {
   data: string;
 }
 
-/** Dev-only logging. Silent in production. */
-const debug = (...args: unknown[]) => {
-  if (process.env.NODE_ENV !== "production") {
-    console.log("[extract]", ...args.map((a) => (typeof a === "string" ? a : JSON.stringify(a))));
-  }
-};
-
 const isBuildingId = (x: unknown): x is BuildingId =>
   typeof x === "string" && (BUILDING_IDS as string[]).includes(x);
 
@@ -45,34 +34,17 @@ function normaliseTime(x: unknown): string {
   return /^\d:\d\d$/.test(s) ? `0${s}` : s;
 }
 
-async function askClaude(label: string, image: ImageInput, prompt: string, schema: Record<string, unknown>): Promise<unknown> {
-  const client = new Anthropic(); // reads ANTHROPIC_API_KEY
-  const message = await client.messages.create({
-    model: MODEL,
-    max_tokens: 8000,
-    // "medium": reading a dense timetable grid accurately is worth a bit of thinking.
-    output_config: { effort: "medium", format: { type: "json_schema", schema } },
-    messages: [
-      {
-        role: "user",
-        content: [
-          { type: "image", source: { type: "base64", media_type: image.mediaType, data: image.data } },
-          { type: "text", text: prompt },
-        ],
-      },
+// "medium" effort: reading a dense timetable grid accurately is worth a bit of thinking.
+function askClaude(label: string, image: ImageInput, prompt: string, schema: Record<string, unknown>): Promise<unknown> {
+  return askClaudeJson(
+    label,
+    [
+      { type: "image", source: { type: "base64", media_type: image.mediaType, data: image.data } },
+      { type: "text", text: prompt },
     ],
-  });
-
-  const { input_tokens, output_tokens } = message.usage;
-  const usd = (input_tokens * USD_PER_MTOK_IN + output_tokens * USD_PER_MTOK_OUT) / 1_000_000;
-  debug(`usage ${label}: ${input_tokens} in / ${output_tokens} out ≈ $${usd.toFixed(4)}`);
-
-  if (message.stop_reason !== "end_turn") {
-    throw new Error(`Claude stopped early (${message.stop_reason})`);
-  }
-  const text = message.content.flatMap((b) => (b.type === "text" ? [b.text] : [])).join("");
-  debug(`raw answer for ${label}:`, text);
-  return JSON.parse(text);
+    schema,
+    "medium",
+  );
 }
 
 // ---------- Timetable ----------
