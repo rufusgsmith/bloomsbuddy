@@ -1,8 +1,10 @@
 import type { SocietyEvent } from "../types";
+import { toDemoWeek } from "./week";
 
 // Several events deliberately fall inside timetable gaps (e.g. Tue lunch, Fri afternoon)
 // so the recommender has interesting choices.
-export const MOCK_SOCIETY_EVENTS: SocietyEvent[] = [
+// Written as the week of Mon 12 Oct 2026, like the timetable, and moved by mockSocietyEvents().
+const EVENTS: SocietyEvent[] = [
   {
     id: "soc-econ-coffee-cvs",
     society: "UCL Economics & Finance Society",
@@ -124,3 +126,8 @@ export const MOCK_SOCIETY_EVENTS: SocietyEvent[] = [
     free: true,
   },
 ];
+
+/** The mock society events, dated to the current demo week. */
+export function mockSocietyEvents(): SocietyEvent[] {
+  return EVENTS.map((e) => ({ ...e, start: toDemoWeek(e.start), end: toDemoWeek(e.end) }));
+}

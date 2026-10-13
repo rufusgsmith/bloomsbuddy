@@ -1,8 +1,10 @@
 import type { Deadline } from "../types";
+import { toDemoWeek } from "./week";
 
-// Note: deadlines from 25 Oct 2026 onward are on GMT (+00:00) because BST ends that day.
-// These are deliberately included to catch timezone bugs.
-export const MOCK_DEADLINES: Deadline[] = [
+// Written against the week of Mon 12 Oct 2026, like the timetable, and moved by mockDeadlines().
+// They spread over several weeks, so some land after BST ends (25 Oct 2026) and some before
+// whichever week it is: good for catching timezone bugs.
+const DEADLINES: Deadline[] = [
   {
     id: "dl-stat0002-quiz3",
     moduleCode: "STAT0002",
@@ -49,3 +51,8 @@ export const MOCK_DEADLINES: Deadline[] = [
     estimatedHours: 25,
   },
 ];
+
+/** The mock deadlines, moved by the same number of weeks as the timetable. */
+export function mockDeadlines(): Deadline[] {
+  return DEADLINES.map((d) => ({ ...d, due: toDemoWeek(d.due) }));
+}
