@@ -3,10 +3,10 @@
 // deadlines are the student's own (from onboarding). When sent, even empty, they replace the mock ones.
 // societies are the student's SU societies; outside demo mode their real events replace the mock ones.
 // home ({ label, lat, lng }) is where the student lives, so Claude can suggest popping back.
-// todos are the To-do tab's open items, so Claude can fit one into the gap.
+// todos are the To-do tab's open and repeating items; recommendForGap keeps the ones that fit the gap.
 import { recommendForGap } from "@/lib/recommend/recommend";
 import { isSlug } from "@/lib/societies/su-site";
-import { isTodo } from "@/lib/todos";
+import { isTodo, migrateTodo } from "@/lib/todos";
 import type { Deadline, Gap, HomeLocation, Society } from "@/lib/types";
 
 /** Each society costs a scrape and a Claude call (cached for an hour), so cap how many we accept. */
@@ -85,7 +85,7 @@ export async function POST(request: Request) {
     // A home outside the commuter belt is ignored (no home picks) rather than rejected.
     const home = isHomeLocation(body.home) ? body.home : undefined;
     const todos = Array.isArray(body.todos)
-      ? body.todos.filter(isTodo).filter((t) => !t.done).slice(0, MAX_TODOS)
+      ? body.todos.map(migrateTodo).filter(isTodo).filter((t) => !t.done || t.repeat).slice(0, MAX_TODOS)
       : undefined;
     return Response.json(await recommendForGap(body.gap, dayGaps, { deadlines, societies, home, todos }));
   } catch (err) {

@@ -140,15 +140,37 @@ export interface HomeLocation {
 
 // ---- The student's own data (from onboarding), stored in localStorage ----
 
+/** 1 = Monday … 7 = Sunday, same as dayOfWeek() in london-time.ts. */
+export type Weekday = 1 | 2 | 3 | 4 | 5 | 6 | 7;
+
+/** How a to-do repeats. time and partOfDay are both optional, and the form only sets one of them. */
+export interface TodoRepeat {
+  freq: "daily" | "weekly" | "monthly";
+  /** Weekly only: which days (at least one). */
+  days?: Weekday[];
+  /** Monthly only: 1–31. In shorter months, 29–31 fall on the month's last day. */
+  dayOfMonth?: number;
+  /** Preferred London wall-clock time, "HH:MM". */
+  time?: WallTime;
+  partOfDay?: PartOfDay;
+}
+
 /** One item on the To-do tab. Saved in localStorage on its own key (works in the demo week too). */
 export interface Todo {
   id: string;
   title: string;
-  /** London calendar day it's due. Date only, no time. */
-  due?: DateKey;
-  /** How long the student reckons it takes. */
+  /** How long the student reckons it takes, 1–720 minutes. */
   estMinutes?: number;
+  /** London calendar day to get it done by. Never set together with repeat. */
+  doBefore?: DateKey;
+  repeat?: TodoRepeat;
+  /**
+   * For a repeating to-do, done means "done for this occurrence". It counts as open again once
+   * the next occurrence after doneOn arrives (see isDoneNow in lib/todos.ts).
+   */
   done: boolean;
+  /** London day it was last ticked. Only kept for repeating to-dos. */
+  doneOn?: DateKey;
 }
 
 /** "YYYY-MM-DD", a Europe/London calendar day. */

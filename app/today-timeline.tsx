@@ -103,7 +103,7 @@ export function TodayTimeline({
   societies?: Society[];
   /** Where the student lives. null = not set yet. */
   home: Home | null;
-  /** The To-do tab's list. Open ones are sent so Claude can fit one into a gap. */
+  /** The To-do tab's list. Open and repeating ones are sent; the server picks the ones that fit each gap. */
   todos?: Todo[];
 }) {
   const [dateKey, setDateKey] = useState(
@@ -114,7 +114,8 @@ export function TodayTimeline({
   const [recs, setRecs] = useState<Record<string, RecState>>({});
   const [homeSheetOpen, setHomeSheetOpen] = useState(false);
   const homeLoc = homeLocation(home);
-  const openTodos = todos.filter((t) => !t.done);
+  // Repeating to-dos go too, even if ticked: /api/recommend works out which come up on the gap's day.
+  const openTodos = todos.filter((t) => !t.done || t.repeat);
 
   const day = days.find((d) => d.dateKey === dateKey);
 
@@ -208,24 +209,7 @@ export function TodayTimeline({
             <p className="mt-1 text-sm text-zinc-600 dark:text-zinc-400">{tagline(day.gaps)}</p>
           </>
         )}
-        <div className="mt-3 flex flex-wrap gap-2">
-          <button
-            type="button"
-            onClick={() => setHomeSheetOpen(true)}
-            aria-haspopup="dialog"
-            className={`inline-flex min-h-11 max-w-full items-center gap-1.5 rounded-full px-3.5 text-sm font-medium transition-colors ${
-              home
-                ? "bg-zinc-100 text-zinc-800 hover:bg-zinc-200 dark:bg-zinc-900 dark:text-zinc-200 dark:hover:bg-zinc-800"
-                : "border border-dashed border-emerald-500 text-emerald-700 hover:bg-emerald-50 dark:text-emerald-300 dark:hover:bg-emerald-950/40"
-            }`}
-          >
-            <span aria-hidden>🏠</span>
-            <span className="truncate">{home ? `Home: ${homeLabel(home)}` : "Add home"}</span>
-            <span aria-hidden className="text-zinc-400">
-              {home ? "›" : "+"}
-            </span>
-          </button>
-        </div>
+        <HomeButton home={home} onClick={() => setHomeSheetOpen(true)} />
       </header>
       {homeSheetOpen && <HomeSheet home={home} onClose={() => setHomeSheetOpen(false)} />}
 
@@ -435,5 +419,52 @@ function GapBlock({
         </div>
       )}
     </div>
+  );
+}
+
+/** Opens the Home sheet. Shows where home is, or invites the student to add it. */
+function HomeButton({ home, onClick }: { home: Home | null; onClick: () => void }) {
+  if (!home) {
+    return (
+      <button
+        type="button"
+        onClick={onClick}
+        aria-haspopup="dialog"
+        className="mt-4 flex min-h-14 w-full items-center gap-3 rounded-2xl border-2 border-dashed border-emerald-400 px-4 py-2.5 text-left transition-colors hover:bg-emerald-50 dark:border-emerald-700 dark:hover:bg-emerald-950/40"
+      >
+        <span className="min-w-0 flex-1">
+          <span className="block font-semibold text-emerald-700 dark:text-emerald-300">🏠 Add your home</span>
+          <span className="block text-sm text-zinc-600 dark:text-zinc-400">So I know when a gap&apos;s long enough to pop back</span>
+        </span>
+        <span aria-hidden className="text-xl text-emerald-600 dark:text-emerald-400">
+          +
+        </span>
+      </button>
+    );
+  }
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      aria-haspopup="dialog"
+      aria-label={`Home: ${homeLabel(home)}. Change`}
+      className="mt-4 flex min-h-14 w-full items-center gap-3 rounded-2xl border border-zinc-200 bg-white px-3 py-2.5 text-left transition-colors hover:bg-zinc-50 dark:border-zinc-800 dark:bg-zinc-950 dark:hover:bg-zinc-900"
+    >
+      <span
+        aria-hidden
+        className="flex size-10 shrink-0 items-center justify-center rounded-full bg-emerald-100 text-lg dark:bg-emerald-950"
+      >
+        🏠
+      </span>
+      <span className="min-w-0 flex-1">
+        <span className="block text-xs font-medium uppercase tracking-wide text-zinc-500">Home</span>
+        <span className={`block truncate font-medium ${home.kind === "none" ? "text-zinc-500" : ""}`}>
+          {homeLabel(home)}
+        </span>
+      </span>
+      <span aria-hidden className="text-xl text-zinc-400">
+        ›
+      </span>
+    </button>
   );
 }
