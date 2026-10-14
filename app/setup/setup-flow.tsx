@@ -3,13 +3,14 @@
 // Two routes share this file:
 // /setup is onboarding, first launch only (Today sends new visitors here):
 //   1. Timetable: screenshot or pasted text → Claude → editable weekly classes, plus how many weeks they repeat
-//   2. To-do: things to fit into gaps (skippable)
-//   3. Societies: SU page links, checked against the SU website (skippable)
-//   4. Deadlines: Moodle screenshot or pasted text → Claude → editable deadlines (skippable)
-//   5. Confirm and save to localStorage
-// Nothing is saved until step 5, so a bad screenshot can't break anything.
+//   2. To-do: things to fit into gaps (skippable; added and removed here, ticked on the To-do tab)
+//   3. Home: a hall, a postcode or "don't use my home" (skippable)
+//   4. Societies: SU page links, checked against the SU website (skippable)
+//   5. Deadlines: Moodle screenshot or pasted text → Claude → editable deadlines (skippable)
+//   6. Confirm and save to localStorage
+// Nothing is saved until step 6, so a bad screenshot can't break anything.
 // /timetable ("Edit timetable") is step 1 on its own and saves straight from it. Everything else is
-// kept as it was (to-dos, societies and deadlines have their own tabs).
+// kept as it was (to-dos, societies and deadlines have their own tabs; home is set from Today).
 // Each route redirects to the other if it doesn't fit (/setup with data saved, /timetable without).
 
 import Link from "next/link";
@@ -17,9 +18,11 @@ import { useRouter } from "next/navigation";
 import { useEffect, useRef, useState, useSyncExternalStore, type ReactNode } from "react";
 import { BUILDINGS, type BuildingId } from "@/lib/buildings";
 import { Field, inputClass } from "../form-ui";
+import { HomePicker } from "../home-picker";
 import { SocietyPicker } from "../society-picker";
 import { TodoEditor } from "../todo/todo-view";
 import { blankDraft, deadlineProblem, fromDraft, newId, toDraft, type DraftDeadline } from "@/lib/deadline-draft";
+import { homeLabel, parseHome, readRawHome, saveHome } from "@/lib/home";
 import { addDays, isDateKey, isWallTime, londonTodayKey, mondayOf } from "@/lib/london-time";
 import {
   clearUserData,
@@ -31,7 +34,7 @@ import {
 } from "@/lib/storage";
 import { prepareImage } from "@/lib/prepare-image";
 import { parseTodos, readRawTodos, saveTodos } from "@/lib/todos";
-import type { Deadline, Society, TimetableEvent, Todo, UserData, WeeklyClass } from "@/lib/types";
+import type { Deadline, Home, Society, TimetableEvent, Todo, UserData, WeeklyClass } from "@/lib/types";
 
 const DEFAULT_WEEKS = 11; // A UCL term is usually 11 teaching weeks
 const MAX_WEEKS = 15;
@@ -90,8 +93,8 @@ function Loading() {
   );
 }
 
-type Step = 0 | 1 | 2 | 3 | 4;
-const STEP_LABELS = ["Timetable", "To-do", "Societies", "Deadlines", "Confirm"];
+type Step = 0 | 1 | 2 | 3 | 4 | 5;
+const STEP_LABELS = ["Timetable", "To-do", "Home", "Societies", "Deadlines", "Confirm"];
 
 function Editor({ mode, initial }: { mode: SetupMode; initial: UserData | null }) {
   const router = useRouter();
@@ -107,6 +110,8 @@ function Editor({ mode, initial }: { mode: SetupMode; initial: UserData | null }
   const [societies, setSocieties] = useState<Society[]>(initial?.societies ?? []);
   // A draft until Confirm. Starts from any to-dos made while trying the demo week.
   const [todos, setTodos] = useState<Todo[]>(() => parseTodos(readRawTodos()));
+  // Also a draft until Confirm. null = skipped (not set).
+  const [home, setHome] = useState<Home | null>(() => parseHome(readRawHome()));
   const [saveError, setSaveError] = useState(false);
 
   useEffect(() => {
@@ -133,8 +138,9 @@ function Editor({ mode, initial }: { mode: SetupMode; initial: UserData | null }
       societies,
       savedAt: new Date().toISOString(),
     };
-    // The timetable editor leaves to-dos alone: they're edited on the To-do tab.
-    if (!saveUserData(data) || (mode === "onboarding" && !saveTodos(todos))) {
+    // The timetable editor leaves to-dos and home alone: they're edited on the To-do tab and Today.
+    const extrasSaved = mode !== "onboarding" || (saveTodos(todos) && (!home || saveHome(home)));
+    if (!saveUserData(data) || !extrasSaved) {
       setSaveError(true);
       return;
     }
@@ -202,9 +208,9 @@ function Editor({ mode, initial }: { mode: SetupMode; initial: UserData | null }
         <h1 className="text-3xl font-semibold tracking-tight">Let&apos;s get you set up</h1>
         <ol className="mt-4 flex gap-2" aria-label="Steps">
           {STEP_LABELS.map((label, i) => {
-            // To-dos and societies can't be invalid, so only the timetable gates the middle steps,
-            // and Confirm also needs the deadlines to be fine.
-            const reachable = i <= step || (i <= 3 && classesOk) || (classesOk && deadlinesOk);
+            // To-dos, home and societies can't be invalid, so only the timetable gates the middle
+            // steps, and Confirm also needs the deadlines to be fine.
+            const reachable = i <= step || (i <= 4 && classesOk) || (classesOk && deadlinesOk);
             return (
               <li key={label} className="min-w-0 flex-1">
                 <button
@@ -240,32 +246,47 @@ function Editor({ mode, initial }: { mode: SetupMode; initial: UserData | null }
       )}
       {step === 1 && <TodosStep todos={todos} setTodos={setTodos} onBack={() => setStep(0)} onNext={() => setStep(2)} />}
       {step === 2 && (
-        <SocietiesStep
-          societies={societies}
-          setSocieties={setSocieties}
+        <HomeStep
+          home={home}
+          onPick={(h) => {
+            setHome(h);
+            setStep(3);
+          }}
           onBack={() => setStep(1)}
-          onNext={() => setStep(3)}
+          onSkip={() => {
+            setHome(null);
+            setStep(3);
+          }}
         />
       )}
       {step === 3 && (
-        <DeadlinesStep
-          deadlines={deadlines}
-          setDeadlines={setDeadlines}
-          canContinue={deadlinesOk}
+        <SocietiesStep
+          societies={societies}
+          setSocieties={setSocieties}
           onBack={() => setStep(2)}
           onNext={() => setStep(4)}
         />
       )}
       {step === 4 && (
+        <DeadlinesStep
+          deadlines={deadlines}
+          setDeadlines={setDeadlines}
+          canContinue={deadlinesOk}
+          onBack={() => setStep(3)}
+          onNext={() => setStep(5)}
+        />
+      )}
+      {step === 5 && (
         <ReviewStep
           classes={classes}
           termStart={termStart}
           weeks={weeks}
           todos={todos}
+          home={home}
           societies={societies}
           deadlines={deadlines}
           saveError={saveError}
-          onBack={() => setStep(3)}
+          onBack={() => setStep(4)}
           onSave={save}
         />
       )}
@@ -507,7 +528,7 @@ function ClassRow({
   );
 }
 
-// ---------- Step 4: deadlines ----------
+// ---------- Step 5: deadlines ----------
 
 function DeadlinesStep({
   deadlines,
@@ -658,11 +679,11 @@ function TodosStep({
       <div>
         <h2 className="text-lg font-semibold">Your to-do list</h2>
         <p className="mt-1 text-sm text-zinc-600 dark:text-zinc-400">
-          Anything you need to get done? Tap one to add a due date and a time estimate, and I&apos;ll fit it into a
-          gap. You can skip this.
+          Anything you need to get done? Add how long it takes, a do-before date or a repeat (like a weekly shop),
+          and I&apos;ll fit it into a gap. You can skip this.
         </p>
       </div>
-      <TodoEditor todos={todos} onChange={setTodos} />
+      <TodoEditor todos={todos} onChange={setTodos} allowTick={false} />
       <StepNav
         onBack={onBack}
         canContinue
@@ -673,7 +694,54 @@ function TodosStep({
   );
 }
 
-// ---------- Step 3: societies ----------
+// ---------- Step 3: home ----------
+
+function HomeStep({
+  home,
+  onPick,
+  onBack,
+  onSkip,
+}: {
+  home: Home | null;
+  onPick: (h: Home) => void;
+  onBack: () => void;
+  onSkip: () => void;
+}) {
+  return (
+    <section className="flex flex-col gap-5">
+      <div>
+        <h2 className="text-lg font-semibold">Where&apos;s home?</h2>
+        <p className="mt-1 text-sm text-zinc-600 dark:text-zinc-400">
+          I&apos;ll tell you when a gap&apos;s long enough to pop back for a nap or a proper lunch. You can skip this
+          and add it later from Today.
+        </p>
+      </div>
+      <HomePicker
+        initial={home}
+        onDone={onPick}
+        submitLabel="Next"
+        footer={
+          <button
+            type="button"
+            onClick={onBack}
+            className="min-h-12 rounded-full bg-zinc-100 px-5 font-medium text-zinc-700 hover:bg-zinc-200 dark:bg-zinc-800 dark:text-zinc-200 dark:hover:bg-zinc-700"
+          >
+            Back
+          </button>
+        }
+      />
+      <button
+        type="button"
+        onClick={onSkip}
+        className="min-h-11 self-center rounded-full px-4 text-sm font-medium text-zinc-600 hover:bg-zinc-100 dark:text-zinc-400 dark:hover:bg-zinc-900"
+      >
+        Skip for now
+      </button>
+    </section>
+  );
+}
+
+// ---------- Step 4: societies ----------
 
 function SocietiesStep({
   societies,
@@ -717,13 +785,14 @@ function SocietiesStep({
   );
 }
 
-// ---------- Step 5: confirm & save ----------
+// ---------- Step 6: confirm & save ----------
 
 function ReviewStep({
   classes,
   termStart,
   weeks,
   todos,
+  home,
   societies,
   deadlines,
   saveError,
@@ -734,6 +803,7 @@ function ReviewStep({
   termStart: string;
   weeks: number;
   todos: Todo[];
+  home: Home | null;
   societies: Society[];
   deadlines: DraftDeadline[];
   saveError: boolean;
@@ -790,6 +860,13 @@ function ReviewStep({
             ))}
           </ul>
         )}
+      </div>
+
+      <div className="rounded-2xl border border-zinc-200 bg-white p-4 dark:border-zinc-800 dark:bg-zinc-950">
+        <h3 className="font-semibold">Home</h3>
+        <p className="mt-1 text-sm text-zinc-600 dark:text-zinc-400">
+          {home ? homeLabel(home) : "Not set. Add it any time from Today 🏠"}
+        </p>
       </div>
 
       <div className="rounded-2xl border border-zinc-200 bg-white p-4 dark:border-zinc-800 dark:bg-zinc-950">

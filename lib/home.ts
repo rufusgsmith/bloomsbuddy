@@ -58,11 +58,11 @@ export function subscribeHome(onChange: () => void): () => void {
   };
 }
 
-/** Short name for the chip, e.g. "John Adams" or "NW3 2QG". */
+/** Name for the Home button and setup, e.g. "Ifor Evans Hall" or "NW3 2QG". */
 export function homeLabel(home: Home): string {
-  if (home.kind === "hall") return BUILDINGS[home.buildingId].shortName;
+  if (home.kind === "hall") return BUILDINGS[home.buildingId].name;
   if (home.kind === "private") return home.postcode;
-  return "off";
+  return "Not using my home";
 }
 
 /** What /api/recommend needs, or undefined when there's no home to use. */

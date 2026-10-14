@@ -2,12 +2,11 @@
 // Turns a UK postcode into coordinates via postcodes.io (free, no key), so a student in private
 // housing can set their home. Server-side so the browser only ever talks to us. No Claude call.
 
-// Loose UK postcode shape: outward code, optional space, inward code. postcodes.io does the real check.
-const POSTCODE = /^[A-Z]{1,2}[0-9][A-Z0-9]? ?[0-9][A-Z]{2}$/;
+import { isPostcodeShape, normalisePostcode } from "@/lib/postcode";
 
 export async function GET(request: Request) {
-  const pc = (new URL(request.url).searchParams.get("pc") ?? "").trim().toUpperCase().replace(/\s+/g, " ");
-  if (!POSTCODE.test(pc)) {
+  const pc = normalisePostcode(new URL(request.url).searchParams.get("pc") ?? "");
+  if (!isPostcodeShape(pc)) {
     return Response.json({ error: "That doesn't look like a UK postcode" }, { status: 400 });
   }
   try {

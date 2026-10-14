@@ -11,7 +11,7 @@ import { estimateBusyness } from "../library-busyness";
 import { formatDuration } from "../duration";
 import { londonDateKey } from "../gaps";
 import { lunchInfo } from "../lunch";
-import { byDueThenEstimate } from "../todos";
+import { byDueThenEstimate, repeatLabel, todosForGap } from "../todos";
 import { deadlinesFromList, eventsFor, getProviders } from "../providers";
 import type {
   BusynessLevel,
@@ -270,11 +270,11 @@ function makeTools(
     },
   });
 
-  // Only offered when the student has open to-dos, like get_home.
+  // Only offered when some to-dos fit this gap (already filtered by todosForGap), like get_home.
   const getTodos = todos?.length ? betaTool({
     name: "get_todos",
     description:
-      "The student's own open to-do items, soonest due first. Each says when it's due (daysUntilDue counts London calendar days from the gap; negative = overdue), the student's time estimate if they gave one, and fitsInGap (whether the estimate fits the gap's usable minutes, or \"unknown\" with no estimate).",
+      "The student's own to-do items that could go in this gap, soonest do-before date first. One-off items say when to do them by (daysUntilDoBefore counts London calendar days from the gap; negative = overdue). Repeating items (repeats is set) only appear when they come up on the gap's day and their preferred time or part of day falls in the gap, so they're timely now. Each has the student's time estimate if they gave one, and fitsInGap (whether the estimate fits the gap's usable minutes, or \"unknown\" with no estimate).",
     inputSchema: { type: "object", properties: {}, additionalProperties: false },
     run: async () => {
       debug("tool get_todos", { count: todos.length });
@@ -284,10 +284,11 @@ function makeTools(
         return {
           id: t.id,
           title: t.title,
-          due: t.due ? fmtDateKey(t.due) : null,
-          daysUntilDue: t.due
-            ? Math.round((Date.parse(`${t.due}T12:00:00Z`) - Date.parse(`${gapDay}T12:00:00Z`)) / MS_PER_DAY)
+          doBefore: t.doBefore ? fmtDateKey(t.doBefore) : null,
+          daysUntilDoBefore: t.doBefore
+            ? Math.round((Date.parse(`${t.doBefore}T12:00:00Z`) - Date.parse(`${gapDay}T12:00:00Z`)) / MS_PER_DAY)
             : null,
+          repeats: t.repeat ? repeatLabel(t.repeat).replace(/^↻ /, "") : null,
           estMinutes: t.estMinutes ?? null,
           estimate: t.estMinutes ? formatDuration(t.estMinutes) : "not estimated",
           fitsInGap: t.estMinutes ? t.estMinutes <= gap.usableMins : "unknown",
@@ -403,7 +404,7 @@ function describeGap(gap: Gap, dayGaps: Gap[], home?: HomeLocation, todos?: Todo
       // Worked out here, not by Claude: it overlaps 12:00–14:00 and there was no lunch-length gap earlier.
       lunch: lunchInfo(gap, dayGaps),
       home: home ? `Saved: ${home.label}. Call get_home to see if it's worth going back.` : "Not set",
-      todos: todos?.length ? `${todos.length} open. Call get_todos.` : "None",
+      todos: todos?.length ? `${todos.length} that could fit. Call get_todos.` : "None",
     },
     null,
     2,
@@ -449,6 +450,8 @@ export async function recommendForGap(
   opts: { deadlines?: Deadline[]; societies?: Society[]; home?: HomeLocation; todos?: Todo[] } = {},
 ): Promise<Recommendation> {
   const client = new Anthropic(); // reads ANTHROPIC_API_KEY
+  // Done one-offs out, repeating ones only when they come up in this gap.
+  const todos = opts.todos ? todosForGap(opts.todos, gap) : undefined;
   const seen: Seen = { eventIds: new Set(), libraries: new Map(), todoIds: new Set() };
 
   const runner = client.beta.messages.toolRunner({
@@ -456,13 +459,13 @@ export async function recommendForGap(
     max_tokens: 8000,
     max_iterations: 8,
     system: SYSTEM_PROMPT,
-    tools: makeTools(gap, seen, dayGaps, opts.deadlines, opts.societies, opts.home, opts.todos),
+    tools: makeTools(gap, seen, dayGaps, opts.deadlines, opts.societies, opts.home, todos),
     // "low" effort keeps thinking (billed as output) short: picking 3 options doesn't need deep reasoning.
     output_config: { effort: "low", format: { type: "json_schema", schema: OUTPUT_SCHEMA } },
     messages: [
       {
         role: "user",
-        content: `Here's my gap. What should I do with it?\n\n${describeGap(gap, dayGaps, opts.home, opts.todos)}`,
+        content: `Here's my gap. What should I do with it?\n\n${describeGap(gap, dayGaps, opts.home, todos)}`,
       },
     ],
   });
