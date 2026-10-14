@@ -7,7 +7,7 @@ Hackathon project for the UCL Claude Campus Hackathon (Fri 16 Oct 2026, "Better 
 ## What it does
 UCL students have gaps between lectures and waste them. Bloomsbuddy finds the gaps in a student's timetable and uses Claude to recommend the best thing to do in each one: **a top pick + 2 alternatives, each with a reason**. Pick types: `study`, `event`, `rest`, `home`, `food`. Inputs:
 - **Timetable and Moodle deadlines**: added by uploading screenshots, which Claude reads with vision
-- **Estimated library busyness**: one real seat snapshot (Tue 11:40) scaled by time of day and weekday. The live UCL seat page is behind Cloudflare's bot check, so seats are mock only and there is no scraper. The Library tab (`app/library/`) links students to that live page in a new tab. It can't be embedded (UCL sends `X-Frame-Options: SAMEORIGIN`), and nothing is fetched server-side
+- **Estimated library busyness**: one real seat snapshot (Tue 11:40) scaled by time of day and weekday. The live UCL seat page can't be fetched server-side (Cloudflare's bot check), so recommendations use mock seats only and there is no scraper. It CAN be embedded as an iframe in the student's browser: the Library tab (`app/library/`) shows it with an "Open on UCL site ↗" link, and falls back to a card with a link if the iframe errors or doesn't load within 8s
 - **Society events**: scraped straight from each society's Students' Union `/events` page (no Claude, no tokens). Students add a society by pasting its SU page link
 - **Location**: inferred from the previous lecture's room (`findGaps` supports a manual override, but no UI sets it yet)
 - **Home**: a hall (from `BUILDINGS`: every UCL hall, including One Pool Street at UCL East, plus the University of London intercollegiate halls), a private UK postcode (turned into lat/lng server-side by `/api/postcode` via postcodes.io), or "Don't use my home". Set from the 🏠 chip on the Today page, saved in localStorage under its own key (works in the demo week too). Claude only suggests going home when `get_home` says the round trip leaves 30+ min there; `recommend.ts` rejects a `home` pick otherwise
@@ -50,6 +50,7 @@ Every data source sits behind a **provider interface** with a `mock` and a `real
 - `lib/prepare-image.ts`: shrinks a screenshot before `/api/extract` (setup and the Deadlines tab's "Re-scan Moodle screenshot")
 - `lib/mock/`: one realistic student week, written as Mon 12 – Fri 16 Oct 2026 and moved to the current London week on every call (`week.ts`; at the weekend, next week)
 - `lib/providers/`: provider interfaces + mocks; `societies.ts` is the real SU events provider (scraped on every request, no cache; parallel requests share one in-flight scrape per society)
+- `app/library/`: the Library tab, the live UCL seat page in an iframe (`USE_IFRAME` flag; fallback card on failure)
 - `lib/library-busyness.ts`: library busyness estimates (not a provider; Claude and the UI only see the level, never seat numbers)
 - `lib/societies/su-site.ts`: SU website fetching, society lookup by slug, and event parsing (cheerio): `/events` cards (all upcoming events on one page) filtered to a London day range, then each in-range event's page for venue and the "Free" tag
 - `lib/societies/slug.ts`: SU page link → slug (`slugFromLink`) and society name → slug. Pure, so client components can use it
