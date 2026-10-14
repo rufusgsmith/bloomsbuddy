@@ -29,6 +29,18 @@ const TABS: { href: string; label: string; icon: ReactNode }[] = [
     ),
   },
   {
+    href: "/library",
+    label: "Library",
+    icon: (
+      <>
+        <path d="M4 19.5V5a1.5 1.5 0 0 1 1.5-1.5H8A1.5 1.5 0 0 1 9.5 5v14.5" />
+        <path d="M9.5 19.5V7a1.5 1.5 0 0 1 1.5-1.5h2A1.5 1.5 0 0 1 14.5 7v12.5" />
+        <path d="m15 7.6 2.4-.7a1.5 1.5 0 0 1 1.9 1l3 10.4" />
+        <path d="M2.5 20.5h19M4 8h5.5M9.5 10h5" />
+      </>
+    ),
+  },
+  {
     href: "/societies",
     label: "Societies",
     icon: (
@@ -65,7 +77,7 @@ export function TabBar() {
       aria-label="Main"
       className="fixed inset-x-0 bottom-0 z-40 border-t border-zinc-200 bg-white/95 pb-[env(safe-area-inset-bottom)] backdrop-blur dark:border-zinc-800 dark:bg-zinc-950/95"
     >
-      <ul className="mx-auto grid w-full max-w-md grid-cols-4">
+      <ul className="mx-auto grid w-full max-w-md grid-cols-5">
         {TABS.map((tab) => {
           const active = isActive(pathname, tab.href);
           return (
@@ -80,7 +92,7 @@ export function TabBar() {
                 }`}
               >
                 <span
-                  className={`flex h-8 w-14 items-center justify-center rounded-full ${
+                  className={`flex h-8 w-12 items-center justify-center rounded-full ${
                     active ? "bg-emerald-100 dark:bg-emerald-950" : ""
                   }`}
                 >
