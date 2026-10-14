@@ -4,8 +4,6 @@ UCL students waste the gaps between lectures. Bloomsbuddy finds the gaps in your
 
 You add your timetable and Moodle deadlines by uploading screenshots, which Claude reads. Everything is saved in your browser, with no account or login.
 
-Built for the UCL Claude Campus Hackathon (Better Student Life track).
-
 ## Run it locally
 
 You need:
