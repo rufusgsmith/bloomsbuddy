@@ -7,7 +7,7 @@ Hackathon project for the UCL Claude Campus Hackathon (Fri 16 Oct 2026, "Better 
 ## What it does
 UCL students have gaps between lectures and waste them. Bloomsbuddy finds the gaps in a student's timetable and uses Claude to recommend the best thing to do in each one: **a top pick + 2 alternatives, each with a reason**. Pick types: `study`, `event`, `rest`, `home`, `food`. Inputs:
 - **Timetable and Moodle deadlines**: added by uploading screenshots, which Claude reads with vision
-- **Estimated library busyness**: one real seat snapshot (Tue 11:40) scaled by time of day and weekday. The live UCL seat page is behind Cloudflare's bot check, so seats are mock only and there is no scraper
+- **Estimated library busyness**: one real seat snapshot (Tue 11:40) scaled by time of day and weekday. The live UCL seat page is behind Cloudflare's bot check, so seats are mock only and there is no scraper. The Library tab (`app/library/`) links students to that live page in a new tab. It can't be embedded (UCL sends `X-Frame-Options: SAMEORIGIN`), and nothing is fetched server-side
 - **Society events**: scraped straight from each society's Students' Union `/events` page (no Claude, no tokens). Students add a society by pasting its SU page link
 - **Location**: inferred from the previous lecture's room (`findGaps` supports a manual override, but no UI sets it yet)
 - **Home**: a hall (from `BUILDINGS`: every UCL hall, including One Pool Street at UCL East, plus the University of London intercollegiate halls), a private UK postcode (turned into lat/lng server-side by `/api/postcode` via postcodes.io), or "Don't use my home". Set from the 🏠 chip on the Today page, saved in localStorage under its own key (works in the demo week too). Claude only suggests going home when `get_home` says the round trip leaves 30+ min there; `recommend.ts` rejects a `home` pick otherwise
@@ -38,7 +38,7 @@ Every data source sits behind a **provider interface** with a `mock` and a `real
 - BST ends Sun 25 Oct 2026. Until then London is `+01:00`, and after it's `+00:00`.
 
 ## Layout
-- `app/`: Next.js routes and UI. Claude calls go in route handlers (server-side only).
+- `app/`: Next.js routes and UI. Claude calls go in route handlers (server-side only). Bottom tabs (`tab-bar.tsx`): Today, To-do, Library, Societies, Deadlines
 - `lib/types.ts`: shared domain types (serialisable; they go to localStorage and into prompts)
 - `lib/buildings.ts`: UCL building and hall coordinates, mock `FOOD_SPOTS`, `walkingMins()`, `travelTime()` (buildings) and `travelTimeBetween()` (any lat/lng, e.g. a postcode)
 - `lib/home.ts`: the student's home in localStorage (`bloomsbuddy:home`) + `homeLocation()` for the recommend request
