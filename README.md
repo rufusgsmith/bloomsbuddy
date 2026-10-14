@@ -1,36 +1,40 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# Bloomsbuddy
 
-## Getting Started
+UCL students waste the gaps between lectures. Bloomsbuddy finds the gaps in your timetable and uses Claude to suggest the best thing to do in each one: a top pick and two alternatives, each with a reason. Picks can be a study spot, a society event, a rest, lunch, going home, or something from your to-do list.
 
-First, run the development server:
+You add your timetable and Moodle deadlines by uploading screenshots, which Claude reads. Everything is saved in your browser, with no account or login.
 
-```bash
-npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
-```
+Built for the UCL Claude Campus Hackathon (Better Student Life track).
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+## Run it locally
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+You need:
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+- [Node.js](https://nodejs.org) 20.9 or newer
+- An Anthropic API key from [console.anthropic.com](https://console.anthropic.com). API usage is billed to your account.
 
-## Learn More
+1. Clone the repo and install the dependencies:
 
-To learn more about Next.js, take a look at the following resources:
+   ```bash
+   git clone https://github.com/rufussm1th/bloomsbuddy.git
+   cd bloomsbuddy
+   npm install
+   ```
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+2. Copy the example env file:
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+   ```bash
+   cp .env.example .env.local
+   ```
 
-## Deploy on Vercel
+   Open `.env.local` and paste your key after `ANTHROPIC_API_KEY=`. Git ignores `.env.local`, so your key stays on your machine. Never commit it.
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
+3. Start the dev server:
 
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+   ```bash
+   npm run dev
+   ```
+
+4. Open [http://localhost:3000](http://localhost:3000).
+
+No timetable to hand? Choose "Skip, show the demo week" in setup to try a sample student week. Without an API key the app still opens, but recommendations and screenshot reading won't work.
