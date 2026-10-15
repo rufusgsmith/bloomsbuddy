@@ -324,8 +324,8 @@ export function nearestBuilding(p: LatLng): BuildingId {
   return best;
 }
 
-/** "5 min walk" / "40 min by tube" / "1h 5m by tube". The UI adds the walk/tube icon. */
+/** "🚶 5 min walk" / "🚇 40 min by tube" / "🚇 1h 5m by tube". */
 export function travelLabel(mins: number, mode: TravelMode): string {
   const time = formatDurationShort(mins);
-  return mode === "tube" ? `${time} by tube` : `${time} walk`;
+  return mode === "tube" ? `🚇 ${time} by tube` : `🚶 ${time} walk`;
 }

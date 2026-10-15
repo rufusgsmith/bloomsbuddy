@@ -20,7 +20,6 @@ import { parseTodos, readRawTodos, subscribeTodos } from "@/lib/todos";
 import { expandWeekly } from "@/lib/timetable";
 import type { Deadline, Todo, UserData } from "@/lib/types";
 import { ChatAssistant } from "./chat-sheet";
-import { PAGE_FRAME } from "./form-ui";
 import { TodayTimeline, type Day } from "./today-timeline";
 
 /**
@@ -141,23 +140,15 @@ function pickInitialDay(days: Day[]): string {
   return (days.find((d) => d.dateKey >= today) ?? days[days.length - 1])?.dateKey ?? today;
 }
 
-/** The shape of Today while localStorage is read: title, day pills, a few calendar blocks. */
 function Skeleton() {
   return (
-    <main aria-busy="true" className={`${PAGE_FRAME} animate-pulse`}>
-      <div className="shrink-0 border-b border-line px-4 pt-8 md:px-8 md:pt-10">
-        <div className="h-8 w-40 rounded-sm bg-sunken" />
-        <div className="mt-2 h-4 w-56 rounded-sm bg-sunken" />
-        <div className="mt-4 mb-4 flex gap-1">
-          {Array.from({ length: 7 }, (_, i) => (
-            <div key={i} className="h-14 flex-1 rounded-lg bg-sunken" />
-          ))}
-        </div>
-      </div>
-      <div className="flex flex-col gap-2 px-4 py-4 pl-16 md:px-8 md:pl-20">
-        <div className="h-16 rounded-sm bg-sunken" />
-        <div className="hatch h-24 rounded-sm opacity-60" />
-        <div className="h-16 rounded-sm bg-sunken" />
+    <main aria-busy="true" className="mx-auto w-full max-w-md animate-pulse px-4 pb-28 pt-8">
+      <div className="mb-2 h-4 w-24 rounded bg-zinc-200 dark:bg-zinc-800" />
+      <div className="mb-6 h-9 w-56 rounded bg-zinc-200 dark:bg-zinc-800" />
+      <div className="mb-6 h-12 rounded-xl bg-zinc-100 dark:bg-zinc-900" />
+      <div className="flex flex-col gap-3">
+        <div className="h-24 rounded-2xl bg-zinc-100 dark:bg-zinc-900" />
+        <div className="h-24 rounded-2xl bg-zinc-100 dark:bg-zinc-900" />
       </div>
     </main>
   );

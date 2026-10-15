@@ -52,11 +52,11 @@ export function LocationPicker({
         onChange={(e) => setQuery(e.target.value)}
         placeholder={picked ? BUILDINGS[picked].name : "Start typing, e.g. Cruciform"}
         aria-label={label}
-        className={`${inputClass} ${invalid ? "ring-2 ring-ochre" : ""}`}
+        className={`${inputClass} ${invalid ? "ring-2 ring-amber-400" : ""}`}
       />
       <ul role="radiogroup" aria-label="Places" className="flex flex-col gap-1">
         {query.trim() && matches.length === 0 && (
-          <li className="py-2 text-sm text-muted">
+          <li className="py-2 text-center text-sm text-zinc-500">
             No UCL building called that.{buildingOnly ? "" : " Somewhere else? Use a postcode."}
           </li>
         )}
