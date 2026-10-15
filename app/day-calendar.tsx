@@ -403,12 +403,15 @@ function Segment({
           className="pointer-events-none absolute inset-x-0 z-10 scroll-mt-4"
           style={{ top: y(nowMin) }}
         >
-          {/* Covers the hour label it lands on, so the two don't overlap. */}
-          <span className="absolute left-0 w-11 -translate-y-1/2 bg-background pr-1 text-right text-xs font-semibold tabular-nums text-red-600 dark:text-red-400">
-            {minutesLabel(nowMin)}
-          </span>
           <span aria-hidden className="absolute left-12 size-2.5 -translate-x-1/2 -translate-y-1/2 rounded-full bg-red-500" />
-          <span aria-hidden className="absolute left-12 right-0 h-0.5 -translate-y-1/2 bg-red-500" />
+          {/* The time sits in a break in the middle of the line, clear of the hour labels on the left. */}
+          <div className="absolute left-12 right-0 flex -translate-y-1/2 items-center gap-1.5">
+            <span aria-hidden className="h-0.5 flex-1 bg-red-500" />
+            <span className="text-[11px] font-semibold leading-none tabular-nums text-red-600 dark:text-red-400">
+              {minutesLabel(nowMin)}
+            </span>
+            <span aria-hidden className="h-0.5 flex-1 bg-red-500" />
+          </div>
         </div>
       )}
     </div>
