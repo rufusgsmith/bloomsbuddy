@@ -1,22 +1,8 @@
 "use client";
 
-import {
-  Armchair,
-  BookOpen,
-  Coffee,
-  Footprints,
-  House,
-  ListTodo,
-  RotateCw,
-  Ticket,
-  TrainFront,
-  Utensils,
-  type LucideIcon,
-} from "lucide-react";
-import { useEffect, useState } from "react";
+import { useEffect, useState, type ReactNode } from "react";
 import type { BusynessLevel, Recommendation, RecommendationOption, RecommendationType } from "@/lib/types";
 import { travelLabel } from "@/lib/buildings";
-import { Badge, ghostButton, ICON, secondaryButton } from "./form-ui";
 
 export type RecState = { status: "loading" } | { status: "ok"; rec: Recommendation } | { status: "error" };
 
@@ -28,41 +14,31 @@ const LOADING_LINES = [
   "Checking your to-do list…",
 ];
 
-const TYPE_ICON: Record<RecommendationType, LucideIcon> = {
-  study: BookOpen,
-  event: Ticket,
-  rest: Coffee,
-  home: House,
-  food: Utensils,
-};
+const TYPE_EMOJI: Record<RecommendationType, string> = { study: "📚", event: "🎉", rest: "☕", home: "🏠", food: "🍜" };
 
-/** onReload asks Claude again, skipping the cached picks: "Try again" after an error, "Redo" after picks. */
+/** onReload asks Claude again, skipping the cached picks: "Try again" after an error, "↻ Redo" after picks. */
 export function RecommendationPanel({ state, onReload }: { state: RecState; onReload: () => void }) {
   if (state.status === "loading") return <Loading />;
   if (state.status === "error") return <Fallback onRetry={onReload} />;
 
   const { top, alternatives } = state.rec;
   return (
-    <div>
-      <div className="flex items-center justify-between">
-        <h3 className="text-sm font-medium text-muted">Top pick</h3>
+    <div className="flex flex-col gap-3">
+      <div className="-mb-1 flex justify-end">
         <button
           type="button"
           onClick={onReload}
           aria-label="Redo: get fresh picks for this gap"
-          className={`${ghostButton} -mr-3 min-h-9`}
+          className="min-h-9 rounded-full px-3 text-sm font-medium text-emerald-800 hover:bg-emerald-100 dark:text-emerald-200 dark:hover:bg-emerald-900/50"
         >
-          <RotateCw {...ICON} />
-          Redo
+          ↻ Redo
         </button>
       </div>
       <TopPick option={top} />
-      <h3 className="mt-4 text-sm font-medium text-muted">Or</h3>
-      <ul className="divide-y divide-line">
-        {alternatives.map((option) => (
-          <Alternative key={option.title} option={option} />
-        ))}
-      </ul>
+      <p className="text-sm font-semibold text-emerald-800 dark:text-emerald-200">Or…</p>
+      {alternatives.map((option) => (
+        <Alternative key={option.title} option={option} />
+      ))}
     </div>
   );
 }
@@ -76,13 +52,13 @@ function Loading() {
 
   return (
     <div aria-busy="true">
-      <p aria-live="polite" className="mb-3 text-sm text-muted">
+      <p aria-live="polite" className="mb-3 text-sm text-emerald-800 dark:text-emerald-200">
         {LOADING_LINES[line]}
       </p>
-      <div className="flex animate-pulse flex-col gap-2">
-        <div className="hatch h-28 rounded-lg" />
-        <div className="h-12 rounded-lg bg-sunken" />
-        <div className="h-12 rounded-lg bg-sunken" />
+      <div className="flex animate-pulse flex-col gap-3">
+        <div className="h-32 rounded-xl bg-emerald-100 dark:bg-emerald-900/50" />
+        <div className="h-16 rounded-xl bg-emerald-100/70 dark:bg-emerald-900/30" />
+        <div className="h-16 rounded-xl bg-emerald-100/70 dark:bg-emerald-900/30" />
       </div>
     </div>
   );
@@ -90,87 +66,74 @@ function Loading() {
 
 function Fallback({ onRetry }: { onRetry: () => void }) {
   return (
-    <div role="alert" className="text-sm">
-      <p className="font-medium">Couldn&apos;t get picks for this gap</p>
-      <p className="mt-1 text-muted">The request didn&apos;t go through. Try again in a moment.</p>
-      <button type="button" onClick={onRetry} className={`${secondaryButton} mt-3`}>
-        <RotateCw {...ICON} />
+    <div role="alert" className="rounded-xl bg-white p-4 text-sm dark:bg-zinc-950">
+      <p className="font-semibold">Couldn&apos;t get recommendations</p>
+      <p className="mt-1 text-zinc-600 dark:text-zinc-400">
+        Something went wrong loading picks for this gap. Try again.
+      </p>
+      <button
+        type="button"
+        onClick={onRetry}
+        className="mt-3 min-h-11 rounded-full bg-emerald-600 px-4 text-sm font-medium text-white hover:bg-emerald-700 dark:bg-emerald-500 dark:text-emerald-950 dark:hover:bg-emerald-400"
+      >
         Try again
       </button>
     </div>
   );
 }
 
-function TypeIcon({ type, large }: { type: RecommendationType; large?: boolean }) {
-  const Icon = TYPE_ICON[type];
-  return (
-    <span
-      aria-hidden
-      className={`flex shrink-0 items-center justify-center rounded-lg ${
-        large ? "size-10 bg-square text-on-square" : "size-8 bg-sunken text-muted"
-      }`}
-    >
-      <Icon size={large ? 20 : 16} strokeWidth={1.75} />
-    </span>
-  );
-}
-
 function TopPick({ option }: { option: RecommendationOption }) {
   return (
-    <article className="mt-2 flex gap-3 rounded-lg bg-square-tint p-3">
-      <TypeIcon type={option.type} large />
-      <div className="min-w-0">
-        <h4 className="text-base font-semibold leading-snug">{option.title}</h4>
-        <p className="text-sm text-muted">{option.place}</p>
-        <Badges option={option} />
-        <p className="mt-2 text-sm">{option.reason}</p>
-      </div>
+    <article className="rounded-xl bg-white p-4 shadow-sm ring-1 ring-emerald-200 dark:bg-zinc-950 dark:ring-emerald-800">
+      <p className="text-sm font-semibold text-emerald-700 dark:text-emerald-400">Top pick</p>
+      <h3 className="mt-1 text-lg font-semibold leading-snug">
+        <span aria-hidden>{TYPE_EMOJI[option.type]}</span> {option.title}
+      </h3>
+      <p className="text-sm text-zinc-500">{option.place}</p>
+      <Badges option={option} />
+      <p className="mt-3 text-sm text-zinc-800 dark:text-zinc-200">{option.reason}</p>
     </article>
   );
 }
 
 function Alternative({ option }: { option: RecommendationOption }) {
   return (
-    <li className="flex gap-3 py-3">
-      <TypeIcon type={option.type} />
-      <div className="min-w-0">
-        <h4 className="text-sm font-semibold">
-          {option.title} <span className="font-normal text-muted">at {option.place}</span>
-        </h4>
-        <Badges option={option} />
-        <p className="mt-1 text-sm text-muted">{option.reason}</p>
-      </div>
-    </li>
+    <article className="rounded-xl bg-white/70 p-3 dark:bg-zinc-950/60">
+      <h3 className="text-sm font-semibold">
+        <span aria-hidden>{TYPE_EMOJI[option.type]}</span> {option.title}{" "}
+        <span className="font-normal text-zinc-500">· {option.place}</span>
+      </h3>
+      <Badges option={option} />
+      <p className="mt-2 text-sm text-zinc-600 dark:text-zinc-400">{option.reason}</p>
+    </article>
   );
 }
 
 function Badges({ option }: { option: RecommendationOption }) {
-  const Travel = option.travelMode === "tube" ? TrainFront : Footprints;
   return (
-    <div className="mt-2 flex flex-wrap gap-1">
-      <Badge>
-        {option.travelMins !== 0 && <Travel {...ICON} size={12} />}
-        {option.travelMins === 0 ? "Staying put" : travelLabel(option.travelMins, option.travelMode)}
-      </Badge>
-      {option.busyness && (
-        <Badge tone={BUSYNESS_TONE[option.busyness]}>
-          <Armchair {...ICON} size={12} />
-          Usually {option.busyness}
-        </Badge>
-      )}
-      {option.todoId && (
-        <Badge tone="good">
-          <ListTodo {...ICON} size={12} />
-          From your to-do
-        </Badge>
-      )}
+    <div className="mt-2 flex flex-wrap gap-1.5">
+      <Badge tone="neutral">{option.travelMins === 0 ? "Staying put" : travelLabel(option.travelMins, option.travelMode)}</Badge>
+      {option.busyness && <Badge tone={BUSYNESS_TONE[option.busyness]}>🪑 Usually {option.busyness}</Badge>}
+      {option.todoId && <Badge tone="good">📝 From your to-do</Badge>}
     </div>
   );
 }
 
-const BUSYNESS_TONE: Record<BusynessLevel, "neutral" | "good" | "warn" | "bad"> = {
-  quiet: "good",
-  moderate: "neutral",
-  busy: "warn",
-  packed: "bad",
+type Tone = "neutral" | "good" | "warn" | "bad";
+
+const BUSYNESS_TONE: Record<BusynessLevel, Tone> = { quiet: "good", moderate: "neutral", busy: "warn", packed: "bad" };
+
+const TONE_CLASSES: Record<Tone, string> = {
+  neutral: "bg-zinc-100 text-zinc-700 dark:bg-zinc-800 dark:text-zinc-300",
+  good: "bg-emerald-100 text-emerald-800 dark:bg-emerald-900/60 dark:text-emerald-200",
+  warn: "bg-amber-100 text-amber-800 dark:bg-amber-900/50 dark:text-amber-200",
+  bad: "bg-rose-100 text-rose-800 dark:bg-rose-900/50 dark:text-rose-200",
 };
+
+function Badge({ tone, children }: { tone: Tone; children: ReactNode }) {
+  return (
+    <span className={`rounded-full px-2 py-0.5 text-xs font-medium tabular-nums ${TONE_CLASSES[tone]}`}>
+      {children}
+    </span>
+  );
+}

@@ -1,6 +1,5 @@
 "use client";
 
-import { TriangleAlert, X } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 import { clashMessage, findClashes } from "@/lib/clashes";
 import { newId } from "@/lib/deadline-draft";
@@ -16,20 +15,7 @@ import {
   type EventDraft,
 } from "@/lib/manual-events";
 import type { DateKey, EventKind, ManualEvent, TimetableEvent } from "@/lib/types";
-import {
-  DeleteButton,
-  Field,
-  ghostButton,
-  ICON,
-  ICON_LG,
-  iconButton,
-  inputClass,
-  primaryButton,
-  secondaryButton,
-  SHEET,
-  SheetHandle,
-  TimeField,
-} from "./form-ui";
+import { DeleteButton, Field, inputClass, TimeField } from "./form-ui";
 import { LocationPicker } from "./location-picker";
 import { resolveLocation } from "./postcode-lookup";
 
@@ -143,7 +129,7 @@ export function EventSheet({
         onClose();
       }}
       onClick={(e) => e.target === e.currentTarget && onClose()}
-      className={SHEET}
+      className="mb-0 mt-auto h-[min(92dvh,760px)] max-h-none w-full max-w-full overflow-hidden rounded-t-3xl bg-white p-0 text-zinc-900 shadow-xl backdrop:bg-black/50 backdrop:backdrop-blur-[2px] md:my-0 md:ml-auto md:mr-0 md:h-dvh md:max-w-sm md:rounded-none md:rounded-l-3xl dark:bg-zinc-950 dark:text-zinc-100"
     >
       <form
         className="flex h-full flex-col"
@@ -154,14 +140,14 @@ export function EventSheet({
         }}
       >
         <div className="px-5 pt-3">
-          <SheetHandle />
+          <div aria-hidden className="mx-auto mb-3 h-1.5 w-10 rounded-full bg-zinc-300 md:hidden dark:bg-zinc-700" />
           <div className="mb-3 flex items-start justify-between gap-3 md:mt-4">
             <div>
-              <h2 id="event-sheet-title" className="text-xl font-semibold">
+              <h2 id="event-sheet-title" className="text-xl font-semibold tracking-tight">
                 {title}
               </h2>
               {isClass && (
-                <p className="mt-0.5 text-sm text-muted">
+                <p className="mt-0.5 text-sm text-zinc-600 dark:text-zinc-400">
                   {target.event.moduleCode ? `${target.event.moduleCode} · ` : ""}Changes this day only
                 </p>
               )}
@@ -170,9 +156,9 @@ export function EventSheet({
               type="button"
               onClick={onClose}
               aria-label="Close"
-              className={`${iconButton} -mr-2`}
+              className="-mr-2 flex size-11 shrink-0 items-center justify-center rounded-full text-2xl leading-none text-zinc-500 hover:bg-zinc-100 dark:hover:bg-zinc-900"
             >
-              <X {...ICON_LG} />
+              ×
             </button>
           </div>
         </div>
@@ -214,7 +200,7 @@ export function EventSheet({
           </Field>
 
           <fieldset className="flex min-w-0 flex-col gap-1">
-            <legend className="mb-1 text-xs font-medium text-muted">Location (for travel times)</legend>
+            <legend className="mb-1 text-xs font-medium text-zinc-500">Location (for travel times)</legend>
             <LocationPicker value={draft} onChange={set} />
           </fieldset>
 
@@ -222,7 +208,7 @@ export function EventSheet({
             <label className="flex min-h-11 items-center justify-between gap-3">
               <span>
                 <span className="block text-sm font-medium">Repeats weekly</span>
-                <span className="block text-xs text-muted">
+                <span className="block text-xs text-zinc-500">
                   {draft.weekly ? "Every week on this day, like a class" : "Just this once"}
                 </span>
               </span>
@@ -235,13 +221,13 @@ export function EventSheet({
               />
               <span
                 aria-hidden
-                className="relative h-7 w-12 shrink-0 rounded-full bg-line transition-colors after:absolute after:left-0.5 after:top-0.5 after:size-6 after:rounded-full after:bg-surface after:transition-transform peer-checked:bg-square peer-checked:after:translate-x-5 peer-focus-visible:ring-2 peer-focus-visible:ring-square"
+                className="relative h-7 w-12 shrink-0 rounded-full bg-zinc-300 transition-colors after:absolute after:left-0.5 after:top-0.5 after:size-6 after:rounded-full after:bg-white after:transition-transform peer-checked:bg-emerald-600 peer-checked:after:translate-x-5 peer-focus-visible:ring-2 peer-focus-visible:ring-emerald-500 dark:bg-zinc-700 dark:peer-checked:bg-emerald-500"
               />
             </label>
           )}
 
           {((tried && problem) || saveError) && (
-            <p role="alert" className="text-sm text-danger">
+            <p role="alert" className="text-sm text-red-600 dark:text-red-400">
               {saveError ?? problem}
             </p>
           )}
@@ -250,17 +236,14 @@ export function EventSheet({
         {clash ? (
           <div
             role="alert"
-            className="border-t border-ochre/40 bg-ochre-tint px-5 pb-[calc(1rem+env(safe-area-inset-bottom))] pt-3"
+            className="border-t border-amber-300 bg-amber-50 px-5 pb-[calc(1rem+env(safe-area-inset-bottom))] pt-3 dark:border-amber-800 dark:bg-amber-950/40"
           >
-            <p className="mb-3 flex gap-2 text-sm font-medium text-ink">
-              <TriangleAlert {...ICON} className="mt-0.5 shrink-0 text-ochre" />
-              {clash}
-            </p>
+            <p className="mb-3 text-sm font-medium text-amber-900 dark:text-amber-100">⚠️ {clash}</p>
             <div className="flex items-center justify-end gap-2">
               <button
                 type="button"
                 onClick={() => setClash(null)}
-                className={ghostButton}
+                className="min-h-11 rounded-full px-4 text-sm font-medium text-zinc-700 hover:bg-amber-100 dark:text-zinc-300 dark:hover:bg-amber-900/40"
               >
                 Cancel
               </button>
@@ -268,19 +251,19 @@ export function EventSheet({
                 type="button"
                 disabled={busy}
                 onClick={() => void save(true)}
-                className={secondaryButton}
+                className="min-h-11 rounded-full bg-zinc-900 px-6 text-sm font-medium text-white hover:bg-zinc-700 disabled:opacity-50 dark:bg-zinc-100 dark:text-zinc-900 dark:hover:bg-zinc-300"
               >
                 {busy ? "Saving…" : target.kind === "new" ? "Add anyway" : "Save anyway"}
               </button>
             </div>
           </div>
         ) : (
-          <div className="flex items-center gap-2 border-t border-line px-5 pb-[calc(1rem+env(safe-area-inset-bottom))] pt-3">
+          <div className="flex items-center gap-2 border-t border-zinc-200 px-5 pb-[calc(1rem+env(safe-area-inset-bottom))] pt-3 dark:border-zinc-800">
             {target.kind !== "new" && (
               <DeleteButton
                 onDelete={remove}
                 label={isClass ? "Remove this class on this day" : "Delete event"}
-                className={`${ghostButton} text-danger hover:bg-danger-tint hover:text-danger`}
+                className="min-h-11 shrink-0 rounded-full px-4 text-sm font-medium text-red-600 hover:bg-red-50 dark:text-red-400 dark:hover:bg-red-950/40"
               >
                 Delete
               </DeleteButton>
@@ -288,7 +271,7 @@ export function EventSheet({
             <button
               type="submit"
               disabled={busy}
-              className={`${primaryButton} ml-auto px-6`}
+              className="ml-auto min-h-11 rounded-full bg-zinc-900 px-6 text-sm font-medium text-white hover:bg-zinc-700 disabled:opacity-50 dark:bg-zinc-100 dark:text-zinc-900 dark:hover:bg-zinc-300"
             >
               {busy ? "Saving…" : "Save"}
             </button>

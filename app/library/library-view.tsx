@@ -1,8 +1,7 @@
 "use client";
 
 import { useEffect, useState, useSyncExternalStore } from "react";
-import { ArrowUpRight } from "lucide-react";
-import { ICON, PageHeader, primaryButton, TabPage } from "../form-ui";
+import { PageHeader, TabPage } from "../form-ui";
 
 // The Library tab. Embeds UCL's live seat page as an iframe in the student's browser.
 // The page can't be fetched server-side (Cloudflare's bot check), so recommendations keep
@@ -38,10 +37,10 @@ export function LibraryView() {
     <TabPage top={<PageHeader title="Library" subtitle="Live data from UCL Library Services" />} bodyClassName="flex flex-col pb-4 pt-4">
       {USE_IFRAME && status !== "failed" ? (
         <>
-          <div className="relative min-h-80 w-full flex-1 overflow-hidden rounded-xl border border-line bg-surface">
+          <div className="relative min-h-80 w-full flex-1 overflow-hidden rounded-xl border border-zinc-200 bg-white dark:border-zinc-800">
             {status === "loading" && (
-              <div className="absolute inset-0 flex flex-col items-center justify-center gap-3 bg-sunken text-sm text-muted">
-                <span className="h-5 w-5 animate-spin rounded-full border-2 border-line border-t-square" />
+              <div className="absolute inset-0 flex flex-col items-center justify-center gap-3 bg-zinc-50 text-sm text-zinc-500 dark:bg-zinc-900 dark:text-zinc-400">
+                <span className="h-6 w-6 animate-spin rounded-full border-2 border-zinc-300 border-t-emerald-600 dark:border-zinc-700 dark:border-t-emerald-400" />
                 Loading seats…
               </div>
             )}
@@ -59,27 +58,25 @@ export function LibraryView() {
             href={SEATS_URL}
             target="_blank"
             rel="noopener noreferrer"
-            className="mt-1 inline-flex min-h-11 items-center gap-1 self-end text-sm font-medium text-square hover:underline"
+            className="mt-2 block text-right text-xs font-medium text-emerald-700 hover:underline dark:text-emerald-400"
           >
-            Open on UCL site
-            <ArrowUpRight {...ICON} />
+            Open on UCL site ↗
           </a>
         </>
       ) : (
-        <section className="border-t border-line py-6">
-          <h2 className="font-medium">The seat map won&apos;t load here</h2>
-          <p className="mt-1 text-sm text-muted">
-            UCL&apos;s site blocked it from showing inside Bloomsbuddy. Open it there to see which libraries
-            have space right now.
+        <section className="rounded-2xl border border-zinc-200 bg-white p-5 dark:border-zinc-800 dark:bg-zinc-900">
+          <h2 className="text-lg font-semibold">Library seats</h2>
+          <p className="mt-1 text-sm text-zinc-600 dark:text-zinc-400">
+            The UCL seat map can&apos;t be shown here. Open it on the UCL site to see which
+            libraries have space.
           </p>
           <a
             href={SEATS_URL}
             target="_blank"
             rel="noopener noreferrer"
-            className={`${primaryButton} mt-4`}
+            className="mt-5 flex min-h-14 w-full items-center justify-center rounded-xl bg-emerald-600 px-4 text-base font-semibold text-white hover:bg-emerald-700 dark:bg-emerald-500 dark:text-emerald-950 dark:hover:bg-emerald-400"
           >
-            View live seats on UCL
-            <ArrowUpRight {...ICON} />
+            View live seats on UCL ↗
           </a>
         </section>
       )}

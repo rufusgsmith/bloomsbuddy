@@ -200,7 +200,7 @@ const ordinal = (n: number) => {
   return `${n}${s}`;
 };
 
-/** Badge text, e.g. "Thu · Afternoon", "Daily · 17:00", "15th of the month". The UI adds the repeat icon. */
+/** Badge text, e.g. "↻ Thu · Afternoon", "↻ Daily · 17:00", "↻ 15th of the month". */
 export function repeatLabel(r: TodoRepeat): string {
   const when =
     r.freq === "daily"
@@ -211,7 +211,7 @@ export function repeatLabel(r: TodoRepeat): string {
           : (r.days ?? []).map((d) => WEEKDAY_SHORT[d - 1]).join(", ")
         : `${ordinal(r.dayOfMonth ?? 1)} of the month`;
   const at = r.time ? formatWallTime(r.time) : (r.partOfDay ? PARTS_OF_DAY.find((p) => p.value === r.partOfDay)?.label : undefined);
-  return `${when}${at ? ` · ${at}` : ""}`;
+  return `↻ ${when}${at ? ` · ${at}` : ""}`;
 }
 
 // ---------- Recommendations ----------
