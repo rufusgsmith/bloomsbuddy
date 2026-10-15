@@ -6,7 +6,8 @@ import { BUILDINGS } from "@/lib/buildings";
 import { dayNote } from "@/lib/day-note";
 import { formatDurationShort } from "@/lib/duration";
 import { londonDateKey } from "@/lib/gaps";
-import { homeLabel, homeLocation } from "@/lib/home";
+import { homeLabel } from "@/lib/home";
+import { requestContext } from "@/lib/request-context";
 import { addDays, dayOfWeek, formatTime, londonWeekdayAndMinutes, mondayOf } from "@/lib/london-time";
 import { blankDraft, draftFromClass, draftFromManual, nextHalfHour } from "@/lib/manual-events";
 import type { Deadline, Gap, Home, ManualEvent, Recommendation, Society, TimetableEvent, Todo } from "@/lib/types";
@@ -123,11 +124,6 @@ export function TodayTimeline({
   const [recs, setRecs] = useState<Record<string, RecState>>({});
   const [homeSheetOpen, setHomeSheetOpen] = useState(false);
   const [eventForm, setEventForm] = useState<EventFormTarget | null>(null);
-  const homeLoc = homeLocation(home);
-  // Repeating to-dos go too, even if ticked: /api/recommend works out which come up on the gap's day.
-  const openTodos = todos.filter((t) => !t.done || t.repeat);
-  // Society events already on the calendar, so Claude doesn't suggest them again.
-  const addedEventIds = manualEvents.flatMap((m) => (m.societyEventId ? [m.societyEventId] : []));
 
   const day = days.find((d) => d.dateKey === dateKey);
 
@@ -186,11 +182,7 @@ export function TodayTimeline({
         body: JSON.stringify({
           gap,
           dayGaps,
-          ...(deadlines ? { deadlines } : {}),
-          ...(societies?.length ? { societies } : {}),
-          ...(homeLoc ? { home: homeLoc } : {}),
-          ...(openTodos.length ? { todos: openTodos } : {}),
-          ...(addedEventIds.length ? { addedEventIds } : {}),
+          ...requestContext({ deadlines, societies, home, todos, manualEvents }),
         }),
       });
       if (!res.ok) throw new Error(`HTTP ${res.status}`);

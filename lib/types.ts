@@ -254,3 +254,18 @@ export interface ManualEvent {
   location?: EventLocation;
   weekly: boolean;
 }
+
+// ---- Chat (Today's chat assistant). Session-only: kept in sessionStorage, never in localStorage ----
+
+/** Something Claude offers to add. Nothing is saved until the student taps Add. */
+export type ChatProposal = { id: string; status?: "added" | "dismissed" } & (
+  | { kind: "event"; event: Omit<ManualEvent, "id"> }
+  | { kind: "todo"; todo: Omit<Todo, "id" | "done"> }
+);
+
+export interface ChatMessage {
+  role: "user" | "assistant";
+  content: string;
+  /** Assistant only: cards to add an event or to-do. */
+  proposals?: ChatProposal[];
+}

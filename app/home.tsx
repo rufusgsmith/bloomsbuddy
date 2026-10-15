@@ -11,6 +11,7 @@ import { onboardingSkipped, parseUserData, readRawUserData, subscribeUserData } 
 import { parseTodos, readRawTodos, subscribeTodos } from "@/lib/todos";
 import { expandWeekly } from "@/lib/timetable";
 import type { UserData } from "@/lib/types";
+import { ChatAssistant } from "./chat-sheet";
 import { TodayTimeline, type Day } from "./today-timeline";
 
 /**
@@ -48,31 +49,45 @@ export function Home() {
   if (!user || !userDays) {
     if (!demo) return <Skeleton />;
     return (
+      <>
+        <TodayTimeline
+          // Remount when home or events change, so cached recommendations for old gaps are dropped.
+          key={`${rawHome ?? ""}|${rawEvents ?? ""}`}
+          days={demo.days}
+          initialDateKey={demo.initialDateKey}
+          mode="demo"
+          home={home}
+          todos={todos}
+          manualEvents={store.events}
+        />
+        {/* Outside the keyed timeline, so the chat stays open when Add saves an event. */}
+        <ChatAssistant days={demo.days} home={home} todos={todos} manualEvents={store.events} />
+      </>
+    );
+  }
+  return (
+    <>
       <TodayTimeline
-        // Remount when home or events change, so cached recommendations for old gaps are dropped.
-        key={`${rawHome ?? ""}|${rawEvents ?? ""}`}
-        days={demo.days}
-        initialDateKey={demo.initialDateKey}
-        mode="demo"
+        // Remount when the data, home or events change, so cached recommendations for old gaps are dropped.
+        key={`${user.savedAt}|${rawHome ?? ""}|${rawEvents ?? ""}`}
+        days={userDays}
+        initialDateKey={pickInitialDay(userDays)}
+        mode="user"
+        deadlines={user.deadlines}
+        societies={user.societies}
         home={home}
         todos={todos}
         manualEvents={store.events}
       />
-    );
-  }
-  return (
-    <TodayTimeline
-      // Remount when the data, home or events change, so cached recommendations for old gaps are dropped.
-      key={`${user.savedAt}|${rawHome ?? ""}|${rawEvents ?? ""}`}
-      days={userDays}
-      initialDateKey={pickInitialDay(userDays)}
-      mode="user"
-      deadlines={user.deadlines}
-      societies={user.societies}
-      home={home}
-      todos={todos}
-      manualEvents={store.events}
-    />
+      <ChatAssistant
+        days={userDays}
+        deadlines={user.deadlines}
+        societies={user.societies}
+        home={home}
+        todos={todos}
+        manualEvents={store.events}
+      />
+    </>
   );
 }
 
