@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { useEffect, useState } from "react";
 import { BUILDINGS } from "@/lib/buildings";
-import { setDeadlineHidden, setOnToday } from "@/lib/calendar-items";
+import { setDeadlineOnCalendar, setOnToday } from "@/lib/calendar-items";
 import { dayNote } from "@/lib/day-note";
 import { formatDurationShort } from "@/lib/duration";
 import { londonDateKey } from "@/lib/gaps";
@@ -173,7 +173,7 @@ export function TodayTimeline({
   /** Takes a to-do or deadline off the calendar. It stays in its own tab. */
   function removeFromToday() {
     if (openTodo) saveTodos(todos.map((t) => (t.id === openTodo.todoId ? setOnToday(t, false) : t)));
-    if (openDeadline) setDeadlineHidden(openDeadline.id, true);
+    if (openDeadline) setDeadlineOnCalendar(openDeadline.id, false);
     setOpenId(null);
   }
 
@@ -453,7 +453,7 @@ function ItemPanel({
           Open {tab} tab
         </Link>
       </div>
-      <p className="mt-2 text-xs text-zinc-500">It stays in the {tab} tab. Turn &quot;Show on Today&quot; back on there.</p>
+      <p className="mt-2 text-xs text-zinc-500">It stays in the {tab} tab, and you can add it back there.</p>
     </div>
   );
 }

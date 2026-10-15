@@ -2,8 +2,13 @@
 
 import Link from "next/link";
 import { useMemo, useRef, useState, useSyncExternalStore, type ReactNode } from "react";
-import { DeleteButton, Field, inputClass, PageHeader, Switch } from "../form-ui";
-import { parseHidden, readRawHidden, setDeadlineHidden, subscribeHidden } from "@/lib/calendar-items";
+import { CalendarButton, DeleteButton, Field, inputClass, PageHeader } from "../form-ui";
+import {
+  parseDeadlineIds,
+  readRawCalendarDeadlines,
+  setDeadlineOnCalendar,
+  subscribeCalendarDeadlines,
+} from "@/lib/calendar-items";
 import { blankDraft, deadlineProblem, fromDraft, toDraft, type DraftDeadline } from "@/lib/deadline-draft";
 import { londonDateKey } from "@/lib/gaps";
 import { locationLabel } from "@/lib/location";
@@ -183,24 +188,11 @@ function Editor({ user }: { user: UserData }) {
       ) : (
         <Groups
           deadlines={user.deadlines}
-          isEditing={(d) => !!draft && !isNew && draft.id === d.id}
-          renderRow={(d, row) =>
-            draft && !isNew && draft.id === d.id ? (
-              form(draft)
-            ) : (
-              <button
-                type="button"
-                onClick={() => {
-                  setIsNew(false);
-                  setDraft(toDraft(d));
-                }}
-                aria-label={`Edit ${d.title}`}
-                className="block w-full rounded-2xl text-left hover:bg-zinc-50 dark:hover:bg-zinc-900"
-              >
-                {row}
-              </button>
-            )
-          }
+          formFor={(d) => (draft && !isNew && draft.id === d.id ? form(draft) : null)}
+          onEdit={(d) => {
+            setIsNew(false);
+            setDraft(toDraft(d));
+          }}
         />
       )}
     </>
@@ -285,17 +277,18 @@ function scanSummary(added: number, updated: number): string {
 /** "This week" (up to Sunday), "Later", then anything already past. Empty groups are hidden. */
 function Groups({
   deadlines,
-  renderRow = (_, row) => row,
-  isEditing = () => false,
+  formFor = () => null,
+  onEdit,
 }: {
   deadlines: Deadline[];
-  renderRow?: (d: Deadline, row: ReactNode) => ReactNode;
-  /** The row is showing its form, so its "Show on Today" switch is hidden. */
-  isEditing?: (d: Deadline) => boolean;
+  /** The edit form, shown in place of the row while that deadline is being edited. */
+  formFor?: (d: Deadline) => ReactNode;
+  /** Tapping a row edits it. Left out for the read-only demo deadlines. */
+  onEdit?: (d: Deadline) => void;
 }) {
-  // Kept on its own key (not in UserData), so the demo deadlines can be hidden too.
-  const rawHidden = useSyncExternalStore(subscribeHidden, () => readRawHidden() ?? "", () => null);
-  const hidden = useMemo(() => parseHidden(rawHidden), [rawHidden]);
+  // Kept on its own key (not in UserData), so the demo deadlines can be added too.
+  const rawIds = useSyncExternalStore(subscribeCalendarDeadlines, () => readRawCalendarDeadlines() ?? "", () => null);
+  const onCalendar = useMemo(() => parseDeadlineIds(rawIds), [rawIds]);
   // Read the clock once on mount. Switching tabs remounts, which is fresh enough for days-left.
   const [{ now, today }] = useState(() => ({ now: Date.now(), today: londonTodayKey() }));
   const sunday = addDays(mondayOf(today), 6);
@@ -317,13 +310,13 @@ function Groups({
             <ul className="flex flex-col gap-2">
               {g.items.map((d) => (
                 <li key={d.id}>
-                  {renderRow(d, <DeadlineRow deadline={d} today={today} past={g.title === "Past"} />)}
-                  {!isEditing(d) && (
-                    <Switch
-                      checked={!hidden.includes(d.id)}
-                      onChange={(on) => setDeadlineHidden(d.id, !on)}
-                      label="Show on Today"
-                      className="ml-4"
+                  {formFor(d) ?? (
+                    <DeadlineRow
+                      deadline={d}
+                      today={today}
+                      past={g.title === "Past"}
+                      onEdit={onEdit && (() => onEdit(d))}
+                      added={onCalendar.includes(d.id)}
                     />
                   )}
                 </li>
@@ -335,14 +328,37 @@ function Groups({
   );
 }
 
-function DeadlineRow({ deadline: d, today, past }: { deadline: Deadline; today: DateKey; past: boolean }) {
+/**
+ * One deadline card. Tapping it edits (a button under the content, so the "Add to calendar"
+ * pill in the bottom-right corner isn't nested inside another button).
+ */
+function DeadlineRow({
+  deadline: d,
+  today,
+  past,
+  onEdit,
+  added,
+}: {
+  deadline: Deadline;
+  today: DateKey;
+  past: boolean;
+  onEdit?: () => void;
+  added: boolean;
+}) {
+  const title = [d.moduleCode, d.title].filter(Boolean).join(" ");
   return (
     <div
-      className={`flex items-start justify-between gap-3 rounded-2xl border border-zinc-200 p-4 dark:border-zinc-800 ${
-        past ? "opacity-60" : ""
-      }`}
+      className={`relative flex gap-3 rounded-2xl border border-zinc-200 p-4 dark:border-zinc-800 ${past ? "opacity-60" : ""}`}
     >
-      <div className="min-w-0">
+      {onEdit && (
+        <button
+          type="button"
+          onClick={onEdit}
+          aria-label={`Edit ${d.title}`}
+          className="absolute inset-0 rounded-2xl hover:bg-zinc-50 dark:hover:bg-zinc-900"
+        />
+      )}
+      <div className="pointer-events-none relative min-w-0 flex-1">
         {d.moduleCode && <p className="text-xs font-semibold text-emerald-700 dark:text-emerald-400">{d.moduleCode}</p>}
         <p className="font-medium">{d.title}</p>
         <p className="mt-0.5 text-sm text-zinc-600 dark:text-zinc-400">
@@ -355,7 +371,20 @@ function DeadlineRow({ deadline: d, today, past }: { deadline: Deadline; today: 
           </span>
         )}
       </div>
-      <DaysLeft days={daysBetween(today, londonDateKey(d.due))} past={past} />
+      <div className="relative flex shrink-0 flex-col items-end justify-between gap-2">
+        <span className="pointer-events-none">
+          <DaysLeft days={daysBetween(today, londonDateKey(d.due))} past={past} />
+        </span>
+        {/* Puts a flag on Today at the due time. Not for ones already past. */}
+        {!past && (
+          <CalendarButton
+            added={added}
+            onAdd={() => setDeadlineOnCalendar(d.id, true)}
+            onRemove={() => setDeadlineOnCalendar(d.id, false)}
+            title={title}
+          />
+        )}
+      </div>
     </div>
   );
 }
