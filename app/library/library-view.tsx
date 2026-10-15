@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState, useSyncExternalStore } from "react";
-import { PageHeader } from "../form-ui";
+import { PageHeader, TabPage } from "../form-ui";
 
 // The Library tab. Embeds UCL's live seat page as an iframe in the student's browser.
 // The page can't be fetched server-side (Cloudflare's bot check), so recommendations keep
@@ -33,11 +33,11 @@ export function LibraryView() {
   }, []);
 
   return (
-    <main className="mx-auto w-full max-w-md px-4 pb-28 pt-8">
-      <PageHeader title="Library" subtitle="Live data from UCL Library Services" />
+    // The body is a column, so the seat map can take all the height left.
+    <TabPage top={<PageHeader title="Library" subtitle="Live data from UCL Library Services" />} bodyClassName="flex flex-col pb-4 pt-4">
       {USE_IFRAME && status !== "failed" ? (
         <>
-          <div className="relative h-[600px] w-full overflow-hidden rounded-xl border border-zinc-200 bg-white dark:border-zinc-800">
+          <div className="relative min-h-80 w-full flex-1 overflow-hidden rounded-xl border border-zinc-200 bg-white dark:border-zinc-800">
             {status === "loading" && (
               <div className="absolute inset-0 flex flex-col items-center justify-center gap-3 bg-zinc-50 text-sm text-zinc-500 dark:bg-zinc-900 dark:text-zinc-400">
                 <span className="h-6 w-6 animate-spin rounded-full border-2 border-zinc-300 border-t-emerald-600 dark:border-zinc-700 dark:border-t-emerald-400" />
@@ -80,6 +80,6 @@ export function LibraryView() {
           </a>
         </section>
       )}
-    </main>
+    </TabPage>
   );
 }

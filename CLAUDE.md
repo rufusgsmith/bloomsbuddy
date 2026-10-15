@@ -80,3 +80,4 @@ Follow these everywhere in the app:
 - **Day notes are plain and factual**: no jokes, no emojis. E.g. "Nothing scheduled today", "1 event today", "4 events, first at 09:00", "Back-to-back from 10:00 to 14:00", "Weekend, nothing scheduled". Computed from that day's events on every render by `dayNote` in `lib/day-note.ts`.
 - **Delete is two taps**: the first tap turns the button red with "Tap again to delete", and it resets after 3s. No confirm dialogs or option menus. Use `DeleteButton` from `app/form-ui.tsx`. Exception: removing a society chip on the Societies tab is one tap on its ×.
 - **Every view shows Monday–Sunday**, including Saturday and Sunday.
+- **Tabs never scroll as a page**: the top (header) is pinned like the tab bar and only the content under it scrolls. Use `TabPage` from `app/form-ui.tsx` (Today has the same frame inline, with the day pills in the pinned part).
