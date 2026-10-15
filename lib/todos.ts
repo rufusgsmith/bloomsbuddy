@@ -5,7 +5,7 @@
 import { londonDateKey } from "./gaps";
 import { isLocation, locationDraftFrom, locationDraftProblem, type LocationDraft } from "./location";
 import { addDays, dayOfWeek, formatWallTime, isDateKey, isWallTime, londonWeekdayAndMinutes } from "./london-time";
-import type { DateKey, Gap, PartOfDay, Todo, TodoRepeat, Weekday } from "./types";
+import type { DateKey, Gap, PartOfDay, Todo, TodoRepeat, TodoSlot, Weekday, WallTime } from "./types";
 
 const KEY = "bloomsbuddy:todos";
 /** Fired on this tab after we write. The "storage" event only reaches other tabs. */
@@ -48,6 +48,11 @@ export function isRepeat(x: unknown): x is TodoRepeat {
   return true;
 }
 
+const isSlot = (x: unknown): x is TodoSlot => {
+  const s = x as Partial<TodoSlot> | null;
+  return isDateKey(s?.date) && isWallTime(s?.time);
+};
+
 /** Shape check shared by the client and /api/recommend. */
 export function isTodo(x: unknown): x is Todo {
   const t = x as Partial<Todo> | null;
@@ -61,6 +66,7 @@ export function isTodo(x: unknown): x is Todo {
     (t.doneOn === undefined || isDateKey(t.doneOn)) &&
     (t.repeat === undefined || isRepeat(t.repeat)) &&
     (t.location === undefined || isLocation(t.location)) &&
+    (t.onToday === undefined || t.onToday === false || isSlot(t.onToday)) &&
     (t.estMinutes === undefined ||
       (Number.isInteger(t.estMinutes) && t.estMinutes > 0 && t.estMinutes <= MAX_EST_MINS))
   );
@@ -84,6 +90,8 @@ export function migrateTodo(x: unknown): unknown {
     ...(repeat ? { repeat } : {}),
     ...(repeat && o.doneOn !== undefined ? { doneOn: o.doneOn } : {}),
     ...(o.location !== undefined ? { location: o.location } : {}),
+    // A to-do with a repeat time sits at that time, so it never keeps a slot of its own.
+    ...(o.onToday === false || (o.onToday !== undefined && !repeat?.time) ? { onToday: o.onToday } : {}),
   };
 }
 
@@ -219,6 +227,8 @@ export function todosForGap(todos: Todo[], gap: Pick<Gap, "start" | "end">): Tod
   // A gap never crosses midnight, but be safe if one ends exactly at it.
   const end = londonDateKey(gap.end) === gapDay ? londonWeekdayAndMinutes(gap.end).minutes : 24 * 60;
   return todos.filter((t) => {
+    // Already on the calendar: it's a fixed plan, not something to suggest.
+    if (t.onToday && (!t.repeat || t.onToday.date === gapDay)) return false;
     if (!t.repeat) return !t.done;
     if (!occursOn(t.repeat, gapDay) || isDoneNow(t, gapDay)) return false;
     if (t.repeat.time) {
@@ -251,6 +261,15 @@ export interface TodoDraft extends LocationDraft {
   dayOfMonth: number | null;
   time: string;
   partOfDay: PartOfDay | null;
+  /**
+   * "Show on Today", kept apart for the two cases so switching the repeat time on and off doesn't
+   * lose either: with a repeat time it's on unless turned off (showTimed); without one it's off
+   * unless placed at placeDate and placeTime (placeOnToday).
+   */
+  showTimed: boolean;
+  placeOnToday: boolean;
+  placeDate: string;
+  placeTime: WallTime;
 }
 
 export interface TodoDraftErrors {
@@ -259,10 +278,17 @@ export interface TodoDraftErrors {
   doBefore?: string;
   repeat?: string;
   location?: string;
+  onToday?: string;
 }
 
-export function toDraft(t?: Todo): TodoDraft {
+/** Default slot when a to-do without a time is first put on the calendar. */
+export const isTimedDraft = (d: Pick<TodoDraft, "freq" | "time">) => d.freq !== "none" && !!d.time;
+
+const DEFAULT_PLACE_TIME = "09:00";
+
+export function toDraft(t?: Todo, today: DateKey = ""): TodoDraft {
   const est = t?.estMinutes;
+  const slot = t?.onToday || undefined;
   return {
     title: t?.title ?? "",
     hours: est ? String(Math.floor(est / 60)) : "",
@@ -273,6 +299,10 @@ export function toDraft(t?: Todo): TodoDraft {
     dayOfMonth: t?.repeat?.dayOfMonth ?? null,
     time: t?.repeat?.time ?? "",
     partOfDay: t?.repeat?.partOfDay ?? null,
+    showTimed: t?.onToday !== false,
+    placeOnToday: !!slot,
+    placeDate: slot?.date ?? t?.doBefore ?? today,
+    placeTime: slot?.time ?? DEFAULT_PLACE_TIME,
     ...locationDraftFrom(t?.location),
   };
 }
@@ -333,6 +363,16 @@ export function validateTodoDraft(
   const locationProblem = locationDraftProblem(d);
   if (locationProblem) errors.location = locationProblem;
 
+  // A repeat time places it by itself; without one, the student picks a day and start time.
+  const timed = isTimedDraft(d);
+  let onToday: Todo["onToday"];
+  if (timed) onToday = d.showTimed ? undefined : false;
+  else if (d.placeOnToday) {
+    if (!isDateKey(d.placeDate)) errors.onToday = "Pick a day";
+    else if (!isWallTime(d.placeTime)) errors.onToday = "Pick a start time";
+    else onToday = { date: d.placeDate, time: d.placeTime };
+  }
+
   if (Object.keys(errors).length > 0) return { errors };
   const todo: Todo = {
     id: base.id,
@@ -343,6 +383,7 @@ export function validateTodoDraft(
     ...(repeat ? { repeat } : {}),
     // Keep the done-day only while it still means something.
     ...(repeat && base.done && base.doneOn ? { doneOn: base.doneOn } : {}),
+    ...(onToday !== undefined ? { onToday } : {}),
   };
   return { todo, errors };
 }

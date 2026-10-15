@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { useEffect, useState } from "react";
 import { BUILDINGS } from "@/lib/buildings";
+import { setDeadlineHidden, setOnToday } from "@/lib/calendar-items";
 import { dayNote } from "@/lib/day-note";
 import { formatDurationShort } from "@/lib/duration";
 import { londonDateKey } from "@/lib/gaps";
@@ -10,8 +11,9 @@ import { homeLabel } from "@/lib/home";
 import { requestContext } from "@/lib/request-context";
 import { addDays, dayOfWeek, formatTime, londonWeekdayAndMinutes, mondayOf } from "@/lib/london-time";
 import { blankDraft, draftFromClass, draftFromManual, nextHalfHour } from "@/lib/manual-events";
+import { saveTodos } from "@/lib/todos";
 import type { Deadline, Gap, Home, ManualEvent, Recommendation, Society, TimetableEvent, Todo } from "@/lib/types";
-import { DayCalendar, DayPills, KindLegend, type CalendarEvent, type CalendarGap } from "./day-calendar";
+import { DayCalendar, DayPills, KindLegend, type CalendarEvent, type CalendarGap, type CalendarMarker } from "./day-calendar";
 import { EventSheet, type EventFormTarget } from "./event-form";
 import { PageHeader } from "./form-ui";
 import { HomeSheet } from "./home-sheet";
@@ -19,8 +21,11 @@ import { RecommendationPanel, type RecState } from "./recommendation-card";
 
 export interface Day {
   dateKey: string; // "YYYY-MM-DD", London calendar day
+  /** Timetable classes, the student's events and to-do blocks. */
   events: TimetableEvent[];
   gaps: Gap[];
+  /** Deadlines due this day that are shown on Today, as flags. */
+  deadlines: Deadline[];
 }
 
 // Always format in Europe/London, so the server and the browser render identical text.
@@ -57,9 +62,18 @@ function toCalendarEvent(e: TimetableEvent): CalendarEvent {
     startMin,
     endMin,
     kind: e.kind,
-    tone: !e.manualId || e.fromClass ? "timetable" : e.kind === "society" ? "society" : "mine",
+    tone: e.todoId ? "todo" : !e.manualId || e.fromClass ? "timetable" : e.kind === "society" ? "society" : "mine",
     title: [e.moduleCode, e.title].filter(Boolean).join(" "),
     detail: e.room || undefined,
+  };
+}
+
+/** "17:00 ECON0013 problem set". */
+function toCalendarMarker(d: Deadline): CalendarMarker {
+  return {
+    id: `deadline-${d.id}`,
+    min: minuteOfDay(d.due),
+    label: `${time(d.due)} ${[d.moduleCode, d.title].filter(Boolean).join(" ")}`,
   };
 }
 
@@ -119,7 +133,7 @@ export function TodayTimeline({
   const [dateKey, setDateKey] = useState(
     days.some((d) => d.dateKey === initialDateKey) ? initialDateKey : days[0]?.dateKey,
   );
-  const [openGapId, setOpenGapId] = useState<string | null>(null);
+  const [openId, setOpenId] = useState<string | null>(null);
   // Cached per gap, so collapsing and reopening a gap doesn't call Claude (and spend tokens) again.
   const [recs, setRecs] = useState<Record<string, RecState>>({});
   const [homeSheetOpen, setHomeSheetOpen] = useState(false);
@@ -135,7 +149,7 @@ export function TodayTimeline({
 
   function selectDay(key: string) {
     setDateKey(key);
-    setOpenGapId(null);
+    setOpenId(null);
   }
 
   /** Jump a week, landing on the same weekday if it exists. */
@@ -152,7 +166,16 @@ export function TodayTimeline({
   const now = useNow();
   const nowIso = new Date(now).toISOString();
   const todayKey = londonDateKey(nowIso);
-  const openGap = day?.gaps.find((g) => g.id === openGapId);
+  const openGap = day?.gaps.find((g) => g.id === openId);
+  const openTodo = day?.events.find((e) => e.id === openId && e.todoId);
+  const openDeadline = day?.deadlines.find((d) => `deadline-${d.id}` === openId);
+
+  /** Takes a to-do or deadline off the calendar. It stays in its own tab. */
+  function removeFromToday() {
+    if (openTodo) saveTodos(todos.map((t) => (t.id === openTodo.todoId ? setOnToday(t, false) : t)));
+    if (openDeadline) setDeadlineHidden(openDeadline.id, true);
+    setOpenId(null);
+  }
 
   /** "+" button: the selected day, from the next half hour if it's today, else 09:00. */
   function addEvent() {
@@ -164,6 +187,8 @@ export function TodayTimeline({
   function editEvent(id: string) {
     const e = day?.events.find((x) => x.id === id);
     if (!day || !e) return;
+    // A to-do block opens a small panel under it instead of the event form.
+    if (e.todoId) return setOpenId(openId === id ? null : id);
     const manual = e.manualId ? manualEvents.find((m) => m.id === e.manualId) : undefined;
     setEventForm(
       manual
@@ -196,11 +221,11 @@ export function TodayTimeline({
   }
 
   function toggleGap(gap: Gap) {
-    if (openGapId === gap.id) {
-      setOpenGapId(null);
+    if (openId === gap.id) {
+      setOpenId(null);
       return;
     }
-    setOpenGapId(gap.id);
+    setOpenId(gap.id);
     if (!recs[gap.id] && day) void loadRec(gap, day.gaps);
   }
 
@@ -285,18 +310,36 @@ export function TodayTimeline({
         <DayCalendar
           events={day.events.map(toCalendarEvent)}
           gaps={day.gaps.map(toCalendarGap)}
+          markers={day.deadlines.map(toCalendarMarker)}
           nowMin={day.dateKey === todayKey ? minuteOfDay(nowIso) : null}
-          openId={openGapId}
+          openId={openId}
           onEventTap={editEvent}
+          onMarkerTap={(id) => setOpenId(openId === id ? null : id)}
           onSlotTap={(min) => setEventForm({ kind: "new", draft: blankDraft(day.dateKey, min) })}
           onGapTap={(id) => {
             const gap = day.gaps.find((g) => g.id === id);
             if (gap) toggleGap(gap);
           }}
           panel={
-            openGap && (
+            openGap ? (
               <GapPanel gap={openGap} rec={recs[openGap.id]} onReload={() => loadRec(openGap, day.gaps)} />
-            )
+            ) : openTodo ? (
+              <ItemPanel
+                title={openTodo.title}
+                when={`${time(openTodo.start)}–${time(openTodo.end)} · To-do`}
+                href="/todo"
+                tab="To-do"
+                onRemove={removeFromToday}
+              />
+            ) : openDeadline ? (
+              <ItemPanel
+                title={[openDeadline.moduleCode, openDeadline.title].filter(Boolean).join(" ")}
+                when={`Due ${time(openDeadline.due)} · Deadline`}
+                href="/deadlines"
+                tab="Deadlines"
+                onRemove={removeFromToday}
+              />
+            ) : null
           }
         />
       )}
@@ -373,6 +416,44 @@ function GapPanel({ gap, rec, onReload }: { gap: Gap; rec: RecState | undefined;
         </p>
       </div>
       <RecommendationPanel state={rec ?? { status: "loading" }} onReload={onReload} />
+    </div>
+  );
+}
+
+/** Opens under a tapped to-do block or deadline flag: what it is, and a way to take it off Today. */
+function ItemPanel({
+  title,
+  when,
+  href,
+  tab,
+  onRemove,
+}: {
+  title: string;
+  when: string;
+  href: string;
+  tab: string;
+  onRemove: () => void;
+}) {
+  return (
+    <div className="rounded-2xl border border-zinc-200 bg-white p-4 dark:border-zinc-800 dark:bg-zinc-950">
+      <p className="font-semibold">{title}</p>
+      <p className="mt-0.5 text-sm tabular-nums text-zinc-600 dark:text-zinc-400">{when}</p>
+      <div className="mt-3 flex flex-wrap items-center gap-2">
+        <button
+          type="button"
+          onClick={onRemove}
+          className="min-h-11 rounded-full bg-zinc-900 px-4 text-sm font-medium text-white hover:bg-zinc-700 dark:bg-zinc-100 dark:text-zinc-900 dark:hover:bg-zinc-300"
+        >
+          Remove from Today
+        </button>
+        <Link
+          href={href}
+          className="flex min-h-11 items-center rounded-full px-3 text-sm text-zinc-600 hover:bg-zinc-100 dark:text-zinc-400 dark:hover:bg-zinc-900"
+        >
+          Open {tab} tab
+        </Link>
+      </div>
+      <p className="mt-2 text-xs text-zinc-500">It stays in the {tab} tab. Turn &quot;Show on Today&quot; back on there.</p>
     </div>
   );
 }

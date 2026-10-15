@@ -2,7 +2,8 @@
 
 import Link from "next/link";
 import { useMemo, useRef, useState, useSyncExternalStore, type ReactNode } from "react";
-import { DeleteButton, Field, inputClass, PageHeader } from "../form-ui";
+import { DeleteButton, Field, inputClass, PageHeader, Switch } from "../form-ui";
+import { parseHidden, readRawHidden, setDeadlineHidden, subscribeHidden } from "@/lib/calendar-items";
 import { blankDraft, deadlineProblem, fromDraft, toDraft, type DraftDeadline } from "@/lib/deadline-draft";
 import { londonDateKey } from "@/lib/gaps";
 import { locationLabel } from "@/lib/location";
@@ -182,6 +183,7 @@ function Editor({ user }: { user: UserData }) {
       ) : (
         <Groups
           deadlines={user.deadlines}
+          isEditing={(d) => !!draft && !isNew && draft.id === d.id}
           renderRow={(d, row) =>
             draft && !isNew && draft.id === d.id ? (
               form(draft)
@@ -284,10 +286,16 @@ function scanSummary(added: number, updated: number): string {
 function Groups({
   deadlines,
   renderRow = (_, row) => row,
+  isEditing = () => false,
 }: {
   deadlines: Deadline[];
   renderRow?: (d: Deadline, row: ReactNode) => ReactNode;
+  /** The row is showing its form, so its "Show on Today" switch is hidden. */
+  isEditing?: (d: Deadline) => boolean;
 }) {
+  // Kept on its own key (not in UserData), so the demo deadlines can be hidden too.
+  const rawHidden = useSyncExternalStore(subscribeHidden, () => readRawHidden() ?? "", () => null);
+  const hidden = useMemo(() => parseHidden(rawHidden), [rawHidden]);
   // Read the clock once on mount. Switching tabs remounts, which is fresh enough for days-left.
   const [{ now, today }] = useState(() => ({ now: Date.now(), today: londonTodayKey() }));
   const sunday = addDays(mondayOf(today), 6);
@@ -308,7 +316,17 @@ function Groups({
             <h2 className="mb-2 text-sm font-semibold text-zinc-600 dark:text-zinc-400">{g.title}</h2>
             <ul className="flex flex-col gap-2">
               {g.items.map((d) => (
-                <li key={d.id}>{renderRow(d, <DeadlineRow deadline={d} today={today} past={g.title === "Past"} />)}</li>
+                <li key={d.id}>
+                  {renderRow(d, <DeadlineRow deadline={d} today={today} past={g.title === "Past"} />)}
+                  {!isEditing(d) && (
+                    <Switch
+                      checked={!hidden.includes(d.id)}
+                      onChange={(on) => setDeadlineHidden(d.id, !on)}
+                      label="Show on Today"
+                      className="ml-4"
+                    />
+                  )}
+                </li>
               ))}
             </ul>
           </section>

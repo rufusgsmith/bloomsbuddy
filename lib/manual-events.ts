@@ -15,7 +15,7 @@ import {
   type LocationDraft,
   type PostcodePlace,
 } from "./location";
-import type { DateKey, EventKind, ManualEvent, SocietyEvent, TimetableEvent, WallTime } from "./types";
+import type { DateKey, EventKind, EventLocation, ManualEvent, SocietyEvent, TimetableEvent, WallTime } from "./types";
 
 const KEY = "bloomsbuddy:events";
 /** Fired on this tab after we write. The "storage" event only reaches other tabs. */
@@ -139,8 +139,14 @@ export function occursOn(m: ManualEvent, dateKey: DateKey): boolean {
   return m.weekly ? m.date <= dateKey && dayOfWeek(m.date) === dayOfWeek(dateKey) : m.date === dateKey;
 }
 
+/** A place as TimetableEvent fields: a building id, or a postcode's coordinates. */
+export function locationFields(loc: EventLocation | undefined): Pick<TimetableEvent, "buildingId" | "place"> {
+  if (loc?.kind === "building") return { buildingId: loc.buildingId };
+  if (loc?.kind === "postcode") return { place: { label: loc.postcode, lat: loc.lat, lng: loc.lng } };
+  return {};
+}
+
 function toTimetableEvent(m: ManualEvent, dateKey: DateKey): TimetableEvent {
-  const loc = m.location;
   return {
     id: `${m.id}@${dateKey}`,
     manualId: m.id,
@@ -151,8 +157,7 @@ function toTimetableEvent(m: ManualEvent, dateKey: DateKey): TimetableEvent {
     start: londonIso(dateKey, m.startTime),
     end: londonIso(dateKey, m.endTime),
     room: m.room ?? "",
-    ...(loc?.kind === "building" ? { buildingId: loc.buildingId } : {}),
-    ...(loc?.kind === "postcode" ? { place: { label: loc.postcode, lat: loc.lat, lng: loc.lng } } : {}),
+    ...locationFields(m.location),
   };
 }
 

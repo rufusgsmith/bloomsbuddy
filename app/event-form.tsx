@@ -14,8 +14,8 @@ import {
   validateEventDraft,
   type EventDraft,
 } from "@/lib/manual-events";
-import type { DateKey, EventKind, ManualEvent, TimetableEvent, WallTime } from "@/lib/types";
-import { DeleteButton, Field, inputClass } from "./form-ui";
+import type { DateKey, EventKind, ManualEvent, TimetableEvent } from "@/lib/types";
+import { DeleteButton, Field, inputClass, TimeField } from "./form-ui";
 import { LocationPicker } from "./location-picker";
 import { resolveLocation } from "./postcode-lookup";
 
@@ -279,40 +279,5 @@ export function EventSheet({
         )}
       </form>
     </dialog>
-  );
-}
-
-const HOURS = Array.from({ length: 24 }, (_, h) => String(h).padStart(2, "0"));
-const FIVE_MINS = Array.from({ length: 12 }, (_, i) => String(i * 5).padStart(2, "0"));
-
-/**
- * A 24-hour time as two selects (hour, minute). <input type="time"> shows AM/PM in some
- * browser locales, and times must always be 24-hour (UI rules in CLAUDE.md).
- */
-function TimeField({ label, value, onChange }: { label: string; value: WallTime; onChange: (v: WallTime) => void }) {
-  const [hh, mm] = value.split(":");
-  // A class at an odd minute (10:13) keeps its own minute as an option.
-  const minutes = FIVE_MINS.includes(mm) ? FIVE_MINS : [...FIVE_MINS, mm].sort();
-  return (
-    <fieldset className="flex min-w-0 flex-col gap-1">
-      <legend className="mb-1 text-xs font-medium text-zinc-500">{label}</legend>
-      <div className="flex items-center gap-1">
-        <select aria-label={`${label} hour`} value={hh} onChange={(e) => onChange(`${e.target.value}:${mm}`)} className={inputClass}>
-          {HOURS.map((h) => (
-            <option key={h} value={h}>
-              {h}
-            </option>
-          ))}
-        </select>
-        <span aria-hidden>:</span>
-        <select aria-label={`${label} minute`} value={mm} onChange={(e) => onChange(`${hh}:${e.target.value}`)} className={inputClass}>
-          {minutes.map((m) => (
-            <option key={m} value={m}>
-              {m}
-            </option>
-          ))}
-        </select>
-      </div>
-    </fieldset>
   );
 }

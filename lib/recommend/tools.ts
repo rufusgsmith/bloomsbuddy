@@ -254,8 +254,9 @@ export function homeRow(win: ToolWindow, home: HomeLocation, fromId: unknown, se
   });
 }
 
-/** "ECON0013 Econometrics (lecture)". Manual events usually have no module code. */
-export const eventLabel = (e: TimetableEvent) => `${[e.moduleCode, e.title].filter(Boolean).join(" ")} (${e.kind})`;
+/** "ECON0013 Econometrics (lecture)". Manual events usually have no module code. To-do blocks say "(to-do)". */
+export const eventLabel = (e: TimetableEvent) =>
+  `${[e.moduleCode, e.title].filter(Boolean).join(" ")} (${e.todoId ? "to-do" : e.kind})`;
 
-/** Something the student added themselves (a society event, office hours, plans), not a timetable class. */
-export const isOwnPlan = (e: TimetableEvent) => Boolean(e.manualId && !e.fromClass);
+/** Something the student added themselves (a society event, office hours, plans, a placed to-do), not a timetable class. */
+export const isOwnPlan = (e: TimetableEvent) => Boolean((e.manualId && !e.fromClass) || e.todoId);
