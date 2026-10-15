@@ -38,7 +38,9 @@ export function Home() {
   // unplaced to-do shouldn't throw away cached picks.
   const rawTodos = useSyncExternalStore(subscribeTodos, () => readRawTodos() ?? "", () => null);
   const todos = useMemo(() => parseTodos(rawTodos), [rawTodos]);
-  const todoKey = useMemo(() => calendarKey(todos, londonTodayKey()), [todos]);
+  // Not on the server (rawTodos null): it only renders the skeleton, and reading the clock during
+  // prerender is an error in this Next.js.
+  const todoKey = useMemo(() => (rawTodos === null ? "" : calendarKey(todos, londonTodayKey())), [rawTodos, todos]);
   // Deadlines added to the calendar. Flags aren't busy time, so they don't change the gaps.
   const rawDeadlineIds = useSyncExternalStore(subscribeCalendarDeadlines, () => readRawCalendarDeadlines() ?? "", () => null);
   const shownDeadlines = useMemo(() => parseDeadlineIds(rawDeadlineIds), [rawDeadlineIds]);
