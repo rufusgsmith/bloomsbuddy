@@ -294,6 +294,20 @@ export function travelTimeBetween(from: LatLng, to: LatLng): { mins: number; mod
   return tube < walk ? { mins: tube, mode: "tube" } : { mins: walk, mode: "walk" };
 }
 
+/** The UCL building closest to a point, e.g. to stand in for a postcode where a building id is needed. */
+export function nearestBuilding(p: LatLng): BuildingId {
+  let best: BuildingId = "main-building";
+  let bestMetres = Infinity;
+  for (const id of Object.keys(BUILDINGS) as BuildingId[]) {
+    const m = metresBetween(p, BUILDINGS[id]);
+    if (m < bestMetres) {
+      best = id;
+      bestMetres = m;
+    }
+  }
+  return best;
+}
+
 /** "🚶 5 min walk" / "🚇 40 min by tube" / "🚇 1h 5m by tube". */
 export function travelLabel(mins: number, mode: TravelMode): string {
   const time = formatDurationShort(mins);

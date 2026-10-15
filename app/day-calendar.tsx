@@ -7,13 +7,14 @@
 
 import { useEffect, useRef, type ReactNode, type RefObject } from "react";
 import { formatWallTime } from "@/lib/london-time";
-import type { TimetableEvent } from "@/lib/types";
+import { EVENT_KINDS } from "@/lib/manual-events";
+import type { EventKind } from "@/lib/types";
 
 export interface CalendarEvent {
   id: string;
   startMin: number;
   endMin: number;
-  kind: TimetableEvent["kind"];
+  kind: EventKind;
   title: string;
   /** Shown after the time on the second line, when the block is tall enough. E.g. the room. */
   detail?: string;
@@ -38,19 +39,46 @@ const MIN_EVENT_PX = 22;
 const TWO_LINE_MINS = 45;
 
 // Solid fills per type. Emerald is kept for gaps, so no event is green.
-const KIND_CLASS: Record<TimetableEvent["kind"], string> = {
+const KIND_CLASS: Record<EventKind, string> = {
   lecture: "bg-indigo-600 text-white hover:bg-indigo-700 dark:bg-indigo-500 dark:hover:bg-indigo-600",
   seminar: "bg-amber-400 text-amber-950 hover:bg-amber-500",
   lab: "bg-rose-600 text-white hover:bg-rose-700 dark:bg-rose-500 dark:hover:bg-rose-600",
   tutorial: "bg-sky-600 text-white hover:bg-sky-700 dark:bg-sky-500 dark:hover:bg-sky-600",
+  "office-hours": "bg-fuchsia-600 text-white hover:bg-fuchsia-700 dark:bg-fuchsia-500 dark:hover:bg-fuchsia-600",
+  society: "bg-orange-500 text-orange-950 hover:bg-orange-600",
+  personal: "bg-slate-600 text-white hover:bg-slate-700 dark:bg-slate-500 dark:hover:bg-slate-600",
 };
 
-const KIND_LABEL: Record<TimetableEvent["kind"], string> = {
-  lecture: "Lecture",
-  seminar: "Seminar",
-  lab: "Lab",
-  tutorial: "Tutorial",
+// The legend's dots: the same colour as each block's fill.
+const KIND_DOT: Record<EventKind, string> = {
+  lecture: "bg-indigo-600 dark:bg-indigo-500",
+  seminar: "bg-amber-400",
+  lab: "bg-rose-600 dark:bg-rose-500",
+  tutorial: "bg-sky-600 dark:bg-sky-500",
+  "office-hours": "bg-fuchsia-600 dark:bg-fuchsia-500",
+  society: "bg-orange-500",
+  personal: "bg-slate-600 dark:bg-slate-500",
 };
+
+const KIND_LABEL = Object.fromEntries(EVENT_KINDS.map((k) => [k.value, k.label])) as Record<EventKind, string>;
+
+/** Which colour is which type, as a small wrapped row of dots. */
+export function KindLegend() {
+  return (
+    <ul aria-label="Event colours" className="mt-2 flex flex-wrap gap-x-3 gap-y-1 text-xs text-zinc-600 dark:text-zinc-400">
+      {EVENT_KINDS.map((k) => (
+        <li key={k.value} className="flex items-center gap-1.5">
+          <span aria-hidden className={`size-2.5 rounded-full ${KIND_DOT[k.value]}`} />
+          {k.label}
+        </li>
+      ))}
+      <li className="flex items-center gap-1.5">
+        <span aria-hidden className="size-2.5 rounded-full border border-dashed border-emerald-500 bg-emerald-50 dark:bg-emerald-950" />
+        Free gap
+      </li>
+    </ul>
+  );
+}
 
 /** 615 → "10:15". 24-hour, and 1440 (end of day) shows as "24:00". */
 export function minutesLabel(min: number): string {
@@ -89,6 +117,7 @@ export function DayCalendar({
   panel,
   onEventTap,
   onGapTap,
+  onSlotTap,
 }: {
   events: CalendarEvent[];
   gaps?: CalendarGap[];
@@ -99,6 +128,8 @@ export function DayCalendar({
   panel?: ReactNode;
   onEventTap?: (id: string) => void;
   onGapTap?: (id: string) => void;
+  /** Tap on empty space: the half hour that was tapped, in minutes since midnight. */
+  onSlotTap?: (min: number) => void;
 }) {
   const hasNow = nowMin != null;
   // 08:00–22:00, widened to whole hours around anything outside it (and the now line).
@@ -134,6 +165,7 @@ export function DayCalendar({
       openId={openId}
       onEventTap={onEventTap}
       onGapTap={onGapTap}
+      onSlotTap={onSlotTap}
     />
   );
 
@@ -167,6 +199,7 @@ function Segment({
   openId,
   onEventTap,
   onGapTap,
+  onSlotTap,
 }: {
   from: number;
   to: number;
@@ -179,6 +212,7 @@ function Segment({
   openId?: string | null;
   onEventTap?: (id: string) => void;
   onGapTap?: (id: string) => void;
+  onSlotTap?: (min: number) => void;
 }) {
   const y = (min: number) => (min - from) * PX_PER_MIN;
   // Lines every half hour inside this segment. The last segment also gets its closing line.
@@ -212,6 +246,18 @@ function Segment({
       )}
 
       <div className="absolute inset-y-0 left-12 right-0">
+        {onSlotTap && (
+          // Behind the gaps and events, so only taps on empty space reach it. Touch and mouse
+          // users get the "+" button too; this is the shortcut.
+          <div
+            aria-hidden
+            className="absolute inset-0 cursor-pointer"
+            onClick={(ev) => {
+              const offset = ev.clientY - ev.currentTarget.getBoundingClientRect().top;
+              onSlotTap(Math.floor((from + offset / PX_PER_MIN) / 30) * 30);
+            }}
+          />
+        )}
         {gaps
           .filter((g) => inSegment(g.startMin, g.endMin))
           .map((g) => {

@@ -8,8 +8,10 @@ import { formatDurationShort } from "@/lib/duration";
 import { londonDateKey } from "@/lib/gaps";
 import { homeLabel, homeLocation } from "@/lib/home";
 import { addDays, dayOfWeek, formatTime, londonWeekdayAndMinutes, mondayOf } from "@/lib/london-time";
-import type { Deadline, Gap, Home, Recommendation, Society, TimetableEvent, Todo } from "@/lib/types";
-import { DayCalendar, DayPills, type CalendarEvent, type CalendarGap } from "./day-calendar";
+import { blankDraft, draftFromClass, draftFromManual, nextHalfHour } from "@/lib/manual-events";
+import type { Deadline, Gap, Home, ManualEvent, Recommendation, Society, TimetableEvent, Todo } from "@/lib/types";
+import { DayCalendar, DayPills, KindLegend, type CalendarEvent, type CalendarGap } from "./day-calendar";
+import { EventSheet, type EventFormTarget } from "./event-form";
 import { PageHeader } from "./form-ui";
 import { HomeSheet } from "./home-sheet";
 import { RecommendationPanel, type RecState } from "./recommendation-card";
@@ -95,6 +97,7 @@ export function TodayTimeline({
   societies,
   home,
   todos = [],
+  manualEvents = [],
 }: {
   days: Day[];
   initialDateKey: string;
@@ -108,6 +111,8 @@ export function TodayTimeline({
   home: Home | null;
   /** The To-do tab's list. Open and repeating ones are sent; the server picks the ones that fit each gap. */
   todos?: Todo[];
+  /** The student's hand-added events, to open one in the form when tapped. Already merged into days. */
+  manualEvents?: ManualEvent[];
 }) {
   const [dateKey, setDateKey] = useState(
     days.some((d) => d.dateKey === initialDateKey) ? initialDateKey : days[0]?.dateKey,
@@ -116,6 +121,7 @@ export function TodayTimeline({
   // Cached per gap, so collapsing and reopening a gap doesn't call Claude (and spend tokens) again.
   const [recs, setRecs] = useState<Record<string, RecState>>({});
   const [homeSheetOpen, setHomeSheetOpen] = useState(false);
+  const [eventForm, setEventForm] = useState<EventFormTarget | null>(null);
   const homeLoc = homeLocation(home);
   // Repeating to-dos go too, even if ticked: /api/recommend works out which come up on the gap's day.
   const openTodos = todos.filter((t) => !t.done || t.repeat);
@@ -148,6 +154,24 @@ export function TodayTimeline({
   const nowIso = new Date(now).toISOString();
   const todayKey = londonDateKey(nowIso);
   const openGap = day?.gaps.find((g) => g.id === openGapId);
+
+  /** "+" button: the selected day, from the next half hour if it's today, else 09:00. */
+  function addEvent() {
+    if (!day) return;
+    const start = day.dateKey === todayKey ? Math.min(nextHalfHour(minuteOfDay(nowIso)), 23 * 60) : 9 * 60;
+    setEventForm({ kind: "new", draft: blankDraft(day.dateKey, start) });
+  }
+
+  function editEvent(id: string) {
+    const e = day?.events.find((x) => x.id === id);
+    if (!day || !e) return;
+    const manual = e.manualId ? manualEvents.find((m) => m.id === e.manualId) : undefined;
+    setEventForm(
+      manual
+        ? { kind: "manual", event: manual, draft: draftFromManual(manual) }
+        : { kind: "class", event: e, dateKey: day.dateKey, draft: draftFromClass(e, day.dateKey) },
+    );
+  }
 
   async function loadRec(gap: Gap, dayGaps: Gap[]) {
     setRecs((r) => ({ ...r, [gap.id]: { status: "loading" } }));
@@ -185,7 +209,7 @@ export function TodayTimeline({
   }
 
   return (
-    <main className="mx-auto w-full max-w-md px-4 pb-28 pt-8">
+    <main className="mx-auto w-full max-w-md px-4 pb-40 pt-8">
       {/* Only rendered in the browser (<Home> shows a skeleton on the server), so reading today here can't mismatch. */}
       <PageHeader
         title={day ? dayTitle(day.dateKey, todayKey) : "Today"}
@@ -210,6 +234,7 @@ export function TodayTimeline({
         <HomeButton home={home} onClick={() => setHomeSheetOpen(true)} />
       </PageHeader>
       {homeSheetOpen && <HomeSheet home={home} onClose={() => setHomeSheetOpen(false)} />}
+      {eventForm && <EventSheet target={eventForm} onClose={() => setEventForm(null)} />}
 
       {mode === "demo" && (
         <Link
@@ -260,6 +285,8 @@ export function TodayTimeline({
           gaps={day.gaps.map(toCalendarGap)}
           nowMin={day.dateKey === todayKey ? minuteOfDay(nowIso) : null}
           openId={openGapId}
+          onEventTap={editEvent}
+          onSlotTap={(min) => setEventForm({ kind: "new", draft: blankDraft(day.dateKey, min) })}
           onGapTap={(id) => {
             const gap = day.gaps.find((g) => g.id === id);
             if (gap) toggleGap(gap);
@@ -270,6 +297,19 @@ export function TodayTimeline({
             )
           }
         />
+      )}
+      {day && <KindLegend />}
+
+      {day && (
+        <button
+          type="button"
+          onClick={addEvent}
+          aria-label="Add event"
+          aria-haspopup="dialog"
+          className="fixed bottom-[calc(5rem+env(safe-area-inset-bottom))] right-[max(1rem,calc(50%-14rem+1rem))] z-30 flex size-14 items-center justify-center rounded-full bg-zinc-900 text-3xl leading-none text-white shadow-lg hover:bg-zinc-700 dark:bg-zinc-100 dark:text-zinc-900 dark:hover:bg-zinc-300"
+        >
+          +
+        </button>
       )}
     </main>
   );
@@ -326,7 +366,8 @@ function GapPanel({ gap, rec, onRetry }: { gap: Gap; rec: RecState | undefined; 
           After <strong>{gap.prevEvent.title}</strong> ({place(gap.prevLocationId)})
         </p>
         <p>
-          Before <strong>{gap.nextEvent.title}</strong> at {time(gap.end)} ({gap.nextEvent.room})
+          Before <strong>{gap.nextEvent.title}</strong> at {time(gap.end)}
+          {gap.nextEvent.room && ` (${gap.nextEvent.room})`}
         </p>
       </div>
       <RecommendationPanel state={rec ?? { status: "loading" }} onRetry={onRetry} />
