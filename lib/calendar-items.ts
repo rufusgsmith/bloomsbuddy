@@ -1,8 +1,9 @@
 // To-dos and deadlines on the Today calendar.
 // A to-do with a repeat time shows as a block on each occurrence (unless turned off), and one
 // without a time shows only where the student placed it. Blocks are busy time, like events.
-// Deadlines show as thin flags at their due time: not blocks, not busy time.
-// Which deadlines are hidden is kept on its own localStorage key, so it works in the demo week too.
+// Deadlines the student adds to the calendar ("Add to calendar" on the Deadlines tab) show as thin
+// flags at their due time: not blocks, not busy time. Their ids are kept on their own localStorage
+// key, so it works in the demo week too.
 
 import { londonDateKey } from "./gaps";
 import { londonIso, londonWeekdayAndMinutes } from "./london-time";
@@ -13,9 +14,9 @@ import type { DateKey, Deadline, TimetableEvent, Todo, TodoSlot, WallTime } from
 /** A to-do with no estimate gets a block this long. */
 export const TODO_DEFAULT_MINS = 30;
 
-const KEY = "bloomsbuddy:hidden-deadlines";
+const KEY = "bloomsbuddy:calendar-deadlines";
 /** Fired on this tab after we write. The "storage" event only reaches other tabs. */
-const CHANGE_EVENT = "bloomsbuddy:hidden-deadlines";
+const CHANGE_EVENT = "bloomsbuddy:calendar-deadlines";
 
 // ---------- To-dos ----------
 
@@ -79,11 +80,11 @@ export function calendarKey(todos: Todo[], today: DateKey): string {
 
 // ---------- Deadlines ----------
 
-/** Deadlines due on this London day that the student hasn't hidden from Today. */
-export const deadlinesOn = (deadlines: Deadline[], hidden: string[], dateKey: DateKey) =>
-  deadlines.filter((d) => londonDateKey(d.due) === dateKey && !hidden.includes(d.id));
+/** Deadlines due on this London day that the student added to the calendar. */
+export const deadlinesOn = (deadlines: Deadline[], added: string[], dateKey: DateKey) =>
+  deadlines.filter((d) => londonDateKey(d.due) === dateKey && added.includes(d.id));
 
-export function readRawHidden(): string | null {
+export function readRawCalendarDeadlines(): string | null {
   try {
     return localStorage.getItem(KEY);
   } catch {
@@ -91,7 +92,7 @@ export function readRawHidden(): string | null {
   }
 }
 
-export function parseHidden(raw: string | null): string[] {
+export function parseDeadlineIds(raw: string | null): string[] {
   if (!raw) return [];
   try {
     const list = JSON.parse(raw) as unknown;
@@ -101,11 +102,11 @@ export function parseHidden(raw: string | null): string[] {
   }
 }
 
-/** Shows or hides a deadline's flag on Today. Returns false if the browser refused to save. */
-export function setDeadlineHidden(id: string, hidden: boolean): boolean {
-  const rest = parseHidden(readRawHidden()).filter((x) => x !== id);
+/** Adds a deadline's flag to the calendar, or takes it off. Returns false if the browser refused to save. */
+export function setDeadlineOnCalendar(id: string, on: boolean): boolean {
+  const rest = parseDeadlineIds(readRawCalendarDeadlines()).filter((x) => x !== id);
   try {
-    localStorage.setItem(KEY, JSON.stringify(hidden ? [...rest, id] : rest));
+    localStorage.setItem(KEY, JSON.stringify(on ? [...rest, id] : rest));
     window.dispatchEvent(new Event(CHANGE_EVENT));
     return true;
   } catch {
@@ -113,7 +114,7 @@ export function setDeadlineHidden(id: string, hidden: boolean): boolean {
   }
 }
 
-export function subscribeHidden(onChange: () => void): () => void {
+export function subscribeCalendarDeadlines(onChange: () => void): () => void {
   window.addEventListener("storage", onChange);
   window.addEventListener(CHANGE_EVENT, onChange);
   return () => {

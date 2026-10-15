@@ -17,7 +17,7 @@ import {
   subscribeEvents,
   type EventStore,
 } from "@/lib/manual-events";
-import { DeleteButton, PageHeader } from "../form-ui";
+import { CalendarButton, PageHeader } from "../form-ui";
 import { mockSocietyEvents, mockTimetable } from "@/lib/mock";
 import { parseUserData, readRawUserData, saveUserData, subscribeUserData } from "@/lib/storage";
 import { termEndKey } from "@/lib/term";
@@ -317,43 +317,79 @@ function EventCard({ event: e, calendar }: { event: SocietyEvent; calendar: Cale
   if (e.tags.includes("free-food")) tags.push({ label: "Free food", tone: "bg-emerald-100 text-emerald-800 dark:bg-emerald-950 dark:text-emerald-200" });
   else if (e.free === true) tags.push({ label: "Free", tone: "bg-emerald-100 text-emerald-800 dark:bg-emerald-950 dark:text-emerald-200" });
   else if (e.free === false) tags.push({ label: "Paid", tone: "bg-zinc-100 text-zinc-700 dark:bg-zinc-800 dark:text-zinc-300" });
+  const cal = useSocietyAdd(e, calendar);
 
   return (
     <article className="rounded-2xl border border-zinc-200 p-4 dark:border-zinc-800">
-      <p className="text-xs font-semibold text-emerald-700 dark:text-emerald-400">{e.society}</p>
-      <h3 className="font-medium">
-        {e.url ? (
-          <a href={e.url} target="_blank" rel="noreferrer" className="underline-offset-2 hover:underline">
-            {e.title}
-          </a>
-        ) : (
-          e.title
+      {/* The button sits bottom-right beside the details, so the card stays a tidy rectangle. */}
+      <div className="flex items-end gap-3">
+        <div className="min-w-0 flex-1">
+          <p className="text-xs font-semibold text-emerald-700 dark:text-emerald-400">{e.society}</p>
+          <h3 className="font-medium">
+            {e.url ? (
+              <a href={e.url} target="_blank" rel="noreferrer" className="underline-offset-2 hover:underline">
+                {e.title}
+              </a>
+            ) : (
+              e.title
+            )}
+          </h3>
+          <p className="mt-0.5 text-sm text-zinc-600 dark:text-zinc-400">
+            {timeLabel(e)}
+            {e.venue && ` · ${e.venue}`}
+          </p>
+          {tags.length > 0 && (
+            <div className="mt-2 flex flex-wrap gap-1.5">
+              {tags.map((t) => (
+                <span key={t.label} className={`rounded-full px-2.5 py-0.5 text-xs font-semibold ${t.tone}`}>
+                  {t.label}
+                </span>
+              ))}
+            </div>
+          )}
+        </div>
+        {/* A "Time TBC" session has no real time to block out. */}
+        {!e.timeTBC && (
+          <CalendarButton added={cal.added} onAdd={() => cal.add(false)} onRemove={cal.remove} title={e.title}>
+            Add to my calendar
+          </CalendarButton>
         )}
-      </h3>
-      <p className="mt-0.5 text-sm text-zinc-600 dark:text-zinc-400">
-        {timeLabel(e)}
-        {e.venue && ` · ${e.venue}`}
-      </p>
-      {tags.length > 0 && (
-        <div className="mt-2 flex flex-wrap gap-1.5">
-          {tags.map((t) => (
-            <span key={t.label} className={`rounded-full px-2.5 py-0.5 text-xs font-semibold ${t.tone}`}>
-              {t.label}
-            </span>
-          ))}
+      </div>
+      {cal.clash && (
+        <div role="alert" className="mt-3 rounded-xl border border-amber-300 bg-amber-50 p-3 dark:border-amber-800 dark:bg-amber-950/40">
+          <p className="mb-2 text-sm font-medium text-amber-900 dark:text-amber-100">⚠️ {cal.clash}</p>
+          <div className="flex justify-end gap-2">
+            <button
+              type="button"
+              onClick={cal.cancel}
+              className="min-h-11 rounded-full px-4 text-sm font-medium text-zinc-700 hover:bg-amber-100 dark:text-zinc-300 dark:hover:bg-amber-900/40"
+            >
+              Cancel
+            </button>
+            <button
+              type="button"
+              onClick={() => cal.add(true)}
+              className="min-h-11 rounded-full bg-zinc-900 px-4 text-sm font-medium text-white hover:bg-zinc-700 dark:bg-zinc-100 dark:text-zinc-900 dark:hover:bg-zinc-300"
+            >
+              Add anyway
+            </button>
+          </div>
         </div>
       )}
-      {/* A "Time TBC" session has no real time to block out. */}
-      {!e.timeTBC && <AddToCalendar event={e} calendar={calendar} />}
+      {cal.saveFailed && (
+        <p role="alert" className="mt-2 text-sm text-red-600 dark:text-red-400">
+          Your browser wouldn&apos;t let me save that. Private mode?
+        </p>
+      )}
     </article>
   );
 }
 
 /**
- * "Add to my calendar", then "Added ✓" (two taps to remove, like every delete). Adding over
- * another event first asks "Add anyway" / "Cancel".
+ * Adding a society event to the calendar (a one-off manual event linked by societyEventId).
+ * Adding over another event first sets `clash`, for "Add anyway" / "Cancel".
  */
-function AddToCalendar({ event: e, calendar }: { event: SocietyEvent; calendar: Calendar }) {
+function useSocietyAdd(e: SocietyEvent, calendar: Calendar) {
   const added = findSocietyAdd(calendar.store, e.id);
   const [clash, setClash] = useState<string | null>(null);
   const [saveFailed, setSaveFailed] = useState(false);
@@ -379,54 +415,7 @@ function AddToCalendar({ event: e, calendar }: { event: SocietyEvent; calendar: 
     if (added) setSaveFailed(!deleteManualEvent(added.id));
   }
 
-  const buttonClass = "min-h-11 rounded-full px-4 text-sm font-medium";
-  return (
-    <div className="mt-3">
-      {added ? (
-        <DeleteButton
-          onDelete={remove}
-          armedText="Tap again to remove"
-          label={`Added to your calendar. Remove ${e.title}`}
-          className={`${buttonClass} bg-emerald-100 text-emerald-800 hover:bg-emerald-200 dark:bg-emerald-950 dark:text-emerald-200 dark:hover:bg-emerald-900`}
-        >
-          Added ✓
-        </DeleteButton>
-      ) : clash ? (
-        <div role="alert" className="rounded-xl border border-amber-300 bg-amber-50 p-3 dark:border-amber-800 dark:bg-amber-950/40">
-          <p className="mb-2 text-sm font-medium text-amber-900 dark:text-amber-100">⚠️ {clash}</p>
-          <div className="flex justify-end gap-2">
-            <button
-              type="button"
-              onClick={() => setClash(null)}
-              className={`${buttonClass} text-zinc-700 hover:bg-amber-100 dark:text-zinc-300 dark:hover:bg-amber-900/40`}
-            >
-              Cancel
-            </button>
-            <button
-              type="button"
-              onClick={() => add(true)}
-              className={`${buttonClass} bg-zinc-900 text-white hover:bg-zinc-700 dark:bg-zinc-100 dark:text-zinc-900 dark:hover:bg-zinc-300`}
-            >
-              Add anyway
-            </button>
-          </div>
-        </div>
-      ) : (
-        <button
-          type="button"
-          onClick={() => add(false)}
-          className={`${buttonClass} bg-zinc-100 text-zinc-800 hover:bg-zinc-200 dark:bg-zinc-800 dark:text-zinc-100 dark:hover:bg-zinc-700`}
-        >
-          Add to my calendar
-        </button>
-      )}
-      {saveFailed && (
-        <p role="alert" className="mt-2 text-sm text-red-600 dark:text-red-400">
-          Your browser wouldn&apos;t let me save that. Private mode?
-        </p>
-      )}
-    </div>
-  );
+  return { added: !!added, clash, saveFailed, add, remove, cancel: () => setClash(null) };
 }
 
 function Skeleton() {

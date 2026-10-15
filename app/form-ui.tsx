@@ -54,12 +54,15 @@ export function DeleteButton({
   className,
   children,
   armedText = "Tap again to delete",
+  armedClassName = "min-h-11 shrink-0 whitespace-nowrap rounded-full bg-red-600 px-3 text-sm font-medium text-white hover:bg-red-700 dark:bg-red-500 dark:hover:bg-red-600",
 }: {
   onDelete: () => void;
   /** Accessible name when idle, e.g. "Remove ECON0019". */
   label?: string;
   /** What the red armed button says. */
   armedText?: string;
+  /** Styles the red armed button, for buttons smaller than the usual size. */
+  armedClassName?: string;
   className: string;
   children: ReactNode;
 }) {
@@ -74,11 +77,7 @@ export function DeleteButton({
       type="button"
       aria-label={armed ? undefined : label}
       onClick={() => (armed ? onDelete() : setArmed(true))}
-      className={
-        armed
-          ? "min-h-11 shrink-0 whitespace-nowrap rounded-full bg-red-600 px-3 text-sm font-medium text-white hover:bg-red-700 dark:bg-red-500 dark:hover:bg-red-600"
-          : className
-      }
+      className={armed ? armedClassName : className}
     >
       {armed ? armedText : children}
     </button>
@@ -151,6 +150,50 @@ export function Switch({
         />
       </span>
       {label}
+    </button>
+  );
+}
+
+// One fixed width for every state ("Add to my calendar", "Added ✓", "Tap again to remove"), so
+// tapping it never changes the card's text column and makes the text beside it re-wrap.
+const SMALL_PILL = "min-h-8 w-36 shrink-0 whitespace-nowrap rounded-full px-2 text-center text-xs font-medium";
+
+/**
+ * The small "Add to calendar" pill in the bottom-right of a card (society events, deadlines).
+ * Once added it reads "Added ✓", and removing takes two taps, like every delete.
+ */
+export function CalendarButton({
+  added,
+  onAdd,
+  onRemove,
+  title,
+  children = "Add to calendar",
+}: {
+  added: boolean;
+  onAdd: () => void;
+  onRemove: () => void;
+  /** What's being added, for the screen-reader label. */
+  title: string;
+  children?: ReactNode;
+}) {
+  return added ? (
+    <DeleteButton
+      onDelete={onRemove}
+      armedText="Tap again to remove"
+      label={`Added to your calendar. Remove ${title}`}
+      armedClassName={`${SMALL_PILL} bg-red-600 text-white hover:bg-red-700 dark:bg-red-500 dark:hover:bg-red-600`}
+      className={`${SMALL_PILL} bg-emerald-100 text-emerald-800 hover:bg-emerald-200 dark:bg-emerald-950 dark:text-emerald-200 dark:hover:bg-emerald-900`}
+    >
+      Added ✓
+    </DeleteButton>
+  ) : (
+    <button
+      type="button"
+      onClick={onAdd}
+      aria-label={`Add ${title} to your calendar`}
+      className={`${SMALL_PILL} bg-zinc-100 text-zinc-800 hover:bg-zinc-200 dark:bg-zinc-800 dark:text-zinc-100 dark:hover:bg-zinc-700`}
+    >
+      {children}
     </button>
   );
 }

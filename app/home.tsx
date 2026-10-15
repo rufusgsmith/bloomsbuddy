@@ -2,7 +2,14 @@
 
 import { useRouter } from "next/navigation";
 import { useEffect, useMemo, useSyncExternalStore } from "react";
-import { calendarKey, deadlinesOn, parseHidden, readRawHidden, subscribeHidden, todoBlocksOn } from "@/lib/calendar-items";
+import {
+  calendarKey,
+  deadlinesOn,
+  parseDeadlineIds,
+  readRawCalendarDeadlines,
+  subscribeCalendarDeadlines,
+  todoBlocksOn,
+} from "@/lib/calendar-items";
 import { findGaps } from "@/lib/gaps";
 import { parseHome, readRawHome, subscribeHome } from "@/lib/home";
 import { addDays, londonTodayKey } from "@/lib/london-time";
@@ -32,19 +39,19 @@ export function Home() {
   const rawTodos = useSyncExternalStore(subscribeTodos, () => readRawTodos() ?? "", () => null);
   const todos = useMemo(() => parseTodos(rawTodos), [rawTodos]);
   const todoKey = useMemo(() => calendarKey(todos, londonTodayKey()), [todos]);
-  // Deadlines hidden from Today. Flags aren't busy time, so they don't change the gaps.
-  const rawHidden = useSyncExternalStore(subscribeHidden, () => readRawHidden() ?? "", () => null);
-  const hidden = useMemo(() => parseHidden(rawHidden), [rawHidden]);
+  // Deadlines added to the calendar. Flags aren't busy time, so they don't change the gaps.
+  const rawDeadlineIds = useSyncExternalStore(subscribeCalendarDeadlines, () => readRawCalendarDeadlines() ?? "", () => null);
+  const shownDeadlines = useMemo(() => parseDeadlineIds(rawDeadlineIds), [rawDeadlineIds]);
   // Hand-added events and one-off class changes. They change the gaps, so they're in the remount keys.
   const rawEvents = useSyncExternalStore(subscribeEvents, () => readRawEvents() ?? "", () => null);
   const store = useMemo(() => parseEvents(rawEvents), [rawEvents]);
-  const userDays = useMemo(() => (user ? buildDays(user, store, todos, hidden) : null), [user, store, todos, hidden]);
+  const userDays = useMemo(() => (user ? buildDays(user, store, todos, shownDeadlines) : null), [user, store, todos, shownDeadlines]);
   // Only built in the browser, once we know there's no usable saved timetable, so the server
   // never renders a week from its own clock.
   const firstVisit = raw === "" && !onboardingSkipped();
   const demo = useMemo(
-    () => (raw !== null && !user && !firstVisit ? buildDemo(store, todos, hidden) : null),
-    [raw, user, firstVisit, store, todos, hidden],
+    () => (raw !== null && !user && !firstVisit ? buildDemo(store, todos, shownDeadlines) : null),
+    [raw, user, firstVisit, store, todos, shownDeadlines],
   );
   const router = useRouter();
   useEffect(() => {
@@ -98,31 +105,31 @@ export function Home() {
 }
 
 /** The mock week, Monday–Sunday (always the current one). Opens on today, or on Monday at the weekend. */
-function buildDemo(store: EventStore, todos: Todo[], hidden: string[]): { days: Day[]; initialDateKey: string } {
+function buildDemo(store: EventStore, todos: Todo[], shown: string[]): { days: Day[]; initialDateKey: string } {
   const timetable = mockTimetable();
   const deadlines = mockDeadlines();
   const today = londonTodayKey();
   const monday = demoMonday(today);
   const dateKeys = Array.from({ length: 7 }, (_, i) => addDays(monday, i));
-  const days = dateKeys.map((dateKey) => buildDay(dateKey, dayEventsFor(timetable, store, dateKey), todos, deadlines, hidden));
+  const days = dateKeys.map((dateKey) => buildDay(dateKey, dayEventsFor(timetable, store, dateKey), todos, deadlines, shown));
   return { days, initialDateKey: dateKeys.includes(today) ? today : monday };
 }
 
 /** Every day of term, Monday–Sunday, weekends included. */
-function buildDays(user: UserData, store: EventStore, todos: Todo[], hidden: string[]): Day[] {
+function buildDays(user: UserData, store: EventStore, todos: Todo[], shown: string[]): Day[] {
   const events = expandWeekly(user.classes, user.termStart, user.weeks);
   const days: Day[] = [];
   for (let i = 0; i < user.weeks * 7; i++) {
     const dateKey = addDays(user.termStart, i);
-    days.push(buildDay(dateKey, dayEventsFor(events, store, dateKey), todos, user.deadlines, hidden));
+    days.push(buildDay(dateKey, dayEventsFor(events, store, dateKey), todos, user.deadlines, shown));
   }
   return days;
 }
 
 /** One day: its events plus to-do blocks (busy time, so they shape the gaps), and deadline flags. */
-function buildDay(dateKey: string, events: Day["events"], todos: Todo[], deadlines: Deadline[], hidden: string[]): Day {
+function buildDay(dateKey: string, events: Day["events"], todos: Todo[], deadlines: Deadline[], shown: string[]): Day {
   const all = [...events, ...todoBlocksOn(todos, dateKey)];
-  return { dateKey, events: all, gaps: findGaps(all), deadlines: deadlinesOn(deadlines, hidden, dateKey) };
+  return { dateKey, events: all, gaps: findGaps(all), deadlines: deadlinesOn(deadlines, shown, dateKey) };
 }
 
 /** Today if it's a term day, else the next term day, else the last one. */
