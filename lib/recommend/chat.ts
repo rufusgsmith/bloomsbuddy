@@ -48,8 +48,7 @@ const MS_PER_DAY = 86_400_000;
 const WEEK_DAYS = 7;
 /** Days listed with their date and offset, so Claude never works out dates or the BST switch. */
 const DATE_LIST_DAYS = 14;
-const DEADLINE_DAYS = 14;
-const MAX_TODOS_SHOWN = 20;
+const DEADLINE_DAYS = 30;
 // Prompt-caching prices, as multiples of the input price.
 const CACHE_WRITE = 1.25;
 const CACHE_READ = 0.1;
@@ -132,7 +131,7 @@ function studentContext(ctx: ChatContext, today: DateKey, nowIso: string, deadli
     return `- ${d.moduleCode} ${d.title}: due ${fmt(d.due)} (${inDays === 0 ? "today" : `in ${inDays} days`})${extra.length ? `. ${extra.join(", ")}` : ""}`;
   });
 
-  const todos = (ctx.todos ?? []).filter((t) => !isDoneNow(t, today)).sort(byDueThenEstimate).slice(0, MAX_TODOS_SHOWN);
+  const todos = (ctx.todos ?? []).filter((t) => !isDoneNow(t, today)).sort(byDueThenEstimate);
   const todoLine = (t: Todo) =>
     [
       `- ${t.title}`,

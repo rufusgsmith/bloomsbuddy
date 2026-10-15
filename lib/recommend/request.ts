@@ -8,8 +8,8 @@ import type { Deadline, HomeLocation, Society, Todo } from "../types";
 
 /** Each society costs a scrape, so cap how many we accept. */
 const MAX_SOCIETIES = 10;
-/** Keeps the get_todos result (and the prompt) small. */
-const MAX_TODOS = 30;
+/** A safety cap on the request, not a working limit: the chat shows every open to-do. */
+const MAX_TODOS = 100;
 const MAX_ADDED_EVENTS = 100;
 
 function isDeadline(x: unknown): x is Deadline {
