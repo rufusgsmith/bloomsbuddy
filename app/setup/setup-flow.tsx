@@ -17,7 +17,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useEffect, useRef, useState, useSyncExternalStore, type ReactNode } from "react";
 import { BUILDINGS, type BuildingId } from "@/lib/buildings";
-import { DeleteButton, Field, inputClass } from "../form-ui";
+import { DeleteButton, Field, inputClass, PageHeader } from "../form-ui";
 import { HomePicker } from "../home-picker";
 import { SocietyPicker } from "../society-picker";
 import { TodoEditor } from "../todo/todo-view";
@@ -161,18 +161,17 @@ function Editor({ mode, initial }: { mode: SetupMode; initial: UserData | null }
   if (mode === "timetable") {
     return (
       <Shell>
-        <header className="mb-6">
-          <div className="flex items-center justify-between gap-2">
-            <p className="text-sm font-medium text-emerald-600 dark:text-emerald-400">Bloomsbuddy</p>
+        <PageHeader
+          title="Edit timetable"
+          action={
             <Link
               href="/"
               className="rounded-full px-3 py-1.5 text-sm text-zinc-600 hover:bg-zinc-100 dark:text-zinc-400 dark:hover:bg-zinc-900"
             >
               Cancel
             </Link>
-          </div>
-          <h1 className="text-3xl font-semibold tracking-tight">Edit timetable</h1>
-        </header>
+          }
+        />
         <div className="flex flex-col gap-5">
           <TimetableStep
             classes={classes}
@@ -194,9 +193,9 @@ function Editor({ mode, initial }: { mode: SetupMode; initial: UserData | null }
 
   return (
     <Shell>
-      <header className="mb-6">
-        <div className="flex items-center justify-between gap-2">
-          <p className="text-sm font-medium text-emerald-600 dark:text-emerald-400">Bloomsbuddy</p>
+      <PageHeader
+        title="Let's get you set up"
+        action={
           <button
             type="button"
             onClick={skip}
@@ -204,8 +203,8 @@ function Editor({ mode, initial }: { mode: SetupMode; initial: UserData | null }
           >
             Skip, show the demo week
           </button>
-        </div>
-        <h1 className="text-3xl font-semibold tracking-tight">Let&apos;s get you set up</h1>
+        }
+      >
         <ol className="mt-4 flex gap-2" aria-label="Steps">
           {STEP_LABELS.map((label, i) => {
             // To-dos, home and societies can't be invalid, so only the timetable gates the middle
@@ -230,7 +229,7 @@ function Editor({ mode, initial }: { mode: SetupMode; initial: UserData | null }
             );
           })}
         </ol>
-      </header>
+      </PageHeader>
 
       {step === 0 && (
         <TimetableStep
@@ -368,7 +367,7 @@ function TimetableStep({
         <div className="flex flex-col gap-4">
           {byDay.map((day) => (
             <div key={day.label}>
-              <h3 className="mb-2 text-xs font-semibold uppercase tracking-wide text-zinc-500">{day.label}</h3>
+              <h3 className="mb-2 text-sm font-semibold text-zinc-600 dark:text-zinc-400">{day.label}</h3>
               <ul className="flex flex-col gap-3">
                 {day.rows.map((c) => (
                   <li key={c.id}>
@@ -1055,7 +1054,7 @@ function Uploader<K extends "timetable" | "deadlines">({
         )}
       </label>
 
-      <div className="flex items-center gap-3 text-xs font-medium uppercase tracking-wide text-zinc-500" aria-hidden>
+      <div className="flex items-center gap-3 text-sm text-zinc-500" aria-hidden>
         <span className="h-px flex-1 bg-zinc-200 dark:bg-zinc-800" />
         or type it
         <span className="h-px flex-1 bg-zinc-200 dark:bg-zinc-800" />

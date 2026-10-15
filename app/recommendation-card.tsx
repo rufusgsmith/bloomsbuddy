@@ -25,7 +25,7 @@ export function RecommendationPanel({ state, onRetry }: { state: RecState; onRet
   return (
     <div className="flex flex-col gap-3">
       <TopPick option={top} />
-      <p className="text-xs font-medium uppercase tracking-wide text-emerald-700 dark:text-emerald-300">Or…</p>
+      <p className="text-sm font-semibold text-emerald-800 dark:text-emerald-200">Or…</p>
       {alternatives.map((option) => (
         <Alternative key={option.title} option={option} />
       ))}
@@ -75,7 +75,7 @@ function Fallback({ onRetry }: { onRetry: () => void }) {
 function TopPick({ option }: { option: RecommendationOption }) {
   return (
     <article className="rounded-xl bg-white p-4 shadow-sm ring-1 ring-emerald-200 dark:bg-zinc-950 dark:ring-emerald-800">
-      <p className="text-xs font-medium uppercase tracking-wide text-emerald-600 dark:text-emerald-400">Top pick</p>
+      <p className="text-sm font-semibold text-emerald-700 dark:text-emerald-400">Top pick</p>
       <h3 className="mt-1 text-lg font-semibold leading-snug">
         <span aria-hidden>{TYPE_EMOJI[option.type]}</span> {option.title}
       </h3>

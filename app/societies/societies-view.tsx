@@ -4,7 +4,7 @@ import Link from "next/link";
 import { useEffect, useMemo, useRef, useState, useSyncExternalStore } from "react";
 import { londonDateKey } from "@/lib/gaps";
 import { addDays, formatTime, londonTodayKey } from "@/lib/london-time";
-import { DeleteButton } from "../form-ui";
+import { DeleteButton, PageHeader } from "../form-ui";
 import { mockSocietyEvents } from "@/lib/mock";
 import { parseUserData, readRawUserData, saveUserData, subscribeUserData } from "@/lib/storage";
 import { termEndKey } from "@/lib/term";
@@ -32,10 +32,7 @@ export function SocietiesView() {
 
   return (
     <main className="mx-auto w-full max-w-md px-4 pb-28 pt-8">
-      <header className="mb-5">
-        <p className="text-sm font-medium text-emerald-600 dark:text-emerald-400">Bloomsbuddy</p>
-        <h1 className="text-3xl font-semibold tracking-tight">Societies</h1>
-      </header>
+      <PageHeader title="Societies" />
       {raw === null ? <Skeleton /> : user ? <Mine user={user} /> : <Demo />}
     </main>
   );
@@ -118,7 +115,7 @@ function Mine({ user }: { user: UserData }) {
           <button
             type="button"
             onClick={() => retry(s)}
-            className="min-h-9 shrink-0 rounded-full bg-white px-3 font-medium text-zinc-800 hover:bg-zinc-100 dark:bg-zinc-900 dark:text-zinc-100 dark:hover:bg-zinc-800"
+            className="min-h-11 shrink-0 rounded-full bg-white px-3 font-medium text-zinc-800 hover:bg-zinc-100 dark:bg-zinc-900 dark:text-zinc-100 dark:hover:bg-zinc-800"
           >
             Retry
           </button>
@@ -200,7 +197,7 @@ function Chip({
       <DeleteButton
         onDelete={onRemove}
         label={`Remove ${society.name}`}
-        className="flex h-8 w-8 items-center justify-center rounded-full text-emerald-700 hover:bg-emerald-100 dark:text-emerald-300 dark:hover:bg-emerald-900"
+        className="-my-1.5 flex size-11 items-center justify-center rounded-full text-emerald-700 hover:bg-emerald-100 dark:text-emerald-300 dark:hover:bg-emerald-900"
       >
         ×
       </DeleteButton>
@@ -236,7 +233,7 @@ function EventList({
     <div className="flex flex-col gap-6">
       {days.map(([dateKey, dayEvents]) => (
         <section key={dateKey}>
-          <h2 className="mb-2 text-sm font-semibold uppercase tracking-wide text-zinc-500">{dayLabel(dateKey, today)}</h2>
+          <h2 className="mb-2 text-sm font-semibold text-zinc-600 dark:text-zinc-400">{dayLabel(dateKey, today)}</h2>
           <ul className="flex flex-col gap-2">
             {dayEvents.map((e) => (
               <li key={e.id}>

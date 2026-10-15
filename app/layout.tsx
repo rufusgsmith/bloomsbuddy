@@ -21,6 +21,11 @@ export const metadata: Metadata = {
 // "cover" lets the tab bar sit under the iPhone home indicator, padded by safe-area-inset-bottom.
 export const viewport: Viewport = {
   viewportFit: "cover",
+  // The phone's status bar matches the page background (see globals.css).
+  themeColor: [
+    { media: "(prefers-color-scheme: light)", color: "#ffffff" },
+    { media: "(prefers-color-scheme: dark)", color: "#0a0a0a" },
+  ],
 };
 
 export default function RootLayout({ children }: LayoutProps<"/">) {

@@ -9,6 +9,7 @@ import { londonDateKey } from "@/lib/gaps";
 import { homeLabel, homeLocation } from "@/lib/home";
 import { addDays, formatTime, londonTodayKey, mondayOf } from "@/lib/london-time";
 import type { Deadline, Gap, Home, Recommendation, Society, TimetableEvent, Todo } from "@/lib/types";
+import { PageHeader } from "./form-ui";
 import { HomeSheet } from "./home-sheet";
 import { RecommendationPanel, type RecState } from "./recommendation-card";
 
@@ -133,6 +134,7 @@ export function TodayTimeline({
     if (next) selectDay(next.dateKey);
   }
   const now = useNow();
+  const todayKey = londonTodayKey();
   const sorted: Item[] = day
     ? [
         ...day.events.map((event): Item => ({ kind: "event", event })),
@@ -178,22 +180,20 @@ export function TodayTimeline({
 
   return (
     <main className="mx-auto w-full max-w-md px-4 pb-28 pt-8">
-      <header className="mb-5">
-        <div className="flex items-center justify-between gap-2">
-          <p className="text-sm font-medium text-emerald-600 dark:text-emerald-400">Bloomsbuddy</p>
-          {mode === "user" && (
+      {/* Only rendered in the browser (<Home> shows a skeleton on the server), so reading today here can't mismatch. */}
+      <PageHeader
+        title={day ? dayTitle(day.dateKey, todayKey) : "Today"}
+        action={
+          mode === "user" && (
             <Link
               href="/timetable"
               className="rounded-full px-3 py-1.5 text-sm text-zinc-600 hover:bg-zinc-100 dark:text-zinc-400 dark:hover:bg-zinc-900"
             >
               Edit timetable
             </Link>
-          )}
-        </div>
-        {/* Only rendered in the browser (<Home> shows a skeleton on the server), so reading today here can't mismatch. */}
-        <h1 className="text-3xl font-semibold tracking-tight">
-          {day ? dayTitle(day.dateKey, londonTodayKey()) : "Today"}
-        </h1>
+          )
+        }
+      >
         {day && (
           <>
             <p className="text-zinc-500 dark:text-zinc-400">{londonDayMonth.format(dayDate(day.dateKey))}</p>
@@ -202,7 +202,7 @@ export function TodayTimeline({
           </>
         )}
         <HomeButton home={home} onClick={() => setHomeSheetOpen(true)} />
-      </header>
+      </PageHeader>
       {homeSheetOpen && <HomeSheet home={home} onClose={() => setHomeSheetOpen(false)} />}
 
       {mode === "demo" && (
@@ -234,23 +234,37 @@ export function TodayTimeline({
         </div>
       )}
 
-      <nav className="mb-6 flex gap-2" aria-label="Choose a day">
+      <nav className="mb-6 flex gap-1.5" aria-label="Choose a day">
         {weekDays.map((d) => {
           const active = d.dateKey === dateKey;
+          const isToday = d.dateKey === todayKey;
+          const weekend = dayDate(d.dateKey).getUTCDay() % 6 === 0;
           return (
             <button
               key={d.dateKey}
               type="button"
               onClick={() => selectDay(d.dateKey)}
               aria-pressed={active}
-              className={`flex min-h-12 flex-1 flex-col items-center justify-center rounded-xl text-xs transition-colors ${
+              aria-current={isToday ? "date" : undefined}
+              className={`relative flex min-h-14 min-w-0 flex-1 flex-col items-center justify-center rounded-xl text-xs transition-colors ${
                 active
                   ? "bg-zinc-900 text-white dark:bg-zinc-100 dark:text-zinc-900"
-                  : "bg-zinc-100 text-zinc-600 hover:bg-zinc-200 dark:bg-zinc-900 dark:text-zinc-400 dark:hover:bg-zinc-800"
+                  : `hover:bg-zinc-200 dark:hover:bg-zinc-800 ${
+                      weekend
+                        ? "bg-zinc-50 text-zinc-500 dark:bg-zinc-900/50 dark:text-zinc-500"
+                        : "bg-zinc-100 text-zinc-600 dark:bg-zinc-900 dark:text-zinc-400"
+                    }`
               }`}
             >
               <span>{londonWeekday.format(dayDate(d.dateKey))}</span>
               <span className="text-base font-semibold">{dayDate(d.dateKey).getUTCDate()}</span>
+              {/* Marks the real today, so it's easy to find again after browsing other days. */}
+              {isToday && (
+                <span
+                  aria-hidden
+                  className={`absolute bottom-1 size-1 rounded-full ${active ? "bg-emerald-400 dark:bg-emerald-600" : "bg-emerald-600 dark:bg-emerald-400"}`}
+                />
+              )}
             </button>
           );
         })}
@@ -449,7 +463,7 @@ function HomeButton({ home, onClick }: { home: Home | null; onClick: () => void 
         🏠
       </span>
       <span className="min-w-0 flex-1">
-        <span className="block text-xs font-medium uppercase tracking-wide text-zinc-500">Home</span>
+        <span className="block text-xs font-medium text-zinc-500">Home</span>
         <span className={`block truncate font-medium ${home.kind === "none" ? "text-zinc-500" : ""}`}>
           {homeLabel(home)}
         </span>

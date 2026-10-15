@@ -123,7 +123,7 @@ export function HomePicker({
             )}
             {groups.map((g) => (
               <section key={g.label}>
-                <h3 className="mb-1 text-xs font-medium uppercase tracking-wide text-zinc-500">{g.label}</h3>
+                <h3 className="mb-1 text-sm font-semibold text-zinc-600 dark:text-zinc-400">{g.label}</h3>
                 <ul className="flex flex-col gap-1">
                   {g.ids.map((id) => (
                     <li key={id}>
