@@ -5,7 +5,7 @@
 // Everything is in minutes since London midnight, so Today (ISO instants) and the editor
 // (weekly wall times, no dates) can both feed it.
 
-import { useEffect, useRef, useState, type ReactNode, type RefObject } from "react";
+import { useEffect, useRef, type ReactNode, type RefObject } from "react";
 import { formatWallTime } from "@/lib/london-time";
 import { EVENT_KINDS } from "@/lib/manual-events";
 import type { EventKind } from "@/lib/types";
@@ -44,12 +44,9 @@ const PX_PER_HOUR = 64;
 const PX_PER_MIN = PX_PER_HOUR / 60;
 const DEFAULT_START = 8 * 60;
 const DEFAULT_END = 22 * 60;
-/** Fit mode always shows at least 09:00–18:00. */
-const FIT_START = 9 * 60;
-const FIT_END = 18 * 60;
-const MIN_EVENT_PX = 24;
-/** Blocks this tall or taller have room for a second line. */
-const TWO_LINE_PX = 40;
+const MIN_EVENT_PX = 22;
+/** Blocks this long or longer have room for a second line. */
+const TWO_LINE_MINS = 45;
 
 /**
  * Colour by where an event came from, not its type: the timetable (classes, and one-day edits of
@@ -129,19 +126,6 @@ function layoutColumns(events: CalendarEvent[]): Map<string, { col: number; cols
   return out;
 }
 
-/**
- * Fit mode's hours: whole hours from 1h before the first item to 1h after the last, never less
- * than 09:00–18:00. The now line doesn't widen it (it's hidden when outside).
- */
-function fitRange(events: CalendarEvent[], markers: CalendarMarker[]): { start: number; end: number } {
-  const mins = [...events.flatMap((e) => [e.startMin, e.endMin]), ...markers.map((m) => m.min)];
-  if (mins.length === 0) return { start: FIT_START, end: FIT_END };
-  return {
-    start: Math.max(0, Math.min(FIT_START, Math.floor(Math.min(...mins) / 60) * 60 - 60)),
-    end: Math.min(24 * 60, Math.max(FIT_END, Math.ceil(Math.max(...mins) / 60) * 60 + 60)),
-  };
-}
-
 export function DayCalendar({
   events,
   gaps = [],
@@ -149,7 +133,6 @@ export function DayCalendar({
   nowMin,
   openId,
   panel,
-  fit = false,
   onEventTap,
   onGapTap,
   onMarkerTap,
@@ -168,33 +151,12 @@ export function DayCalendar({
   onMarkerTap?: (id: string) => void;
   /** Tap on empty space: the half hour that was tapped, in minutes since midnight. */
   onSlotTap?: (min: number) => void;
-  /**
-   * Fill the parent's height with no scrolling (Today): hours from fitRange, hour height =
-   * available height ÷ hours shown. The panel isn't drawn here; the caller shows it in a sheet.
-   */
-  fit?: boolean;
 }) {
   const hasNow = nowMin != null;
   // 08:00–22:00, widened to whole hours around anything outside it (and the now line).
   const mins = [...events.flatMap((e) => [e.startMin, e.endMin]), ...markers.map((m) => m.min), ...(hasNow ? [nowMin] : [])];
-  const { start, end } = fit
-    ? fitRange(events, markers)
-    : {
-        start: Math.min(DEFAULT_START, ...mins.map((m) => Math.floor(m / 60) * 60)),
-        end: Math.max(DEFAULT_END, ...mins.map((m) => Math.min(24 * 60, Math.ceil(m / 60) * 60))),
-      };
-
-  // Fit mode: measure the space we've got. Nothing is drawn until the first measure.
-  const fitRef = useRef<HTMLDivElement>(null);
-  const [fitHeight, setFitHeight] = useState(0);
-  useEffect(() => {
-    const el = fitRef.current;
-    if (!fit || !el) return;
-    const observer = new ResizeObserver(([entry]) => setFitHeight(entry.contentRect.height));
-    observer.observe(el);
-    return () => observer.disconnect();
-  }, [fit]);
-  const pxPerMin = fit ? fitHeight / (end - start) : PX_PER_MIN;
+  const start = Math.min(DEFAULT_START, ...mins.map((m) => Math.floor(m / 60) * 60));
+  const end = Math.max(DEFAULT_END, ...mins.map((m) => Math.min(24 * 60, Math.ceil(m / 60) * 60)));
 
   const columns = layoutColumns(events);
   const open = [...events, ...gaps, ...markers.map((m) => ({ id: m.id, endMin: m.min }))].find((x) => x.id === openId);
@@ -203,20 +165,19 @@ export function DayCalendar({
 
   const nowRef = useRef<HTMLDivElement>(null);
   useEffect(() => {
-    if (hasNow && !fit) nowRef.current?.scrollIntoView({ block: "center" });
-  }, [hasNow, fit]);
+    if (hasNow) nowRef.current?.scrollIntoView({ block: "center" });
+  }, [hasNow]);
 
   const panelRef = useRef<HTMLDivElement>(null);
   useEffect(() => {
-    if (openId && !fit) panelRef.current?.scrollIntoView({ block: "nearest", behavior: "smooth" });
-  }, [openId, fit]);
+    if (openId) panelRef.current?.scrollIntoView({ block: "nearest", behavior: "smooth" });
+  }, [openId]);
 
   const segment = (from: number, to: number, isLast: boolean) => (
     <Segment
       from={from}
       to={to}
       isLast={isLast}
-      pxPerMin={pxPerMin}
       events={events}
       gaps={gaps}
       markers={markers}
@@ -230,16 +191,6 @@ export function DayCalendar({
       onSlotTap={onSlotTap}
     />
   );
-
-  if (fit) {
-    return (
-      <div className="h-full py-2">
-        <div ref={fitRef} className="h-full">
-          {fitHeight > 0 && segment(start, end, true)}
-        </div>
-      </div>
-    );
-  }
 
   return (
     // Padding so the first and last hour labels (centred on their lines) aren't cut off.
@@ -264,7 +215,6 @@ function Segment({
   from,
   to,
   isLast,
-  pxPerMin,
   events,
   gaps,
   markers,
@@ -280,7 +230,6 @@ function Segment({
   from: number;
   to: number;
   isLast: boolean;
-  pxPerMin: number;
   events: CalendarEvent[];
   gaps: CalendarGap[];
   markers: CalendarMarker[];
@@ -293,9 +242,7 @@ function Segment({
   onMarkerTap?: (id: string) => void;
   onSlotTap?: (min: number) => void;
 }) {
-  const y = (min: number) => (min - from) * pxPerMin;
-  // Smaller hour labels when hours are squeezed.
-  const labelSize = pxPerMin * 60 < 40 ? "text-[11px]" : "text-xs";
+  const y = (min: number) => (min - from) * PX_PER_MIN;
   // Lines every half hour inside this segment. The last segment also gets its closing line.
   const lines: number[] = [];
   for (let m = Math.ceil(from / 30) * 30; m < to || (isLast && m === to); m += 30) lines.push(m);
@@ -303,13 +250,13 @@ function Segment({
   const showNow = nowMin != null && nowMin >= from && (nowMin < to || (isLast && nowMin === to));
 
   return (
-    <div className="relative" style={{ height: (to - from) * pxPerMin }}>
+    <div className="relative" style={{ height: (to - from) * PX_PER_MIN }}>
       {lines.map((m) =>
         m % 60 === 0 ? (
           <div key={m}>
             <span
               aria-hidden
-              className={`absolute left-0 w-11 -translate-y-1/2 pr-2 text-right ${labelSize} tabular-nums text-zinc-500`}
+              className="absolute left-0 w-11 -translate-y-1/2 pr-2 text-right text-xs tabular-nums text-zinc-500"
               style={{ top: y(m) }}
             >
               {minutesLabel(m)}
@@ -335,7 +282,7 @@ function Segment({
             className="absolute inset-0 cursor-pointer"
             onClick={(ev) => {
               const offset = ev.clientY - ev.currentTarget.getBoundingClientRect().top;
-              onSlotTap(Math.floor((from + offset / pxPerMin) / 30) * 30);
+              onSlotTap(Math.floor((from + offset / PX_PER_MIN) / 30) * 30);
             }}
           />
         )}
@@ -368,7 +315,7 @@ function Segment({
                     ▾
                   </span>
                 </span>
-                {height - 4 >= 44 && !isOpen && (
+                {g.endMin - g.startMin >= 60 && !isOpen && (
                   <span className="truncate text-xs text-emerald-700 dark:text-emerald-300">Tap for suggestions</span>
                 )}
               </button>
@@ -380,13 +327,11 @@ function Segment({
           .map((e) => {
             const top = y(Math.max(from, e.startMin));
             const height = Math.max(MIN_EVENT_PX, y(Math.min(to, e.endMin)) - top);
-            // Short blocks show the title only.
-            const twoLines = height - 2 >= TWO_LINE_PX;
             const { col, cols } = columns.get(e.id) ?? { col: 0, cols: 1 };
             const clashes = cols > 1;
             const time = `${minutesLabel(e.startMin)}–${minutesLabel(e.endMin)}`;
             const second = [time, e.detail].filter(Boolean).join(" · ");
-            const className = `absolute flex flex-col overflow-hidden rounded-lg px-2 text-left text-sm leading-tight transition-colors ${twoLines ? "py-1" : "justify-center py-0.5"} ${TONE_CLASS[e.tone ?? "timetable"]} ${
+            const className = `absolute flex flex-col overflow-hidden rounded-lg px-2 py-1 text-left text-sm leading-tight transition-colors ${TONE_CLASS[e.tone ?? "timetable"]} ${
               e.invalid ? "ring-2 ring-red-500 ring-offset-1 ring-offset-white dark:ring-offset-zinc-950" : ""
             } ${e.id === openId ? "ring-2 ring-zinc-900 ring-offset-1 ring-offset-white dark:ring-zinc-100 dark:ring-offset-zinc-950" : ""}`;
             const style = {
@@ -401,7 +346,7 @@ function Segment({
                   {clashes && <span aria-hidden>⚠️ </span>}
                   {e.title}
                 </span>
-                {twoLines && <span className="truncate text-xs opacity-90 tabular-nums">{second}</span>}
+                {e.endMin - e.startMin >= TWO_LINE_MINS && <span className="truncate text-xs opacity-90 tabular-nums">{second}</span>}
               </>
             );
             const label = `${KIND_LABEL[e.kind]}, ${e.title}, ${time}${e.detail ? `, ${e.detail}` : ""}${clashes ? ", clashes with another event" : ""}`;
@@ -495,7 +440,7 @@ export function DayPills({
   label?: string;
 }) {
   return (
-    <nav className="mb-2 flex shrink-0 gap-1.5" aria-label={label}>
+    <nav className="mb-4 flex gap-1.5" aria-label={label}>
       {days.map((d) => {
         const isActive = d.key === active;
         return (
