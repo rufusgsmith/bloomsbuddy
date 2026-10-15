@@ -15,6 +15,8 @@ export interface CalendarEvent {
   startMin: number;
   endMin: number;
   kind: EventKind;
+  /** Picks the colour. Defaults to the timetable's. */
+  tone?: EventTone;
   title: string;
   /** Shown after the time on the second line, when the block is tall enough. E.g. the room. */
   detail?: string;
@@ -38,38 +40,35 @@ const MIN_EVENT_PX = 22;
 /** Blocks this long or longer have room for a second line. */
 const TWO_LINE_MINS = 45;
 
-// Solid fills per type. Emerald is kept for gaps, so no event is green.
-const KIND_CLASS: Record<EventKind, string> = {
-  lecture: "bg-indigo-600 text-white hover:bg-indigo-700 dark:bg-indigo-500 dark:hover:bg-indigo-600",
-  seminar: "bg-amber-400 text-amber-950 hover:bg-amber-500",
-  lab: "bg-rose-600 text-white hover:bg-rose-700 dark:bg-rose-500 dark:hover:bg-rose-600",
-  tutorial: "bg-sky-600 text-white hover:bg-sky-700 dark:bg-sky-500 dark:hover:bg-sky-600",
-  "office-hours": "bg-fuchsia-600 text-white hover:bg-fuchsia-700 dark:bg-fuchsia-500 dark:hover:bg-fuchsia-600",
+/**
+ * Colour by where an event came from, not its type: the timetable (classes, and one-day edits of
+ * them), the student's own events, and society events. Emerald is kept for gaps, so none is green.
+ */
+export type EventTone = "timetable" | "mine" | "society";
+
+const TONE_CLASS: Record<EventTone, string> = {
+  timetable: "bg-indigo-600 text-white hover:bg-indigo-700 dark:bg-indigo-500 dark:hover:bg-indigo-600",
+  mine: "bg-fuchsia-600 text-white hover:bg-fuchsia-700 dark:bg-fuchsia-500 dark:hover:bg-fuchsia-600",
   society: "bg-orange-500 text-orange-950 hover:bg-orange-600",
-  personal: "bg-slate-600 text-white hover:bg-slate-700 dark:bg-slate-500 dark:hover:bg-slate-600",
 };
 
 // The legend's dots: the same colour as each block's fill.
-const KIND_DOT: Record<EventKind, string> = {
-  lecture: "bg-indigo-600 dark:bg-indigo-500",
-  seminar: "bg-amber-400",
-  lab: "bg-rose-600 dark:bg-rose-500",
-  tutorial: "bg-sky-600 dark:bg-sky-500",
-  "office-hours": "bg-fuchsia-600 dark:bg-fuchsia-500",
-  society: "bg-orange-500",
-  personal: "bg-slate-600 dark:bg-slate-500",
-};
+const TONES: { tone: EventTone; label: string; dot: string }[] = [
+  { tone: "timetable", label: "Timetable", dot: "bg-indigo-600 dark:bg-indigo-500" },
+  { tone: "mine", label: "Your events", dot: "bg-fuchsia-600 dark:bg-fuchsia-500" },
+  { tone: "society", label: "Society", dot: "bg-orange-500" },
+];
 
 const KIND_LABEL = Object.fromEntries(EVENT_KINDS.map((k) => [k.value, k.label])) as Record<EventKind, string>;
 
-/** Which colour is which type, as a small wrapped row of dots. */
+/** Which colour is which, as a small wrapped row of dots. */
 export function KindLegend() {
   return (
     <ul aria-label="Event colours" className="mt-2 flex flex-wrap gap-x-3 gap-y-1 text-xs text-zinc-600 dark:text-zinc-400">
-      {EVENT_KINDS.map((k) => (
-        <li key={k.value} className="flex items-center gap-1.5">
-          <span aria-hidden className={`size-2.5 rounded-full ${KIND_DOT[k.value]}`} />
-          {k.label}
+      {TONES.map((t) => (
+        <li key={t.tone} className="flex items-center gap-1.5">
+          <span aria-hidden className={`size-2.5 rounded-full ${t.dot}`} />
+          {t.label}
         </li>
       ))}
       <li className="flex items-center gap-1.5">
@@ -302,7 +301,7 @@ function Segment({
             const { col, cols } = columns.get(e.id) ?? { col: 0, cols: 1 };
             const time = `${minutesLabel(e.startMin)}–${minutesLabel(e.endMin)}`;
             const second = [time, e.detail].filter(Boolean).join(" · ");
-            const className = `absolute flex flex-col overflow-hidden rounded-lg px-2 py-1 text-left text-sm leading-tight transition-colors ${KIND_CLASS[e.kind]} ${
+            const className = `absolute flex flex-col overflow-hidden rounded-lg px-2 py-1 text-left text-sm leading-tight transition-colors ${TONE_CLASS[e.tone ?? "timetable"]} ${
               e.invalid ? "ring-2 ring-red-500 ring-offset-1 ring-offset-white dark:ring-offset-zinc-950" : ""
             } ${e.id === openId ? "ring-2 ring-zinc-900 ring-offset-1 ring-offset-white dark:ring-zinc-100 dark:ring-offset-zinc-950" : ""}`;
             const style = {

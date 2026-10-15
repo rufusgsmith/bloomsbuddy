@@ -68,6 +68,7 @@ export function isManualEvent(x: unknown): x is ManualEvent {
     m.endTime > m.startTime &&
     typeof m.weekly === "boolean" &&
     (m.moduleCode === undefined || typeof m.moduleCode === "string") &&
+    (m.fromClass === undefined || m.fromClass === true) &&
     (m.room === undefined || typeof m.room === "string") &&
     (m.location === undefined || isLocation(m.location))
   );
@@ -143,6 +144,7 @@ function toTimetableEvent(m: ManualEvent, dateKey: DateKey): TimetableEvent {
   return {
     id: `${m.id}@${dateKey}`,
     manualId: m.id,
+    ...(m.fromClass ? { fromClass: true as const } : {}),
     moduleCode: m.moduleCode ?? "",
     title: m.title,
     kind: m.kind,
@@ -171,6 +173,7 @@ export type LocationChoice = "none" | "building" | "postcode";
 export interface EventDraft {
   title: string;
   moduleCode?: string;
+  fromClass?: true;
   kind: EventKind;
   date: DateKey;
   startTime: WallTime;
@@ -208,6 +211,7 @@ export function draftFromManual(m: ManualEvent): EventDraft {
   return {
     title: m.title,
     moduleCode: m.moduleCode,
+    ...(m.fromClass ? { fromClass: true as const } : {}),
     kind: m.kind,
     date: m.date,
     startTime: m.startTime,
@@ -226,6 +230,7 @@ export function draftFromClass(e: TimetableEvent, dateKey: DateKey): EventDraft 
   return {
     title: e.title,
     moduleCode: e.moduleCode || undefined,
+    fromClass: true,
     kind: e.kind,
     date: dateKey,
     startTime: wallTimeOf(mins(e.start)),
@@ -267,6 +272,7 @@ export function eventFromDraft(
     id,
     title: d.title.trim(),
     ...(d.moduleCode ? { moduleCode: d.moduleCode } : {}),
+    ...(d.fromClass ? { fromClass: true as const } : {}),
     kind: d.kind,
     date: d.date,
     startTime: d.startTime,

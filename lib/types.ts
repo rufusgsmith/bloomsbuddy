@@ -30,6 +30,8 @@ export interface TimetableEvent {
   room: string; // e.g. "Roberts G06 Sir Ambrose Fleming LT". Can be empty.
   /** Set on events made from a ManualEvent: its id, so tapping opens it in the form. */
   manualId?: string;
+  /** A one-day edit of a timetable class: still part of the timetable, so it keeps the timetable colour. */
+  fromClass?: true;
 }
 
 /**
@@ -235,6 +237,8 @@ export interface ManualEvent {
   title: string;
   /** Kept when the event is an edited copy of a timetable class. */
   moduleCode?: string;
+  /** An edited copy of one day of a timetable class (not something the student added). */
+  fromClass?: true;
   kind: EventKind;
   /** The day it happens. When weekly, the first one: it repeats on that weekday from then on. */
   date: DateKey;

@@ -56,6 +56,7 @@ function toCalendarEvent(e: TimetableEvent): CalendarEvent {
     startMin,
     endMin,
     kind: e.kind,
+    tone: !e.manualId || e.fromClass ? "timetable" : e.kind === "society" ? "society" : "mine",
     title: [e.moduleCode, e.title].filter(Boolean).join(" "),
     detail: e.room || undefined,
   };
