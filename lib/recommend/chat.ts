@@ -1,9 +1,11 @@
 // The chat assistant on Today. Server-side only (it uses ANTHROPIC_API_KEY).
 //
-// Same data as the gap picks (recommend.ts), but for any time the student asks about, so the window
-// tools take a start and end instead of a fixed gap. get_schedule shows a day's events and gaps from
-// the days the browser sent. propose_event / propose_todo don't save anything: they're checked in
-// code, then shown as cards the student can Add or Dismiss.
+// Built to answer in ONE Claude call where it can: the student's week (events and free gaps), deadlines
+// and to-dos go straight into the prompt, so "what should I do Saturday?" needs no tool round trip.
+// Tools are only for extras (study spaces, food, society events, home, days beyond the week); they
+// take a start and end instead of a fixed gap. The fixed part (prompt + tools) is prompt-cached.
+// propose_event / propose_todo don't save anything: they're checked in code, then shown as cards
+// the student can Add or Dismiss.
 
 import { randomUUID } from "node:crypto";
 import Anthropic from "@anthropic-ai/sdk";
@@ -11,16 +13,16 @@ import { betaTool } from "@anthropic-ai/sdk/helpers/beta/json-schema";
 import { BUILDINGS, nearestBuilding, travelTime, type BuildingId } from "../buildings";
 import { findClashes, clashMessage } from "../clashes";
 import { MODEL } from "../claude-json";
-import { formatDuration } from "../duration";
+import { formatDuration, formatDurationShort } from "../duration";
 import { findGaps, londonDateKey } from "../gaps";
 import { addDays, formatTime, isDateKey, londonIso } from "../london-time";
 import { EVENT_KINDS, eventFromDraft, validateEventDraft, type EventDraft } from "../manual-events";
+import { locationLabel } from "../location";
 import { deadlinesFromList, eventsFor, getProviders } from "../providers";
-import { EST_STEP, MAX_EST_MINS, todosForGap, validateTodoDraft, type TodoDraft } from "../todos";
-import type { ChatProposal, DateKey, EventKind, TimetableEvent } from "../types";
+import { byDueThenEstimate, EST_STEP, isDoneNow, MAX_EST_MINS, repeatLabel, validateTodoDraft, type TodoDraft } from "../todos";
+import type { ChatProposal, DateKey, Deadline, EventKind, TimetableEvent, Todo } from "../types";
 import {
   BUILDING_IDS,
-  deadlineRows,
   eventLabel,
   eventRows,
   fmt,
@@ -31,17 +33,30 @@ import {
   isOwnPlan,
   newSeen,
   studySpaceRows,
-  todoRows,
   USD_PER_MTOK_IN,
   USD_PER_MTOK_OUT,
   type ToolWindow,
 } from "./tools";
 import type { StudentContext } from "./request";
-import { CHAT_SECTION, SYSTEM_PROMPT } from "./system-prompt";
+import { CHAT_PROMPT } from "./system-prompt";
 
 /** Cards per reply, so one message can't flood the chat. */
 const MAX_PROPOSALS = 3;
 const MS_PER_MIN = 60_000;
+const MS_PER_DAY = 86_400_000;
+/** Days of schedule written into the prompt. Later ones come from get_schedule. */
+const WEEK_DAYS = 7;
+/** Days listed with their date and offset, so Claude never works out dates or the BST switch. */
+const DATE_LIST_DAYS = 14;
+const DEADLINE_DAYS = 14;
+const MAX_TODOS_SHOWN = 20;
+// Prompt-caching prices, as multiples of the input price.
+const CACHE_WRITE = 1.25;
+const CACHE_READ = 0.1;
+/** Claude calls per question, at most. */
+const MAX_CALLS = 6;
+/** How a propose_* result starts when the card was made. */
+const SHOWN = "Shown as a card.";
 
 export interface ChatDay {
   dateKey: DateKey;
@@ -71,19 +86,81 @@ const byStart = (a: TimetableEvent, b: TimetableEvent) => Date.parse(a.start) - 
 const spotOf = (e: TimetableEvent): BuildingId | undefined =>
   e.buildingId ?? (e.place ? nearestBuilding(e.place) : undefined);
 
-/** "Thu 15 Oct = 2026-10-15 (+01:00)": so Claude never has to work out dates or the BST switch. */
-function dayList(today: DateKey): string {
-  return Array.from({ length: 14 }, (_, i) => {
+const daysFrom = (from: DateKey, to: DateKey) =>
+  Math.round((Date.parse(`${to}T12:00:00Z`) - Date.parse(`${from}T12:00:00Z`)) / MS_PER_DAY);
+
+/** One event as a compact line: "09:00–10:00 ECON0013 Micro (lecture), Roberts 106 @roberts-building". */
+function eventLine(e: TimetableEvent): string {
+  const spot = spotOf(e);
+  const where = [e.room, spot ? `@${spot}` : e.place?.label].filter(Boolean).join(" ");
+  return `${fmtTime(e.start)}–${fmtTime(e.end)} ${eventLabel(e)}${where ? `, ${where}` : ""}${isOwnPlan(e) ? " [own plan]" : ""}`;
+}
+
+/** A day's events and free gaps as indented lines. Undefined events = not loaded. */
+function scheduleLines(events: TimetableEvent[] | undefined): string[] {
+  if (!events) return ["  (not loaded)"];
+  if (!events.length) return ["  nothing on"];
+  const sorted = [...events].sort(byStart);
+  return [
+    ...sorted.map((e) => `  ${eventLine(e)}`),
+    ...findGaps(sorted).map(
+      (g) => `  free ${fmtTime(g.start)}–${fmtTime(g.end)} (${formatDurationShort(g.usableMins)} usable after the walk)`,
+    ),
+  ];
+}
+
+/**
+ * Everything the student's usual questions need, as compact text: the week (detailed), more dates
+ * with their offsets, deadlines and open to-dos. A few hundred tokens instead of a tool round trip.
+ */
+function studentContext(ctx: ChatContext, today: DateKey, nowIso: string, deadlines: Deadline[]): string {
+  const dayEvents = (k: DateKey) => ctx.days.find((d) => d.dateKey === k)?.events;
+  const days = Array.from({ length: DATE_LIST_DAYS }, (_, i) => {
     const key = addDays(today, i);
     const label = i === 0 ? " (today)" : i === 1 ? " (tomorrow)" : "";
-    return `- ${fmtDateKey(key)} = ${key}, offset ${londonIso(key, "12:00").slice(-6)}${label}`;
-  }).join("\n");
+    const head = `${fmtDateKey(key)} = ${key}, offset ${londonIso(key, "12:00").slice(-6)}${label}`;
+    return i < WEEK_DAYS ? [`${head}:`, ...scheduleLines(dayEvents(key))].join("\n") : head;
+  });
+
+  const deadlineLines = deadlines.map((d) => {
+    const inDays = daysFrom(today, londonDateKey(d.due));
+    const extra = [
+      d.weight ? `${d.weight}%` : "",
+      d.estimatedHours ? `~${formatDuration(d.estimatedHours * 60)}` : "",
+      d.location ? `at ${locationLabel(d.location)}` : "",
+    ].filter(Boolean);
+    return `- ${d.moduleCode} ${d.title}: due ${fmt(d.due)} (${inDays === 0 ? "today" : `in ${inDays} days`})${extra.length ? `. ${extra.join(", ")}` : ""}`;
+  });
+
+  const todos = (ctx.todos ?? []).filter((t) => !isDoneNow(t, today)).sort(byDueThenEstimate).slice(0, MAX_TODOS_SHOWN);
+  const todoLine = (t: Todo) =>
+    [
+      `- ${t.title}`,
+      t.estMinutes ? formatDuration(t.estMinutes) : "no estimate",
+      t.doBefore ? `do before ${fmtDateKey(t.doBefore)}${t.doBefore < today ? " (overdue)" : ""}` : "",
+      t.repeat ? repeatLabel(t.repeat).replace(/^↻ /, "repeats ") : "",
+      t.location ? `at ${locationLabel(t.location)}` : "",
+    ]
+      .filter(Boolean)
+      .join(", ");
+
+  return [
+    `## Right now`,
+    `It's ${fmt(nowIso)} in London. Home: ${ctx.home ? ctx.home.label : "not set"}.`,
+    ctx.societies?.length ? `Societies: ${ctx.societies.map((s) => s.name).join(", ")}.` : "",
+    `## Their days (date = YYYY-MM-DD, ISO offset; @ = building id)`,
+    ...days,
+    `## Deadlines (next ${DEADLINE_DAYS} days)`,
+    ...(deadlineLines.length ? deadlineLines : ["None."]),
+    `## To-dos (open)`,
+    ...(todos.length ? todos.map(todoLine) : ["None."]),
+  ]
+    .filter(Boolean)
+    .join("\n");
 }
 
 function makeChatTools(ctx: ChatContext, proposals: ChatProposal[], today: DateKey) {
   const seen = newSeen();
-  const providers = getProviders();
-  const deadlinesProvider = ctx.deadlines ? deadlinesFromList(ctx.deadlines) : providers.deadlines;
   const eventsProvider = eventsFor(ctx.societies);
   const addedEventIds = new Set(ctx.addedEventIds);
   const dayEvents = (dateKey: DateKey) => ctx.days.find((d) => d.dateKey === dateKey)?.events;
@@ -120,8 +197,7 @@ function makeChatTools(ctx: ChatContext, proposals: ChatProposal[], today: DateK
     end: { type: "string", description: "Window end, ISO 8601 with offset" },
     from: {
       type: "string",
-      enum: BUILDING_IDS,
-      description: "Optional building id the student starts from. Leave out to use where they'll be.",
+      description: "Optional building id they start from. Leave out to use where they'll be.",
     },
   } as const;
 
@@ -137,7 +213,7 @@ function makeChatTools(ctx: ChatContext, proposals: ChatProposal[], today: DateK
   const getSchedule = betaTool({
     name: "get_schedule",
     description:
-      "What's on one London day: the student's classes and their own plans (ownPlan: true = something they added, like office hours or a society event; treat it as fixed), with times and where, plus the free gaps between them (usable minutes after the walk to the next thing). Time before the first event and after the last is free too.",
+      "Only for days beyond the week in the prompt. What's on one London day: the student's classes and their own plans (ownPlan: true = something they added, like office hours or a society event; treat it as fixed), with times and where, plus the free gaps between them (usable minutes after the walk to the next thing). Time before the first event and after the last is free too.",
     inputSchema: {
       type: "object",
       properties: { date: { type: "string", description: "London day, YYYY-MM-DD" } },
@@ -189,36 +265,12 @@ function makeChatTools(ctx: ChatContext, proposals: ChatProposal[], today: DateK
     ),
   });
 
-  const getDeadlines = betaTool({
-    name: "get_deadlines",
-    description:
-      "The student's coursework deadlines due within `within_days` days of the window's start. laterGapsTodayBeforeDue lists that day's later gaps before each deadline. location is null, or where the work has to happen with the trip there (minsThere) and minsAtPlace in the window.",
-    inputSchema: {
-      type: "object",
-      properties: { ...windowProps, within_days: { type: "integer", description: "How many days ahead to look, e.g. 7." } },
-      required: ["start", "end", "within_days"],
-      additionalProperties: false,
-    },
-    run: async (input) =>
-      inWindow("get_deadlines", (win) =>
-        deadlineRows(deadlinesProvider, win, input.within_days, findGaps(dayEvents(londonDateKey(win.start)) ?? [])),
-      )(input),
-  });
-
   const getFoodSpots = betaTool({
     name: "get_food_spots",
     description:
       "Places to eat near campus, sorted by travel time from where the student is: kind, price band, a short note (typical patterns, not live queues), and travel there and on to what's next.",
     inputSchema: { type: "object", properties: windowProps, required: ["start", "end"], additionalProperties: false },
     run: inWindow("get_food_spots", (win, { from }) => foodRows(win, from)),
-  });
-
-  const getTodos = betaTool({
-    name: "get_todos",
-    description:
-      "The student's own to-dos that could go in the window: open one-offs (daysUntilDoBefore counts days from the window; negative = overdue) and repeating ones that come up then. fitsInGap says whether the estimate fits the window's usable minutes (or minsAtPlace when it has a location), or \"unknown\".",
-    inputSchema: { type: "object", properties: windowProps, required: ["start", "end"], additionalProperties: false },
-    run: inWindow("get_todos", (win) => todoRows(win, todosForGap(ctx.todos ?? [], win), seen)),
   });
 
   const { home } = ctx;
@@ -247,7 +299,7 @@ function makeChatTools(ctx: ChatContext, proposals: ChatProposal[], today: DateK
         startTime: { type: "string", description: "HH:MM" },
         endTime: { type: "string", description: "HH:MM, after startTime" },
         room: { type: "string", description: "Room or short place note, or empty" },
-        buildingId: { anyOf: [{ type: "string", enum: BUILDING_IDS }, { type: "null" }] },
+        buildingId: { anyOf: [{ type: "string" }, { type: "null" }], description: "Building id, or null" },
         weekly: { type: "boolean", description: "Repeats every week on this weekday" },
       },
       required: ["title", "kind", "date", "startTime", "endTime", "room", "buildingId", "weekly"],
@@ -278,7 +330,7 @@ function makeChatTools(ctx: ChatContext, proposals: ChatProposal[], today: DateK
         londonIso(draft.date, draft.startTime),
         londonIso(draft.date, draft.endTime),
       );
-      return `Shown as a card. Nothing is saved until they tap Add.${clashes.length ? ` Heads up: ${clashMessage(clashes)}.` : ""}`;
+      return `${SHOWN} Nothing is saved until they tap Add.${clashes.length ? ` Heads up: ${clashMessage(clashes)}.` : ""}`;
     },
   });
 
@@ -292,7 +344,7 @@ function makeChatTools(ctx: ChatContext, proposals: ChatProposal[], today: DateK
         title: { type: "string" },
         estMinutes: { anyOf: [{ type: "integer", description: `How long it takes, up to ${MAX_EST_MINS}` }, { type: "null" }] },
         doBefore: { anyOf: [{ type: "string", description: "YYYY-MM-DD to get it done by" }, { type: "null" }] },
-        buildingId: { anyOf: [{ type: "string", enum: BUILDING_IDS }, { type: "null" }] },
+        buildingId: { anyOf: [{ type: "string" }, { type: "null" }], description: "Building id, or null" },
       },
       required: ["title", "estMinutes", "doBefore", "buildingId"],
       additionalProperties: false,
@@ -326,7 +378,7 @@ function makeChatTools(ctx: ChatContext, proposals: ChatProposal[], today: DateK
         kind: "todo",
         todo: { ...rest, ...(isBuildingId(input.buildingId) ? { location: { kind: "building", buildingId: input.buildingId } } : {}) },
       });
-      return "Shown as a card. Nothing is saved until they tap Add.";
+      return `${SHOWN} Nothing is saved until they tap Add.`;
     },
   });
 
@@ -334,9 +386,7 @@ function makeChatTools(ctx: ChatContext, proposals: ChatProposal[], today: DateK
     getSchedule,
     getStudySpaces,
     getEventsInWindow,
-    getDeadlines,
     getFoodSpots,
-    ...(ctx.todos?.length ? [getTodos] : []),
     ...(getHome ? [getHome] : []),
     proposeEvent,
     proposeTodo,
@@ -351,43 +401,91 @@ export async function chatReply(
   const nowIso = new Date().toISOString();
   const today = londonDateKey(nowIso);
   const proposals: ChatProposal[] = [];
-  const context = [
-    `## Right now`,
-    `It's ${fmt(nowIso)} in London.`,
-    `Days (London date = YYYY-MM-DD, and the ISO offset to use):`,
-    dayList(today),
-    `Home: ${ctx.home ? ctx.home.label : "not set"}.`,
-    ctx.societies?.length ? `Their societies: ${ctx.societies.map((s) => s.name).join(", ")}.` : "",
-  ]
-    .filter(Boolean)
-    .join("\n");
+  const providers = getProviders();
+  const deadlinesProvider = ctx.deadlines ? deadlinesFromList(ctx.deadlines) : providers.deadlines;
+  const deadlines = await deadlinesProvider.getDeadlines(nowIso, DEADLINE_DAYS);
 
-  const runner = client.beta.messages.toolRunner({
+  const tools = makeChatTools(ctx, proposals, today);
+  const params = {
     model: MODEL,
     max_tokens: 4000,
-    max_iterations: 8,
-    system: `${SYSTEM_PROMPT}\n\n${CHAT_SECTION}\n\n${context}`,
-    tools: makeChatTools(ctx, proposals, today),
-    output_config: { effort: "low" },
-    messages,
-  });
+    system: [
+      // The fixed part, cached with the tools (which come before it): later calls pay a tenth for it.
+      {
+        type: "text" as const,
+        text: `${CHAT_PROMPT}\n\nBuilding ids: ${BUILDING_IDS.join(", ")}`,
+        cache_control: { type: "ephemeral" as const },
+      },
+      // Cached too, so a second call in the tool loop (or a follow-up within the minute) reads it cheaply.
+      {
+        type: "text" as const,
+        text: studentContext(ctx, today, nowIso, deadlines),
+        cache_control: { type: "ephemeral" as const },
+      },
+    ],
+    // Just the definitions: run and parse are ours, not the API's.
+    tools: tools.map((t) => {
+      const { name, description, input_schema } = t as Anthropic.Beta.BetaTool;
+      return { name, description, input_schema };
+    }),
+    output_config: { effort: "low" as const },
+  };
 
+  // Our own tool loop rather than toolRunner, so a turn that only offers cards can stop there:
+  // Claude writes its reply before calling propose_*, and asking again would just cost a second call.
+  const convo: Anthropic.Beta.BetaMessageParam[] = [...messages];
+  let reply = "";
   let requests = 0;
   let tokensIn = 0;
   let tokensOut = 0;
-  for await (const message of runner) {
+  let cacheWrite = 0;
+  let cacheRead = 0;
+  for (;;) {
+    if (requests >= MAX_CALLS) throw new Error(`No answer after ${MAX_CALLS} calls`);
+    const message = await client.beta.messages.create({ ...params, messages: convo });
     requests++;
     tokensIn += message.usage.input_tokens;
     tokensOut += message.usage.output_tokens;
-  }
-  const final = await runner.done();
-  const usd = (tokensIn * USD_PER_MTOK_IN + tokensOut * USD_PER_MTOK_OUT) / 1_000_000;
-  debug(`usage: ${requests} requests, ${tokensIn} in / ${tokensOut} out ≈ $${usd.toFixed(4)}`);
+    cacheWrite += message.usage.cache_creation_input_tokens ?? 0;
+    cacheRead += message.usage.cache_read_input_tokens ?? 0;
+    const text = message.content.flatMap((b) => (b.type === "text" ? [b.text] : [])).join("").trim();
 
-  if (final.stop_reason !== "end_turn") {
-    throw new Error(`Claude stopped early (${final.stop_reason})`);
+    if (message.stop_reason !== "tool_use") {
+      if (message.stop_reason !== "end_turn") throw new Error(`Claude stopped early (${message.stop_reason})`);
+      reply = text;
+      break;
+    }
+    const uses = message.content.flatMap((b) => (b.type === "tool_use" ? [b] : []));
+    const results = await Promise.all(
+      uses.map(async (use) => {
+        const tool = tools.find((t) => t.name === use.name);
+        let content: string;
+        try {
+          const out = tool ? await tool.run(use.input as never) : `Error: no tool called ${use.name}`;
+          content = typeof out === "string" ? out : JSON.stringify(out);
+        } catch (err) {
+          content = `Error: ${err instanceof Error ? err.message : String(err)}`;
+        }
+        return { type: "tool_result" as const, tool_use_id: use.id, content };
+      }),
+    );
+    const onlyCards = uses.every((u) => u.name.startsWith("propose_")) && results.every((r) => r.content.startsWith(SHOWN));
+    if (onlyCards && text) {
+      // Any clash propose_event found goes on the end, since Claude won't see it.
+      const clashes = results.flatMap((r) => r.content.match(/Heads up: (.*)$/)?.[1] ?? []);
+      reply = [text, ...clashes.map((c) => `Heads up: ${c}`)].join("\n\n");
+      break;
+    }
+    convo.push({ role: "assistant", content: message.content }, { role: "user", content: results });
   }
-  const reply = final.content.flatMap((b) => (b.type === "text" ? [b.text] : [])).join("").trim();
+
+  const usd =
+    ((tokensIn + cacheWrite * CACHE_WRITE + cacheRead * CACHE_READ) * USD_PER_MTOK_IN + tokensOut * USD_PER_MTOK_OUT) /
+    1_000_000;
+  debug(
+    `usage: ${requests} requests, ${tokensIn} in + ${cacheWrite} cache write + ${cacheRead} cache read / ${tokensOut} out ≈ $${usd.toFixed(4)}`,
+  );
+
   if (!reply && !proposals.length) throw new Error("Claude gave an empty reply");
   return { reply: reply || "Here you go:", proposals };
 }
