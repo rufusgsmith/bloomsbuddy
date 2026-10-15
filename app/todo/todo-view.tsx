@@ -1,7 +1,25 @@
 "use client";
 
 import { useMemo, useState, useSyncExternalStore, type FormEvent, type ReactNode } from "react";
-import { DeleteButton, inputClass, PageHeader, Switch, TabPage, TimeField } from "../form-ui";
+import { CalendarDays, Check, ChevronRight, Clock, MapPin, Pencil, Repeat, X } from "lucide-react";
+import {
+  Badge,
+  DeleteButton,
+  EmptyState,
+  ghostButton,
+  ICON,
+  ICON_LG,
+  iconButton,
+  inputClass,
+  Notice,
+  PageHeader,
+  primaryButton,
+  RowsSkeleton,
+  secondaryButton,
+  Switch,
+  TabPage,
+  TimeField,
+} from "../form-ui";
 import { TODO_DEFAULT_MINS } from "@/lib/calendar-items";
 import { formatDurationShort } from "@/lib/duration";
 import { locationLabel } from "@/lib/location";
@@ -49,17 +67,11 @@ const londonDay = new Intl.DateTimeFormat("en-GB", {
 const daysBetween = (from: DateKey, to: DateKey) =>
   Math.round((Date.parse(`${to}T12:00:00Z`) - Date.parse(`${from}T12:00:00Z`)) / MS_PER_DAY);
 
+/** A toggle chip (days, parts of the day). Selected = ink fill, like the day pills. */
 const chipClass = (on: boolean) =>
-  `min-h-11 rounded-full px-3 text-sm font-medium transition-colors ${
-    on
-      ? "bg-emerald-600 text-white dark:bg-emerald-500 dark:text-emerald-950"
-      : "bg-zinc-100 text-zinc-700 hover:bg-zinc-200 dark:bg-zinc-800 dark:text-zinc-200 dark:hover:bg-zinc-700"
+  `min-h-11 rounded-lg px-3 text-sm font-medium transition-colors ${
+    on ? "bg-ink text-paper" : "border border-line bg-surface text-ink hover:bg-sunken"
   }`;
-
-const primaryButton =
-  "min-h-11 rounded-full bg-emerald-600 px-5 text-sm font-medium text-white hover:bg-emerald-700 disabled:cursor-not-allowed disabled:opacity-40 dark:bg-emerald-500 dark:text-emerald-950 dark:hover:bg-emerald-400";
-const secondaryButton =
-  "min-h-11 rounded-full bg-zinc-100 px-4 text-sm font-medium text-zinc-700 hover:bg-zinc-200 dark:bg-zinc-800 dark:text-zinc-200 dark:hover:bg-zinc-700";
 
 export function TodoView() {
   // "" = checked, nothing saved. null = not checked yet (server render / hydration).
@@ -74,13 +86,13 @@ export function TodoView() {
   return (
     <TabPage top={<PageHeader title="To-do" subtitle="Add a time estimate and I'll squeeze these into your gaps." />}>
       {raw === null ? (
-        <Skeleton />
+        <RowsSkeleton rows={4} />
       ) : (
         <>
           {saveFailed && (
-            <p role="alert" className="mb-4 rounded-xl bg-red-50 p-3 text-sm text-red-700 dark:bg-red-950 dark:text-red-300">
+            <Notice tone="bad" className="mb-4">
               Your browser wouldn&apos;t let us save that. Is private mode or blocked storage on?
-            </p>
+            </Notice>
           )}
           <TodoEditor todos={todos} onChange={persist} />
         </>
@@ -143,27 +155,33 @@ export function TodoEditor({
     <div className="flex flex-col gap-6">
       <AddTodo today={today} onAdd={(t) => onChange([...todos, t])} />
       {open.length === 0 ? (
-        <p className="rounded-2xl border border-dashed border-zinc-300 p-6 text-center text-sm text-zinc-600 dark:border-zinc-700 dark:text-zinc-400">
-          {done.length ? "All done" : "No to-dos yet. Add one above."}
-        </p>
+        done.length ? (
+          <EmptyState title="All done">Ticked-off to-dos are below. Repeating ones come back on their next day.</EmptyState>
+        ) : (
+          <EmptyState title="No to-dos yet">
+            Type one in the box above. Give it a time estimate and I&apos;ll fit it into a gap.
+          </EmptyState>
+        )
       ) : (
-        <ul className="flex flex-col gap-2">
+        <ul className="border-b border-line">
           {open.map((t) => (
-            <li key={t.id}>{row(t)}</li>
+            <li key={t.id} className="border-t border-line">
+              {row(t)}
+            </li>
           ))}
         </ul>
       )}
       {done.length > 0 && (
         <details className="group">
-          <summary className="flex min-h-11 cursor-pointer list-none items-center gap-2 text-sm font-semibold text-zinc-600 dark:text-zinc-400">
-            <span aria-hidden className="transition-transform group-open:rotate-90">
-              ›
-            </span>
+          <summary className="flex min-h-11 cursor-pointer list-none items-center gap-2 text-sm font-medium text-muted">
+            <ChevronRight {...ICON} className="transition-transform group-open:rotate-90" />
             Done ({done.length})
           </summary>
-          <ul className="mt-2 flex flex-col gap-2">
+          <ul className="mt-2 border-b border-line">
             {done.map((t) => (
-              <li key={t.id}>{row(t)}</li>
+              <li key={t.id} className="border-t border-line">
+                {row(t)}
+              </li>
             ))}
           </ul>
           {/* Repeating to-dos stay: they come back on their next day. */}
@@ -171,7 +189,7 @@ export function TodoEditor({
             <button
               type="button"
               onClick={() => onChange(todos.filter((t) => t.repeat || !t.done))}
-              className="mt-2 min-h-11 rounded-full px-4 text-sm font-medium text-red-600 hover:bg-red-50 dark:text-red-400 dark:hover:bg-red-950"
+              className={`${ghostButton} mt-2 text-danger hover:bg-danger-tint hover:text-danger`}
             >
               Clear done
             </button>
@@ -243,8 +261,8 @@ function TodoForm({
   return (
     <form
       onSubmit={submit}
-      className={`rounded-2xl border bg-white transition-colors dark:bg-zinc-950 ${
-        expanded ? "border-emerald-400 dark:border-emerald-700" : "border-zinc-200 dark:border-zinc-800"
+      className={`rounded-xl border bg-surface transition-colors ${editing ? "my-2 " : ""}${
+        expanded ? "border-ink/30" : "border-line"
       }`}
     >
       <div className="p-2">
@@ -255,12 +273,12 @@ function TodoForm({
           placeholder="Email tutor, read ch. 4, weekly shop…"
           aria-label={editing ? "Title" : "New to-do"}
           autoFocus={editing}
-          className={`${inputClass} border-0 bg-transparent px-2 text-base font-medium dark:bg-transparent`}
+          className={`${inputClass} border-0 bg-transparent px-2 text-base font-medium`}
         />
       </div>
 
       {expanded && (
-        <div className="flex flex-col gap-5 border-t border-zinc-200 p-4 dark:border-zinc-800">
+        <div className="flex flex-col gap-5 border-t border-line p-4">
           <DurationField draft={draft} set={set} error={touched.duration ? errors.duration : undefined} onTouch={() => touch("duration")} />
 
           {draft.freq === "none" && (
@@ -307,7 +325,7 @@ function TodoForm({
             {onDelete && (
               <DeleteButton
                 onDelete={onDelete}
-                className="min-h-11 rounded-full px-3 text-sm font-medium text-red-600 hover:bg-red-50 dark:text-red-400 dark:hover:bg-red-950"
+                className={`${ghostButton} text-danger hover:bg-danger-tint hover:text-danger`}
               >
                 Delete
               </DeleteButton>
@@ -359,7 +377,7 @@ function OnTodayField({
       {on && !timed && (
         <div className="mt-2 grid grid-cols-2 gap-2">
           <fieldset className="flex min-w-0 flex-col gap-1">
-            <legend className="mb-1 text-xs font-medium text-zinc-500">Day</legend>
+            <legend className="mb-1 text-xs font-medium text-muted">Day</legend>
             <input
               type="date"
               value={draft.placeDate}
@@ -382,7 +400,7 @@ function Section({ label, hint, children }: { label: string; hint?: string; chil
   return (
     <fieldset className="flex min-w-0 flex-col gap-2">
       <legend className="mb-2 text-sm font-medium">
-        {label} {hint && <span className="font-normal text-zinc-500">· {hint}</span>}
+        {label} {hint && <span className="font-normal text-muted">· {hint}</span>}
       </legend>
       {children}
     </fieldset>
@@ -392,7 +410,7 @@ function Section({ label, hint, children }: { label: string; hint?: string; chil
 function FieldError({ children }: { children?: ReactNode }) {
   if (!children) return null;
   return (
-    <p role="alert" className="text-sm text-red-600 dark:text-red-400">
+    <p role="alert" className="text-sm text-danger">
       {children}
     </p>
   );
@@ -455,7 +473,7 @@ function DurationField({
       {error ? (
         <FieldError>{error}</FieldError>
       ) : (
-        total > 0 && <p className="text-xs text-zinc-500">That&apos;s {formatDurationShort(total)}.</p>
+        total > 0 && <p className="text-xs text-muted">That&apos;s {formatDurationShort(total)}.</p>
       )}
     </Section>
   );
@@ -485,10 +503,10 @@ function Stepper({
   invalid: boolean;
 }) {
   const btn =
-    "flex size-11 shrink-0 items-center justify-center rounded-full bg-zinc-100 text-lg font-medium text-zinc-700 hover:bg-zinc-200 disabled:opacity-30 dark:bg-zinc-800 dark:text-zinc-200 dark:hover:bg-zinc-700";
+    "flex size-11 shrink-0 items-center justify-center rounded-lg border border-line bg-surface text-base font-medium text-ink hover:bg-sunken disabled:opacity-30";
   return (
     <div className="flex flex-col gap-1">
-      <span className="text-xs font-medium text-zinc-500">{label}</span>
+      <span className="text-xs font-medium text-muted">{label}</span>
       <div className="flex items-center gap-1.5">
         <button type="button" onClick={onDec} disabled={!canDec} aria-label={`Less (${label.toLowerCase()})`} className={btn}>
           −
@@ -504,7 +522,7 @@ function Stepper({
           onChange={(e) => onChange(e.target.value)}
           aria-label={label}
           aria-invalid={invalid}
-          className={`${inputClass} min-w-0 text-center tabular-nums aria-invalid:border-red-500`}
+          className={`${inputClass} min-w-0 text-center tabular-nums aria-invalid:border-danger`}
         />
         <button type="button" onClick={onInc} disabled={!canInc} aria-label={`More (${label.toLowerCase()})`} className={btn}>
           +
@@ -538,7 +556,7 @@ function RepeatField({
   };
   return (
     <Section label="Repeat">
-      <div role="radiogroup" aria-label="Repeat" className="grid grid-cols-4 gap-1 rounded-xl bg-zinc-100 p-1 dark:bg-zinc-900">
+      <div role="radiogroup" aria-label="Repeat" className="grid grid-cols-4 gap-1 rounded-lg bg-sunken p-1">
         {FREQS.map((f) => (
           <button
             key={f.value}
@@ -547,10 +565,8 @@ function RepeatField({
             aria-checked={draft.freq === f.value}
             // A repeating to-do has no do-before date.
             onClick={() => set({ freq: f.value, ...(f.value !== "none" ? { doBefore: "" } : {}) })}
-            className={`min-h-10 rounded-lg text-sm font-medium transition-colors ${
-              draft.freq === f.value
-                ? "bg-white text-zinc-900 shadow-sm dark:bg-zinc-700 dark:text-zinc-50"
-                : "text-zinc-600 hover:text-zinc-900 dark:text-zinc-400 dark:hover:text-zinc-100"
+            className={`min-h-10 rounded-sm text-sm font-medium transition-colors ${
+              draft.freq === f.value ? "bg-surface text-ink ring-1 ring-line" : "text-muted hover:text-ink"
             }`}
           >
             {f.label}
@@ -574,7 +590,7 @@ function RepeatField({
 
       {draft.freq === "monthly" && (
         <div>
-          <p className="mb-1 text-xs text-zinc-500">On day</p>
+          <p className="mb-1 text-xs text-muted">On day</p>
           <div className="grid grid-cols-7 gap-1" role="radiogroup" aria-label="Day of the month">
             {Array.from({ length: 31 }, (_, i) => i + 1).map((n) => (
               <button
@@ -593,7 +609,7 @@ function RepeatField({
             ))}
           </div>
           {(draft.dayOfMonth ?? 0) > 28 && (
-            <p className="mt-1 text-xs text-zinc-500">In shorter months it&apos;ll land on the last day.</p>
+            <p className="mt-1 text-xs text-muted">In shorter months it&apos;ll land on the last day.</p>
           )}
         </div>
       )}
@@ -601,7 +617,7 @@ function RepeatField({
       {draft.freq !== "none" && (
         <div className="flex flex-col gap-3">
           <label className="flex flex-col gap-1">
-            <span className="text-xs font-medium text-zinc-500">At a time · Optional</span>
+            <span className="text-xs font-medium text-muted">At a time · Optional</span>
             <div className="flex gap-2">
               <input
                 type="time"
@@ -621,7 +637,7 @@ function RepeatField({
             </div>
           </label>
           <div>
-            <p className="mb-1 text-xs font-medium text-zinc-500">Or a part of the day · Optional</p>
+            <p className="mb-1 text-xs font-medium text-muted">Or a part of the day · Optional</p>
             <div className="flex flex-wrap gap-2">
               {PARTS_OF_DAY.map((p) => {
                 const on = draft.partOfDay === p.value;
@@ -667,41 +683,41 @@ function TodoRow({
     <>
       {allowTick && <CheckMark done={done} />}
       <span className="flex min-w-0 flex-1 flex-col items-start">
-        <span className={`w-full truncate font-medium ${done ? "text-zinc-500 line-through" : ""}`}>{t.title}</span>
+        <span className={`w-full truncate font-medium ${done ? "text-muted line-through" : ""}`}>{t.title}</span>
         <Badges todo={t} today={today} done={done} />
       </span>
     </>
   );
   return (
-    <div className="flex items-center rounded-2xl border border-zinc-200 bg-white dark:border-zinc-800 dark:bg-zinc-950">
+    <div className="flex items-center">
       {allowTick ? (
         <button
           type="button"
           onClick={onToggle}
           aria-pressed={done}
           aria-label={`${t.title}: mark ${done ? "not done" : "done"}`}
-          className="flex min-h-14 min-w-0 flex-1 items-center gap-3 py-2 pl-3 text-left"
+          className="flex min-h-14 min-w-0 flex-1 items-center gap-3 py-3 text-left"
         >
           {body}
         </button>
       ) : (
-        <div className="flex min-h-14 min-w-0 flex-1 items-center gap-3 py-2 pl-4">{body}</div>
+        <div className="flex min-h-14 min-w-0 flex-1 items-center gap-3 py-3">{body}</div>
       )}
       <button
         type="button"
         onClick={onEdit}
         aria-label={`Edit ${t.title}`}
-        className="flex size-11 shrink-0 items-center justify-center rounded-full text-zinc-500 hover:bg-zinc-100 hover:text-zinc-800 dark:hover:bg-zinc-900 dark:hover:text-zinc-200"
+        className={iconButton}
       >
-        <PencilIcon />
+        <Pencil {...ICON} />
       </button>
       {!allowTick && (
         <DeleteButton
           onDelete={onRemove}
           label={`Remove ${t.title}`}
-          className="mr-1 flex size-11 shrink-0 items-center justify-center rounded-full text-xl text-zinc-500 hover:bg-red-50 hover:text-red-600 dark:hover:bg-red-950 dark:hover:text-red-400"
+          className={`${iconButton} hover:bg-danger-tint hover:text-danger`}
         >
-          ×
+          <X {...ICON_LG} />
         </DeleteButton>
       )}
     </div>
@@ -709,68 +725,62 @@ function TodoRow({
 }
 
 function Badges({ todo: t, today, done }: { todo: Todo; today: DateKey; done: boolean }) {
-  const badge = "rounded-full px-2 py-0.5 text-xs font-medium";
-  const plain = `${badge} bg-zinc-100 text-zinc-700 dark:bg-zinc-800 dark:text-zinc-300`;
   const back = done && t.repeat && t.doneOn ? nextOccurrence(t.repeat, t.doneOn) : null;
   const slot = t.onToday || undefined;
   if (!t.estMinutes && !t.doBefore && !t.repeat && !t.location && !slot) return null;
   return (
-    <span className="mt-1 flex flex-wrap gap-1.5">
-      {t.estMinutes && <span className={plain}>⏱ {formatDurationShort(t.estMinutes)}</span>}
-      {t.doBefore && !done && <DoBeforeBadge doBefore={t.doBefore} today={today} className={badge} />}
-      {t.repeat && <span className={plain}>{repeatLabel(t.repeat)}</span>}
-      {t.location && <span className={plain}>📍 {locationLabel(t.location)}</span>}
-      {slot && !done && (
-        <span className={plain}>
-          📅 {londonDay.format(new Date(`${slot.date}T12:00:00Z`))} {slot.time}
-        </span>
+    <span className="mt-1 flex flex-wrap gap-1">
+      {t.estMinutes && (
+        <Badge>
+          <Clock {...ICON} size={12} />
+          {formatDurationShort(t.estMinutes)}
+        </Badge>
       )}
-      {back && <span className={plain}>Back {relativeDayLabel(back, today).replace(/^Tomorrow$/, "tomorrow")}</span>}
+      {t.doBefore && !done && <DoBeforeBadge doBefore={t.doBefore} today={today} />}
+      {t.repeat && (
+        <Badge>
+          <Repeat {...ICON} size={12} />
+          {repeatLabel(t.repeat)}
+        </Badge>
+      )}
+      {t.location && (
+        <Badge>
+          <MapPin {...ICON} size={12} />
+          {locationLabel(t.location)}
+        </Badge>
+      )}
+      {slot && !done && (
+        <Badge>
+          <CalendarDays {...ICON} size={12} />
+          On Today {londonDay.format(new Date(`${slot.date}T12:00:00Z`))} {slot.time}
+        </Badge>
+      )}
+      {back && <Badge>Back {relativeDayLabel(back, today).replace(/^Tomorrow$/, "tomorrow")}</Badge>}
     </span>
   );
 }
 
-function DoBeforeBadge({ doBefore, today, className }: { doBefore: DateKey; today: DateKey; className: string }) {
+function DoBeforeBadge({ doBefore, today }: { doBefore: DateKey; today: DateKey }) {
   const days = daysBetween(today, doBefore);
   const label =
     days < 0 ? "Overdue" : days === 0 ? "Today" : days === 1 ? "Tomorrow" : londonDay.format(new Date(`${doBefore}T12:00:00Z`));
-  const tone =
-    days <= 2
-      ? "bg-red-100 text-red-700 dark:bg-red-950 dark:text-red-300"
-      : "bg-zinc-100 text-zinc-700 dark:bg-zinc-800 dark:text-zinc-300";
-  return <span className={`${className} ${tone}`}>📅 {label}</span>;
+  return (
+    <Badge tone={days <= 2 ? "bad" : "neutral"}>
+      <CalendarDays {...ICON} size={12} />
+      {days < 0 ? label : `Do by ${days <= 1 ? label.toLowerCase() : label}`}
+    </Badge>
+  );
 }
 
 function CheckMark({ done }: { done: boolean }) {
   return (
     <span
       aria-hidden
-      className={`flex size-6 shrink-0 items-center justify-center rounded-full border-2 text-sm font-bold ${
-        done
-          ? "border-emerald-600 bg-emerald-600 text-white dark:border-emerald-500 dark:bg-emerald-500 dark:text-emerald-950"
-          : "border-zinc-400 text-transparent dark:border-zinc-600"
+      className={`flex size-6 shrink-0 items-center justify-center rounded-full border-2 ${
+        done ? "border-square bg-square text-on-square" : "border-muted/50 text-transparent"
       }`}
     >
-      ✓
+      <Check size={14} strokeWidth={2.5} />
     </span>
-  );
-}
-
-function PencilIcon() {
-  return (
-    <svg aria-hidden viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth={1.75} className="size-5">
-      <path d="M13.5 3.5l3 3L7 16H4v-3l9.5-9.5z" strokeLinejoin="round" />
-      <path d="M11.5 5.5l3 3" />
-    </svg>
-  );
-}
-
-function Skeleton() {
-  return (
-    <div aria-busy="true" className="flex animate-pulse flex-col gap-3">
-      <div className="h-14 rounded-2xl bg-zinc-100 dark:bg-zinc-900" />
-      <div className="h-16 rounded-2xl bg-zinc-100 dark:bg-zinc-900" />
-      <div className="h-16 rounded-2xl bg-zinc-100 dark:bg-zinc-900" />
-    </div>
   );
 }

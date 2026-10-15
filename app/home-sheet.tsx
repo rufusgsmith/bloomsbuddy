@@ -1,8 +1,10 @@
 "use client";
 
+import { X } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 import { saveHome } from "@/lib/home";
 import type { Home } from "@/lib/types";
+import { ICON_LG, iconButton, SheetHandle } from "./form-ui";
 import { HomePicker } from "./home-picker";
 
 /**
@@ -32,16 +34,16 @@ export function HomeSheet({ home, onClose }: { home: Home | null; onClose: () =>
       }}
       // A click on the backdrop lands on the <dialog> itself; clicks inside land on its content.
       onClick={(e) => e.target === e.currentTarget && onClose()}
-      className="mb-0 mt-auto h-[min(88dvh,680px)] max-h-none w-full max-w-full overflow-hidden rounded-t-3xl bg-white p-0 text-zinc-900 shadow-xl backdrop:bg-black/50 backdrop:backdrop-blur-[2px] sm:mb-auto sm:max-w-md sm:rounded-3xl dark:bg-zinc-950 dark:text-zinc-100"
+      className="mb-0 mt-auto h-[min(88dvh,680px)] max-h-none w-full max-w-full overflow-hidden rounded-t-xl bg-surface p-0 text-ink shadow-[0_-4px_24px_rgb(0_0_0/0.12)] backdrop:bg-black/40 sm:mb-auto sm:max-w-md sm:rounded-xl"
     >
       <div className="flex h-full flex-col px-5 pb-[calc(1rem+env(safe-area-inset-bottom))] pt-3">
-        <div aria-hidden className="mx-auto mb-3 h-1.5 w-10 rounded-full bg-zinc-300 sm:hidden dark:bg-zinc-700" />
+        <SheetHandle hideFrom="sm" />
         <div className="mb-4 flex items-start justify-between gap-3">
           <div>
-            <h2 id="home-sheet-title" className="text-xl font-semibold tracking-tight">
+            <h2 id="home-sheet-title" className="text-xl font-semibold">
               Where&apos;s home?
             </h2>
-            <p className="mt-0.5 text-sm text-zinc-600 dark:text-zinc-400">
+            <p className="mt-0.5 text-sm text-muted">
               I&apos;ll tell you when a gap&apos;s long enough to pop back.
             </p>
           </div>
@@ -49,13 +51,13 @@ export function HomeSheet({ home, onClose }: { home: Home | null; onClose: () =>
             type="button"
             onClick={onClose}
             aria-label="Close"
-            className="-mr-2 flex size-11 shrink-0 items-center justify-center rounded-full text-2xl leading-none text-zinc-500 hover:bg-zinc-100 dark:hover:bg-zinc-900"
+            className={`${iconButton} -mr-2`}
           >
-            ×
+            <X {...ICON_LG} />
           </button>
         </div>
         {saveFailed && (
-          <p role="alert" className="mb-3 text-sm text-red-600 dark:text-red-400">
+          <p role="alert" className="mb-3 text-sm text-danger">
             Your browser wouldn&apos;t let me save that. Private mode?
           </p>
         )}

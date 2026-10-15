@@ -1,38 +1,120 @@
 @import "tailwindcss";
 
+/*
+ * "Squares": free time is the green space between buildings. Stone-grey paper, ink text, one
+ * accent (garden-square green, for free time and primary actions) and muted event tones.
+ * Every colour is a token here, so components never need dark: variants for them.
+ */
 :root {
-  --background: #ffffff;
-  --foreground: #171717;
-  --focus: #059669; /* emerald-600 */
+  --paper: #f4f5f2;
+  --surface: #ffffff;
+  --sunken: #eaece8; /* skeletons, segmented controls, hover on paper */
+  --ink: #1b211d;
+  --muted: #5f6862;
+  --line: #dde1dc;
+  --square: #1e6b48;
+  --square-hover: #185a3c;
+  --square-tint: #e2efe6;
+  --on-square: #ffffff;
+  --danger: #b42318;
+  --danger-tint: #fbeae8;
+  --on-danger: #ffffff;
+  --ochre: #a87412;
+  --ochre-tint: #f7eedb;
+  /* Event tones: a tinted fill with a rule in the tone colour. */
+  --tone-class: #465468;
+  --tone-class-tint: #e7ebf0;
+  --tone-mine: #7b4f70;
+  --tone-mine-tint: #f1e8ee;
+  --tone-society: #9a5a32;
+  --tone-society-tint: #f4eae2;
+  --tone-todo: #3e6e8c;
+  --tone-todo-tint: #e4edf3;
   /* Native controls (time/date inputs, selects, scrollbars) follow light/dark mode. */
   color-scheme: light dark;
 }
 
-@theme inline {
-  --color-background: var(--background);
-  --color-foreground: var(--foreground);
-  --font-sans: var(--font-geist-sans);
-  --font-mono: var(--font-geist-mono);
-}
-
 @media (prefers-color-scheme: dark) {
   :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
-    --focus: #34d399; /* emerald-400 */
+    --paper: #121513;
+    --surface: #1a1e1b;
+    --sunken: #222723;
+    --ink: #e6eae6;
+    --muted: #9aa39d;
+    --line: #2b312d;
+    --square: #5fbf8f;
+    --square-hover: #7acda2;
+    --square-tint: #18291f;
+    --on-square: #0d1a12;
+    --danger: #f0766a;
+    --danger-tint: #3a1a17;
+    --on-danger: #1f0b09;
+    --ochre: #dcaa4a;
+    --ochre-tint: #33280f;
+    --tone-class: #93a3ba;
+    --tone-class-tint: #232a33;
+    --tone-mine: #c595b8;
+    --tone-mine-tint: #2f2330;
+    --tone-society: #d39467;
+    --tone-society-tint: #33261c;
+    --tone-todo: #85b3d0;
+    --tone-todo-tint: #1d2a33;
   }
 }
 
+@theme inline {
+  --color-background: var(--paper);
+  --color-foreground: var(--ink);
+  --color-paper: var(--paper);
+  --color-surface: var(--surface);
+  --color-sunken: var(--sunken);
+  --color-ink: var(--ink);
+  --color-muted: var(--muted);
+  --color-line: var(--line);
+  --color-square: var(--square);
+  --color-square-hover: var(--square-hover);
+  --color-square-tint: var(--square-tint);
+  --color-on-square: var(--on-square);
+  --color-danger: var(--danger);
+  --color-danger-tint: var(--danger-tint);
+  --color-on-danger: var(--on-danger);
+  --color-ochre: var(--ochre);
+  --color-ochre-tint: var(--ochre-tint);
+  --color-tone-class: var(--tone-class);
+  --color-tone-class-tint: var(--tone-class-tint);
+  --color-tone-mine: var(--tone-mine);
+  --color-tone-mine-tint: var(--tone-mine-tint);
+  --color-tone-society: var(--tone-society);
+  --color-tone-society-tint: var(--tone-society-tint);
+  --color-tone-todo: var(--tone-todo);
+  --color-tone-todo-tint: var(--tone-todo-tint);
+  --font-sans: var(--font-instrument-sans), system-ui, sans-serif;
+  /* Type scale (5 steps): xs 12 · sm 14 · base 16 · xl 20 · title 28. */
+  --text-title: 1.75rem;
+  --text-title--line-height: 2.125rem;
+  --text-title--letter-spacing: -0.015em;
+}
+
 body {
-  background: var(--background);
-  color: var(--foreground);
-  font-family: var(--font-geist-sans), system-ui, sans-serif;
+  background: var(--paper);
+  color: var(--ink);
+  font-family: var(--font-instrument-sans), system-ui, sans-serif;
   -webkit-tap-highlight-color: transparent;
+}
+
+/* Free time, drawn like a park on a map: the green tint with a fine diagonal hatch. */
+.hatch {
+  background-color: var(--square-tint);
+  background-image: repeating-linear-gradient(
+    -45deg,
+    color-mix(in srgb, var(--square) 16%, transparent) 0 1px,
+    transparent 1px 7px
+  );
 }
 
 /* A visible ring for keyboard users only (mouse and touch taps don't show it). */
 :focus-visible {
-  outline: 2px solid var(--focus);
+  outline: 2px solid var(--square);
   outline-offset: 2px;
 }
 

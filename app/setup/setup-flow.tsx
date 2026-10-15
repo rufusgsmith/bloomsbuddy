@@ -18,7 +18,21 @@ import { useRouter } from "next/navigation";
 import { useEffect, useRef, useState, useSyncExternalStore, type ReactNode } from "react";
 import { BUILDINGS } from "@/lib/buildings";
 import { DayCalendar, DayPills } from "../day-calendar";
-import { DeleteButton, Field, inputClass, PageHeader } from "../form-ui";
+import { Camera, Plus, X } from "lucide-react";
+import {
+  DeleteButton,
+  Field,
+  ghostButton,
+  ICON,
+  ICON_LG,
+  iconButton,
+  inputClass,
+  Notice,
+  PageHeader,
+  primaryButton,
+  RowsSkeleton,
+  secondaryButton,
+} from "../form-ui";
 import { HomePicker } from "../home-picker";
 import { LocationPicker } from "../location-picker";
 import { SocietyPicker } from "../society-picker";
@@ -74,13 +88,18 @@ export function SetupFlow({ mode }: { mode: SetupMode }) {
 }
 
 function Shell({ children }: { children: ReactNode }) {
-  return <main className="mx-auto w-full max-w-md px-4 pb-24 pt-8">{children}</main>;
+  return (
+    <main className="mx-auto w-full max-w-md px-4 pb-24 pt-8 md:max-w-xl md:pt-12">
+      <p className="mb-6 text-sm font-semibold">Bloomsbuddy</p>
+      {children}
+    </main>
+  );
 }
 
 function Loading() {
   return (
     <Shell>
-      <div aria-busy="true" className="h-64 animate-pulse rounded-2xl bg-zinc-100 dark:bg-zinc-900" />
+      <RowsSkeleton rows={3} rowClassName="h-20" />
     </Shell>
   );
 }
@@ -158,7 +177,7 @@ function Editor({ mode, initial }: { mode: SetupMode; initial: UserData | null }
           action={
             <Link
               href="/"
-              className="rounded-full px-3 py-1.5 text-sm text-zinc-600 hover:bg-zinc-100 dark:text-zinc-400 dark:hover:bg-zinc-900"
+              className={`${ghostButton} -mr-3 -mt-1`}
             >
               Cancel
             </Link>
@@ -191,7 +210,7 @@ function Editor({ mode, initial }: { mode: SetupMode; initial: UserData | null }
           <button
             type="button"
             onClick={skip}
-            className="rounded-full px-3 py-1.5 text-sm text-zinc-600 hover:bg-zinc-100 dark:text-zinc-400 dark:hover:bg-zinc-900"
+            className={`${ghostButton} -mr-3 -mt-1`}
           >
             Skip, show the demo week
           </button>
@@ -209,10 +228,8 @@ function Editor({ mode, initial }: { mode: SetupMode; initial: UserData | null }
                   disabled={!reachable}
                   onClick={() => setStep(i as Step)}
                   aria-current={i === step ? "step" : undefined}
-                  className={`w-full truncate border-t-4 pt-2 text-left text-xs font-medium transition-colors disabled:cursor-not-allowed ${
-                    i <= step
-                      ? "border-emerald-500 text-emerald-700 dark:text-emerald-300"
-                      : "border-zinc-200 text-zinc-500 dark:border-zinc-800"
+                  className={`w-full truncate border-t-2 pt-2 text-left text-xs font-medium transition-colors disabled:cursor-not-allowed ${
+                    i === step ? "border-ink text-ink" : i < step ? "border-square text-muted" : "border-line text-muted"
                   }`}
                 >
                   {i + 1}. {label}
@@ -359,8 +376,8 @@ function TimetableStep({
   return (
     <section className="flex flex-col gap-5">
       <div>
-        <h2 className="text-lg font-semibold">Your weekly timetable</h2>
-        <p className="mt-1 text-sm text-zinc-600 dark:text-zinc-400">
+        <h2 className="text-xl font-semibold">Your weekly timetable</h2>
+        <p className="mt-1 text-sm text-muted">
           Screenshot one week from UCL Go or the timetable website and drop it here, or paste/type it below.
           I&apos;ll read it, then you check I got it right.
         </p>
@@ -376,7 +393,7 @@ function TimetableStep({
 
       {unplaced.length > 0 && (
         <div>
-          <h3 className="mb-2 text-sm font-semibold text-red-600 dark:text-red-400">Needs fixing</h3>
+          <h3 className="mb-2 text-sm font-semibold text-danger">Needs fixing</h3>
           <ul className="flex flex-col gap-3">
             {unplaced.map((c) => (
               <li key={c.id}>
@@ -402,7 +419,7 @@ function TimetableStep({
             setEditingId(null);
           }}
         />
-        <p className="mb-1 text-sm text-zinc-600 dark:text-zinc-400">
+        <p className="mb-1 text-sm text-muted">
           {dayClasses.length === 0
             ? `No classes on ${DAYS[selectedDay - 1]}`
             : "Tap a class to edit it."}
@@ -425,7 +442,7 @@ function TimetableStep({
                 <button
                   type="button"
                   onClick={() => setEditingId(null)}
-                  className="min-h-11 self-end rounded-full bg-zinc-900 px-5 text-sm font-medium text-white hover:bg-zinc-700 dark:bg-zinc-100 dark:text-zinc-900 dark:hover:bg-zinc-300"
+                  className={`${secondaryButton} self-end`}
                 >
                   Done
                 </button>
@@ -438,14 +455,15 @@ function TimetableStep({
       <button
         type="button"
         onClick={add}
-        className="min-h-11 rounded-xl border-2 border-dashed border-zinc-300 text-sm font-medium text-zinc-600 hover:border-zinc-400 hover:bg-zinc-50 dark:border-zinc-700 dark:text-zinc-400 dark:hover:bg-zinc-900"
+        className={`${secondaryButton} self-start`}
       >
-        + Add a class on {DAYS[selectedDay - 1]}
+        <Plus {...ICON} />
+        Add a class on {DAYS[selectedDay - 1]}
       </button>
 
-      <fieldset className="rounded-2xl bg-zinc-100 p-4 dark:bg-zinc-900">
+      <fieldset className="border-t border-line pt-4">
         <legend className="sr-only">How long the timetable repeats</legend>
-        <h3 className="font-semibold">How long does it repeat?</h3>
+        <h3 className="font-medium">How long does it repeat?</h3>
         <div className="mt-3 grid grid-cols-2 gap-3">
           <Field label="First week starts">
             <input
@@ -470,7 +488,7 @@ function TimetableStep({
             />
           </Field>
         </div>
-        <p className="mt-2 text-sm text-zinc-600 dark:text-zinc-400">
+        <p className="mt-2 text-sm text-muted">
           {weeks} {weeks === 1 ? "week" : "weeks"}: {londonWeekdayDayMonth.format(dayDate(termStart))} –{" "}
           {londonWeekdayDayMonth.format(dayDate(lastFriday))}. A UCL term is usually 11 weeks.
         </p>
@@ -493,8 +511,8 @@ function ClassRow({
   const problem = classProblem(c);
   return (
     <div
-      className={`rounded-2xl border bg-white p-3 dark:bg-zinc-950 ${
-        problem ? "border-red-400 dark:border-red-700" : "border-zinc-200 dark:border-zinc-800"
+      className={`rounded-xl border bg-surface p-3 ${
+        problem ? "border-danger/50" : "border-line"
       }`}
     >
       <div className="grid grid-cols-[7rem_1fr] gap-2">
@@ -558,7 +576,7 @@ function ClassRow({
       <div className="mt-2 flex items-end gap-2">
         <div className="flex-1">
           <fieldset className="flex min-w-0 flex-col gap-1">
-            <legend className="mb-1 text-xs font-medium text-zinc-500">
+            <legend className="mb-1 text-xs font-medium text-muted">
               {c.buildingGuessed ? "Building: please check, I couldn't tell" : "Building (for travel times)"}
             </legend>
             <LocationPicker
@@ -572,7 +590,7 @@ function ClassRow({
         </div>
         <RemoveButton label={`Remove ${c.moduleCode || c.title || "class"}`} onClick={onRemove} />
       </div>
-      {problem && <p className="mt-2 text-sm text-red-600 dark:text-red-400">{problem}</p>}
+      {problem && <p className="mt-2 text-sm text-danger">{problem}</p>}
     </div>
   );
 }
@@ -601,8 +619,8 @@ function DeadlinesStep({
   return (
     <section className="flex flex-col gap-5">
       <div>
-        <h2 className="text-lg font-semibold">Your Moodle deadlines</h2>
-        <p className="mt-1 text-sm text-zinc-600 dark:text-zinc-400">
+        <h2 className="text-xl font-semibold">Your Moodle deadlines</h2>
+        <p className="mt-1 text-sm text-muted">
           Screenshot the Timeline block on your Moodle dashboard, or paste/type them below. I&apos;ll use these to decide when you should
           actually be studying. You can skip this.
         </p>
@@ -632,9 +650,10 @@ function DeadlinesStep({
       <button
         type="button"
         onClick={add}
-        className="min-h-11 rounded-xl border-2 border-dashed border-zinc-300 text-sm font-medium text-zinc-600 hover:border-zinc-400 hover:bg-zinc-50 dark:border-zinc-700 dark:text-zinc-400 dark:hover:bg-zinc-900"
+        className={`${secondaryButton} self-start`}
       >
-        + Add a deadline by hand
+        <Plus {...ICON} />
+        Add a deadline by hand
       </button>
 
       <StepNav
@@ -660,8 +679,8 @@ function DeadlineRow({
   const problem = deadlineProblem(d);
   return (
     <div
-      className={`rounded-2xl border bg-white p-3 dark:bg-zinc-950 ${
-        problem ? "border-red-400 dark:border-red-700" : "border-zinc-200 dark:border-zinc-800"
+      className={`rounded-xl border bg-surface p-3 ${
+        problem ? "border-danger/50" : "border-line"
       }`}
     >
       <div className="grid grid-cols-[7rem_1fr] gap-2">
@@ -705,7 +724,7 @@ function DeadlineRow({
         </div>
         <RemoveButton label={`Remove ${d.title || "deadline"}`} onClick={onRemove} />
       </div>
-      {problem && <p className="mt-2 text-sm text-red-600 dark:text-red-400">{problem}</p>}
+      {problem && <p className="mt-2 text-sm text-danger">{problem}</p>}
     </div>
   );
 }
@@ -726,8 +745,8 @@ function TodosStep({
   return (
     <section className="flex flex-col gap-5">
       <div>
-        <h2 className="text-lg font-semibold">Your to-do list</h2>
-        <p className="mt-1 text-sm text-zinc-600 dark:text-zinc-400">
+        <h2 className="text-xl font-semibold">Your to-do list</h2>
+        <p className="mt-1 text-sm text-muted">
           Anything you need to get done? Add how long it takes, a do-before date or a repeat (like a weekly shop),
           and I&apos;ll fit it into a gap. You can skip this.
         </p>
@@ -759,8 +778,8 @@ function HomeStep({
   return (
     <section className="flex flex-col gap-5">
       <div>
-        <h2 className="text-lg font-semibold">Where&apos;s home?</h2>
-        <p className="mt-1 text-sm text-zinc-600 dark:text-zinc-400">
+        <h2 className="text-xl font-semibold">Where&apos;s home?</h2>
+        <p className="mt-1 text-sm text-muted">
           I&apos;ll tell you when a gap&apos;s long enough to pop back for a nap or a proper lunch. You can skip this
           and add it later from Today.
         </p>
@@ -773,7 +792,7 @@ function HomeStep({
           <button
             type="button"
             onClick={onBack}
-            className="min-h-12 rounded-full bg-zinc-100 px-5 font-medium text-zinc-700 hover:bg-zinc-200 dark:bg-zinc-800 dark:text-zinc-200 dark:hover:bg-zinc-700"
+            className={secondaryButton}
           >
             Back
           </button>
@@ -782,7 +801,7 @@ function HomeStep({
       <button
         type="button"
         onClick={onSkip}
-        className="min-h-11 self-center rounded-full px-4 text-sm font-medium text-zinc-600 hover:bg-zinc-100 dark:text-zinc-400 dark:hover:bg-zinc-900"
+        className={`${ghostButton} self-start`}
       >
         Skip for now
       </button>
@@ -806,8 +825,8 @@ function SocietiesStep({
   return (
     <section className="flex flex-col gap-5">
       <div>
-        <h2 className="text-lg font-semibold">My societies</h2>
-        <p className="mt-1 text-sm text-zinc-600 dark:text-zinc-400">
+        <h2 className="text-xl font-semibold">My societies</h2>
+        <p className="mt-1 text-sm text-muted">
           Which clubs and societies are you in? Paste the link to each one&apos;s SU page and I&apos;ll check it for
           events that fit your gaps (free pizza included). You can skip this.
         </p>
@@ -816,12 +835,9 @@ function SocietiesStep({
       <SocietyPicker existing={societies} onAdd={(s) => setSocieties([...societies, s])} />
 
       {societies.length > 0 && (
-        <ul className="flex flex-col gap-2">
+        <ul className="border-b border-line">
           {societies.map((s) => (
-            <li
-              key={s.slug}
-              className="flex items-center justify-between gap-2 rounded-xl border border-zinc-200 bg-white pl-4 dark:border-zinc-800 dark:bg-zinc-950"
-            >
+            <li key={s.slug} className="flex items-center justify-between gap-2 border-t border-line">
               <span className="min-w-0 truncate text-sm font-medium">{s.name}</span>
               <RemoveButton label={`Remove ${s.name}`} onClick={() => setSocieties(societies.filter((x) => x.slug !== s.slug))} />
             </li>
@@ -869,27 +885,27 @@ function ReviewStep({
   return (
     <section className="flex flex-col gap-5">
       <div>
-        <h2 className="text-lg font-semibold">Look right?</h2>
-        <p className="mt-1 text-sm text-zinc-600 dark:text-zinc-400">
+        <h2 className="text-xl font-semibold">Look right?</h2>
+        <p className="mt-1 text-sm text-muted">
           {classes.length} {classes.length === 1 ? "class" : "classes"} a week, repeating for {weeks}{" "}
           {weeks === 1 ? "week" : "weeks"} from {londonDayMonth.format(dayDate(termStart))}. You can change your
           timetable later from &ldquo;Edit timetable&rdquo;.
         </p>
       </div>
 
-      <div className="rounded-2xl border border-zinc-200 bg-white p-4 dark:border-zinc-800 dark:bg-zinc-950">
-        <h3 className="font-semibold">Every week</h3>
+      <div className="border-t border-line py-4">
+        <h3 className="font-medium">Every week</h3>
         <dl className="mt-2 flex flex-col gap-2 text-sm">
           {byDay.map((day) => (
             <div key={day.label} className="grid grid-cols-[2.5rem_1fr] gap-2">
-              <dt className="font-medium text-zinc-500">{day.label}</dt>
+              <dt className="font-medium text-muted">{day.label}</dt>
               <dd className="flex flex-col gap-0.5">
                 {day.rows.map((c) => (
                   <span key={c.id}>
-                    <span className="tabular-nums text-zinc-500">
+                    <span className="tabular-nums text-muted">
                       {c.startTime}–{c.endTime}
                     </span>{" "}
-                    {c.moduleCode || c.title} <span className="text-zinc-500">· {BUILDINGS[c.buildingId].shortName}</span>
+                    {c.moduleCode || c.title} <span className="text-muted">· {BUILDINGS[c.buildingId].shortName}</span>
                   </span>
                 ))}
               </dd>
@@ -898,10 +914,10 @@ function ReviewStep({
         </dl>
       </div>
 
-      <div className="rounded-2xl border border-zinc-200 bg-white p-4 dark:border-zinc-800 dark:bg-zinc-950">
-        <h3 className="font-semibold">To-do</h3>
+      <div className="border-t border-line py-4">
+        <h3 className="font-medium">To-do</h3>
         {openTodos.length === 0 ? (
-          <p className="mt-1 text-sm text-zinc-600 dark:text-zinc-400">No to-dos yet</p>
+          <p className="mt-1 text-sm text-muted">No to-dos yet</p>
         ) : (
           <ul className="mt-2 flex flex-col gap-1 text-sm">
             {openTodos.map((t) => (
@@ -911,35 +927,35 @@ function ReviewStep({
         )}
       </div>
 
-      <div className="rounded-2xl border border-zinc-200 bg-white p-4 dark:border-zinc-800 dark:bg-zinc-950">
-        <h3 className="font-semibold">Home</h3>
-        <p className="mt-1 text-sm text-zinc-600 dark:text-zinc-400">
+      <div className="border-t border-line py-4">
+        <h3 className="font-medium">Home</h3>
+        <p className="mt-1 text-sm text-muted">
           {home ? homeLabel(home) : "Not set. You can add it later from Today."}
         </p>
       </div>
 
-      <div className="rounded-2xl border border-zinc-200 bg-white p-4 dark:border-zinc-800 dark:bg-zinc-950">
-        <h3 className="font-semibold">Societies</h3>
+      <div className="border-t border-line py-4">
+        <h3 className="font-medium">Societies</h3>
         {societies.length === 0 ? (
-          <p className="mt-1 text-sm text-zinc-600 dark:text-zinc-400">No societies added</p>
+          <p className="mt-1 text-sm text-muted">No societies added</p>
         ) : (
           <p className="mt-1 text-sm">{societies.map((s) => s.name).join(", ")}</p>
         )}
       </div>
 
-      <div className="rounded-2xl border border-zinc-200 bg-white p-4 dark:border-zinc-800 dark:bg-zinc-950">
-        <h3 className="font-semibold">Deadlines</h3>
+      <div className="border-t border-line py-4">
+        <h3 className="font-medium">Deadlines</h3>
         {sortedDeadlines.length === 0 ? (
-          <p className="mt-1 text-sm text-zinc-600 dark:text-zinc-400">No deadlines added</p>
+          <p className="mt-1 text-sm text-muted">No deadlines added</p>
         ) : (
           <ul className="mt-2 flex flex-col gap-1 text-sm">
             {sortedDeadlines.map((d) => (
               <li key={d.id}>
-                <span className="tabular-nums text-zinc-500">
+                <span className="tabular-nums text-muted">
                   {isDateKey(d.date) ? londonWeekdayDayMonth.format(dayDate(d.date)) : d.date}{" "}
                   {isWallTime(d.time) ? formatWallTime(d.time) : d.time}
                 </span>{" "}
-                {d.moduleCode && <span className="text-zinc-500">{d.moduleCode} </span>}
+                {d.moduleCode && <span className="text-muted">{d.moduleCode} </span>}
                 {d.title}
               </li>
             ))}
@@ -956,7 +972,7 @@ function ReviewStep({
 
 function SaveError() {
   return (
-    <p role="alert" className="text-sm text-red-600 dark:text-red-400">
+    <p role="alert" className="text-sm text-danger">
       Your browser wouldn&apos;t let me save (private browsing?). Try a normal window.
     </p>
   );
@@ -967,7 +983,7 @@ function UseDemoButton({ onClick }: { onClick: () => void }) {
     <span className="self-center">
       <DeleteButton
         onDelete={onClick}
-        className="rounded-full px-3 py-2 text-sm text-zinc-500 underline-offset-4 hover:underline"
+        className="rounded-lg px-3 py-2 text-sm text-muted underline-offset-4 hover:underline"
       >
         Delete my timetable and use the demo week
       </DeleteButton>
@@ -1073,10 +1089,8 @@ function Uploader<K extends "timetable" | "deadlines">({
           e.preventDefault();
           void handleFile(e.dataTransfer.files[0]);
         }}
-        className={`flex min-h-32 cursor-pointer flex-col items-center justify-center gap-1 rounded-2xl border-2 border-dashed p-5 text-center transition-colors ${
-          reading
-            ? "cursor-wait border-emerald-400 bg-emerald-50 dark:border-emerald-700 dark:bg-emerald-950/40"
-            : "border-emerald-400 bg-emerald-50/50 hover:bg-emerald-50 dark:border-emerald-700 dark:bg-emerald-950/20 dark:hover:bg-emerald-950/40"
+        className={`flex min-h-32 cursor-pointer flex-col items-center justify-center gap-1 rounded-xl border border-dashed border-muted/50 bg-surface p-5 text-center transition-colors has-[:focus-visible]:outline-2 has-[:focus-visible]:outline-square ${
+          reading ? "cursor-wait" : "hover:border-ink/50 hover:bg-sunken"
         }`}
       >
         <input
@@ -1088,26 +1102,24 @@ function Uploader<K extends "timetable" | "deadlines">({
           className="sr-only"
         />
         {reading ? (
-          <span aria-live="polite" className="animate-pulse font-medium text-emerald-800 dark:text-emerald-200">
+          <span aria-live="polite" className="animate-pulse font-medium">
             {state.from === "image" ? "Reading your screenshot…" : "Reading your text…"}
           </span>
         ) : (
           <>
-            <span aria-hidden className="text-2xl">
-              📸
-            </span>
-            <span className="font-medium text-emerald-900 dark:text-emerald-100">
+            <Camera {...ICON_LG} className="mb-1 text-muted" />
+            <span className="font-medium">
               {existingCount > 0 ? "Upload another screenshot" : "Upload a screenshot"}
             </span>
-            <span className="text-sm text-emerald-800/80 dark:text-emerald-200/80">Tap to choose, drop it here, or paste</span>
+            <span className="text-sm text-muted">Tap to choose, drop it here, or paste</span>
           </>
         )}
       </label>
 
-      <div className="flex items-center gap-3 text-sm text-zinc-500" aria-hidden>
-        <span className="h-px flex-1 bg-zinc-200 dark:bg-zinc-800" />
+      <div className="flex items-center gap-3 text-sm text-muted" aria-hidden>
+        <span className="h-px flex-1 bg-line" />
         or type it
-        <span className="h-px flex-1 bg-zinc-200 dark:bg-zinc-800" />
+        <span className="h-px flex-1 bg-line" />
       </div>
 
       <div className="flex flex-col gap-2">
@@ -1128,7 +1140,7 @@ function Uploader<K extends "timetable" | "deadlines">({
               void handleText();
             }
           }}
-          className="w-full rounded-xl border border-zinc-300 bg-white p-3 text-base text-zinc-900 placeholder:text-zinc-400 disabled:opacity-60 dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-100 sm:text-sm"
+          className="w-full rounded-xl border border-line bg-surface p-3 text-base text-ink placeholder:text-muted disabled:opacity-60 sm:text-sm"
         />
         <div className="flex justify-end">
           <SmallButton primary disabled={reading || !text.trim()} onClick={() => void handleText()}>
@@ -1138,13 +1150,11 @@ function Uploader<K extends "timetable" | "deadlines">({
       </div>
 
       {state.status === "error" && (
-        <p role="alert" className="rounded-xl bg-amber-50 p-3 text-sm text-amber-900 dark:bg-amber-950/40 dark:text-amber-200">
-          {state.message}
-        </p>
+        <Notice tone="warn">{state.message}</Notice>
       )}
 
       {pending ? (
-        <div role="alert" className="rounded-xl bg-white p-3 text-sm ring-1 ring-emerald-300 dark:bg-zinc-950 dark:ring-emerald-800">
+        <div role="alert" className="rounded-xl border border-line bg-surface p-3 text-sm">
           <p>
             Found {plural(pending.length)}. You&apos;ve already got {plural(existingCount)}. What should I do?
           </p>
@@ -1178,7 +1188,7 @@ function Uploader<K extends "timetable" | "deadlines">({
         </div>
       ) : (
         state.status === "done" && (
-          <p aria-live="polite" className="text-sm text-emerald-800 dark:text-emerald-200">
+          <p aria-live="polite" className="text-sm text-muted">
             Found {plural(state.count)}. Check them before you continue, as the reading can be wrong.
           </p>
         )
@@ -1196,9 +1206,9 @@ function RemoveButton({ label, onClick }: { label: string; onClick: () => void }
     <DeleteButton
       onDelete={onClick}
       label={label}
-      className="flex size-11 shrink-0 items-center justify-center rounded-lg text-zinc-500 hover:bg-red-50 hover:text-red-600 dark:hover:bg-red-950/40"
+      className={`${iconButton} hover:bg-danger-tint hover:text-danger`}
     >
-      ✕
+      <X {...ICON_LG} />
     </DeleteButton>
   );
 }
@@ -1219,11 +1229,7 @@ function SmallButton({
       type="button"
       disabled={disabled}
       onClick={onClick}
-      className={`min-h-10 rounded-full px-4 text-sm font-medium disabled:cursor-not-allowed disabled:opacity-50 ${
-        primary
-          ? "bg-emerald-600 text-white hover:bg-emerald-700 dark:bg-emerald-500 dark:text-emerald-950 dark:hover:bg-emerald-400"
-          : "bg-zinc-100 text-zinc-700 hover:bg-zinc-200 dark:bg-zinc-800 dark:text-zinc-200 dark:hover:bg-zinc-700"
-      }`}
+      className={primary ? primaryButton : secondaryButton}
     >
       {children}
     </button>
@@ -1250,7 +1256,7 @@ function StepNav({
           <button
             type="button"
             onClick={onBack}
-            className="min-h-12 rounded-full bg-zinc-100 px-5 font-medium text-zinc-700 hover:bg-zinc-200 dark:bg-zinc-800 dark:text-zinc-200 dark:hover:bg-zinc-700"
+            className={secondaryButton}
           >
             Back
           </button>
@@ -1259,12 +1265,12 @@ function StepNav({
           type="button"
           onClick={onNext}
           disabled={!canContinue}
-          className="min-h-12 flex-1 rounded-full bg-emerald-600 px-5 font-medium text-white hover:bg-emerald-700 disabled:cursor-not-allowed disabled:opacity-40 dark:bg-emerald-500 dark:text-emerald-950 dark:hover:bg-emerald-400"
+          className={`${primaryButton} flex-1`}
         >
           {nextLabel}
         </button>
       </div>
-      {!canContinue && blockedHint && <p className="text-center text-sm text-zinc-500">{blockedHint}</p>}
+      {!canContinue && blockedHint && <p className="text-sm text-muted">{blockedHint}</p>}
     </div>
   );
 }

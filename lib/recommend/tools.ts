@@ -220,7 +220,7 @@ export function todoRows(win: ToolWindow, todos: Todo[], seen: Seen): string {
       daysUntilDoBefore: t.doBefore
         ? Math.round((Date.parse(`${t.doBefore}T12:00:00Z`) - Date.parse(`${gapDay}T12:00:00Z`)) / MS_PER_DAY)
         : null,
-      repeats: t.repeat ? repeatLabel(t.repeat).replace(/^↻ /, "") : null,
+      repeats: t.repeat ? repeatLabel(t.repeat) : null,
       estMinutes: t.estMinutes ?? null,
       estimate: t.estMinutes ? formatDuration(t.estMinutes) : "not estimated",
       fitsInGap: t.estMinutes ? t.estMinutes <= room : "unknown",

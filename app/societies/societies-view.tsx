@@ -17,7 +17,19 @@ import {
   subscribeEvents,
   type EventStore,
 } from "@/lib/manual-events";
-import { CalendarButton, PageHeader, TabPage } from "../form-ui";
+import { ArrowRight, RotateCw, X } from "lucide-react";
+import {
+  Badge,
+  CalendarButton,
+  ClashNotice,
+  EmptyState,
+  ICON,
+  Notice,
+  PageHeader,
+  RowsSkeleton,
+  secondaryButton,
+  TabPage,
+} from "../form-ui";
 import { mockSocietyEvents, mockTimetable } from "@/lib/mock";
 import { parseUserData, readRawUserData, saveUserData, subscribeUserData } from "@/lib/storage";
 import { termEndKey } from "@/lib/term";
@@ -108,14 +120,14 @@ function Mine({ user, calendar }: { user: UserData; calendar: Calendar }) {
   return (
     <>
       {saveFailed && (
-        <p role="alert" className="mb-4 rounded-xl bg-red-50 p-3 text-sm text-red-700 dark:bg-red-950 dark:text-red-300">
+        <Notice tone="bad" className="mb-4">
           Your browser wouldn&apos;t let us save that. Is private mode or blocked storage on?
-        </p>
+        </Notice>
       )}
 
       <section className="mb-6 flex flex-col gap-3">
         {societies.length === 0 ? (
-          <p className="text-sm text-zinc-600 dark:text-zinc-400">
+          <p className="text-sm text-muted">
             No societies yet. Add the ones you&apos;re in and I&apos;ll dig out their events (free pizza included).
           </p>
         ) : (
@@ -138,14 +150,15 @@ function Mine({ user, calendar }: { user: UserData; calendar: Calendar }) {
         <div
           key={s.slug}
           role="alert"
-          className="mb-3 flex items-center justify-between gap-3 rounded-xl border border-amber-300 bg-amber-50 p-3 text-sm dark:border-amber-800 dark:bg-amber-950/40"
+          className="mb-3 flex items-center justify-between gap-3 rounded-xl border border-ochre/30 bg-ochre-tint p-3 text-sm"
         >
           <span>Couldn&apos;t load {s.name}&apos;s events.</span>
           <button
             type="button"
             onClick={() => retry(s)}
-            className="min-h-11 shrink-0 rounded-full bg-white px-3 font-medium text-zinc-800 hover:bg-zinc-100 dark:bg-zinc-900 dark:text-zinc-100 dark:hover:bg-zinc-800"
+            className={secondaryButton}
           >
+            <RotateCw {...ICON} />
             Retry
           </button>
         </div>
@@ -173,21 +186,16 @@ function Demo({ calendar }: { calendar: Calendar }) {
 
   return (
     <>
-      <Link
-        href="/setup"
-        className="mb-5 flex items-center justify-between gap-3 rounded-2xl bg-emerald-600 p-4 text-white hover:bg-emerald-700 dark:bg-emerald-500 dark:text-emerald-950 dark:hover:bg-emerald-400"
-      >
-        <span>
-          <span className="block font-semibold">These are demo societies</span>
-          <span className="block text-sm opacity-90">Set up your timetable, then add the societies you&apos;re in.</span>
-        </span>
-        <span aria-hidden className="text-xl">
-          →
-        </span>
-      </Link>
+      <p className="mb-4 flex flex-wrap items-center gap-x-2 text-sm text-muted">
+        These are demo societies.
+        <Link href="/setup" className="inline-flex min-h-11 items-center gap-1 font-medium text-square hover:underline">
+          Set up yours
+          <ArrowRight {...ICON} />
+        </Link>
+      </p>
       <ul className="mb-6 flex flex-wrap gap-2">
         {names.map((name) => (
-          <li key={name} className="rounded-full bg-zinc-100 px-3 py-1.5 text-sm font-medium dark:bg-zinc-800">
+          <li key={name} className="rounded-lg border border-line bg-surface px-3 py-2 text-sm font-medium">
             {name}
           </li>
         ))}
@@ -220,23 +228,23 @@ function Chip({
   onRemove: () => void;
 }) {
   return (
-    <span className="flex items-center gap-1.5 rounded-full bg-emerald-50 py-1 pl-3 pr-1 text-sm font-medium text-emerald-900 dark:bg-emerald-950 dark:text-emerald-100">
+    <span className="flex items-center gap-2 rounded-lg border border-line bg-surface pl-3 text-sm font-medium">
       {state === "loading" && (
         <span
           aria-label="Loading events"
-          className="h-3 w-3 animate-spin rounded-full border-2 border-emerald-300 border-t-emerald-700 dark:border-emerald-800 dark:border-t-emerald-300"
+          className="h-3 w-3 animate-spin rounded-full border-2 border-square/30 border-t-square"
         />
       )}
-      {state === "error" && <span aria-label="Events failed to load" className="h-2 w-2 rounded-full bg-amber-500" />}
+      {state === "error" && <span aria-label="Events failed to load" className="h-2 w-2 rounded-full bg-ochre" />}
       {society.name}
       {/* One tap: re-adding a society is easy, so no "Tap again to delete" here. */}
       <button
         type="button"
         onClick={onRemove}
         aria-label={`Remove ${society.name}`}
-        className="-my-1.5 flex size-11 items-center justify-center rounded-full text-emerald-700 hover:bg-emerald-100 dark:text-emerald-300 dark:hover:bg-emerald-900"
+        className="flex size-9 items-center justify-center rounded-r-lg text-muted hover:bg-sunken hover:text-ink"
       >
-        ×
+        <X {...ICON} />
       </button>
     </span>
   );
@@ -272,10 +280,10 @@ function EventList({
     <div className="flex flex-col gap-6">
       {days.map(([dateKey, dayEvents]) => (
         <section key={dateKey}>
-          <h2 className="mb-2 text-sm font-semibold text-zinc-600 dark:text-zinc-400">{dayLabel(dateKey, today)}</h2>
-          <ul className="flex flex-col gap-2">
+          <h2 className="mb-1 text-sm font-medium text-muted">{dayLabel(dateKey, today)}</h2>
+          <ul className="border-b border-line">
             {dayEvents.map((e) => (
-              <li key={e.id}>
+              <li key={e.id} className="border-t border-line">
                 <EventCard event={e} calendar={calendar} />
               </li>
             ))}
@@ -283,14 +291,14 @@ function EventList({
         </section>
       ))}
       {stillLoading > 0 ? (
-        <p className="text-sm text-zinc-500">
+        <p className="text-sm text-muted">
           Still checking {stillLoading} {stillLoading === 1 ? "society" : "societies"}…
         </p>
       ) : (
         days.length === 0 && (
-          <p className="rounded-2xl border border-dashed border-zinc-300 p-6 text-center text-sm text-zinc-600 dark:border-zinc-700 dark:text-zinc-400">
-            No more events this term.
-          </p>
+          <EmptyState title="No more events this term">
+            New ones show up here as soon as your societies post them on the Students&apos; Union site.
+          </EmptyState>
         )
       )}
     </div>
@@ -311,19 +319,19 @@ function timeLabel(e: SocietyEvent): string {
 
 function EventCard({ event: e, calendar }: { event: SocietyEvent; calendar: Calendar }) {
   // Only what the page actually said: no cost tag when it didn't mention cost.
-  const tags: { label: string; tone: string }[] = [];
-  if (e.membersOnly) tags.push({ label: "Members only", tone: "bg-violet-100 text-violet-800 dark:bg-violet-950 dark:text-violet-200" });
-  if (e.tags.includes("free-food")) tags.push({ label: "Free food", tone: "bg-emerald-100 text-emerald-800 dark:bg-emerald-950 dark:text-emerald-200" });
-  else if (e.free === true) tags.push({ label: "Free", tone: "bg-emerald-100 text-emerald-800 dark:bg-emerald-950 dark:text-emerald-200" });
-  else if (e.free === false) tags.push({ label: "Paid", tone: "bg-zinc-100 text-zinc-700 dark:bg-zinc-800 dark:text-zinc-300" });
+  const tags: { label: string; tone: "neutral" | "good" }[] = [];
+  if (e.membersOnly) tags.push({ label: "Members only", tone: "neutral" });
+  if (e.tags.includes("free-food")) tags.push({ label: "Free food", tone: "good" });
+  else if (e.free === true) tags.push({ label: "Free", tone: "good" });
+  else if (e.free === false) tags.push({ label: "Paid", tone: "neutral" });
   const cal = useSocietyAdd(e, calendar);
 
   return (
-    <article className="rounded-2xl border border-zinc-200 p-4 dark:border-zinc-800">
-      {/* The button sits bottom-right beside the details, so the card stays a tidy rectangle. */}
+    <article className="py-3">
+      {/* The button sits bottom-right beside the details, so the row stays a tidy rectangle. */}
       <div className="flex items-end gap-3">
         <div className="min-w-0 flex-1">
-          <p className="text-xs font-semibold text-emerald-700 dark:text-emerald-400">{e.society}</p>
+          <p className="text-xs font-medium text-tone-society">{e.society}</p>
           <h3 className="font-medium">
             {e.url ? (
               <a href={e.url} target="_blank" rel="noreferrer" className="underline-offset-2 hover:underline">
@@ -333,16 +341,16 @@ function EventCard({ event: e, calendar }: { event: SocietyEvent; calendar: Cale
               e.title
             )}
           </h3>
-          <p className="mt-0.5 text-sm text-zinc-600 dark:text-zinc-400">
+          <p className="mt-0.5 text-sm tabular-nums text-muted">
             {timeLabel(e)}
             {e.venue && ` · ${e.venue}`}
           </p>
           {tags.length > 0 && (
-            <div className="mt-2 flex flex-wrap gap-1.5">
+            <div className="mt-2 flex flex-wrap gap-1">
               {tags.map((t) => (
-                <span key={t.label} className={`rounded-full px-2.5 py-0.5 text-xs font-semibold ${t.tone}`}>
+                <Badge key={t.label} tone={t.tone}>
                   {t.label}
-                </span>
+                </Badge>
               ))}
             </div>
           )}
@@ -354,29 +362,9 @@ function EventCard({ event: e, calendar }: { event: SocietyEvent; calendar: Cale
           </CalendarButton>
         )}
       </div>
-      {cal.clash && (
-        <div role="alert" className="mt-3 rounded-xl border border-amber-300 bg-amber-50 p-3 dark:border-amber-800 dark:bg-amber-950/40">
-          <p className="mb-2 text-sm font-medium text-amber-900 dark:text-amber-100">⚠️ {cal.clash}</p>
-          <div className="flex justify-end gap-2">
-            <button
-              type="button"
-              onClick={cal.cancel}
-              className="min-h-11 rounded-full px-4 text-sm font-medium text-zinc-700 hover:bg-amber-100 dark:text-zinc-300 dark:hover:bg-amber-900/40"
-            >
-              Cancel
-            </button>
-            <button
-              type="button"
-              onClick={() => cal.add(true)}
-              className="min-h-11 rounded-full bg-zinc-900 px-4 text-sm font-medium text-white hover:bg-zinc-700 dark:bg-zinc-100 dark:text-zinc-900 dark:hover:bg-zinc-300"
-            >
-              Add anyway
-            </button>
-          </div>
-        </div>
-      )}
+      {cal.clash && <ClashNotice className="mt-3" message={cal.clash} onCancel={cal.cancel} onConfirm={() => cal.add(true)} />}
       {cal.saveFailed && (
-        <p role="alert" className="mt-2 text-sm text-red-600 dark:text-red-400">
+        <p role="alert" className="mt-2 text-sm text-danger">
           Your browser wouldn&apos;t let me save that. Private mode?
         </p>
       )}
@@ -421,11 +409,10 @@ function Skeleton() {
   return (
     <div aria-busy="true" className="flex animate-pulse flex-col gap-3">
       <div className="flex gap-2">
-        <div className="h-9 w-28 rounded-full bg-zinc-100 dark:bg-zinc-900" />
-        <div className="h-9 w-36 rounded-full bg-zinc-100 dark:bg-zinc-900" />
+        <div className="h-9 w-28 rounded-lg bg-sunken" />
+        <div className="h-9 w-36 rounded-lg bg-sunken" />
       </div>
-      <div className="h-20 rounded-2xl bg-zinc-100 dark:bg-zinc-900" />
-      <div className="h-20 rounded-2xl bg-zinc-100 dark:bg-zinc-900" />
+      <RowsSkeleton rows={3} rowClassName="h-20" />
     </div>
   );
 }

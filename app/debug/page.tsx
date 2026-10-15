@@ -23,7 +23,7 @@ function Section({ title, count, children }: { title: string; count: number; chi
   return (
     <section className="mb-10">
       <h2 className="mb-3 text-xl font-semibold">
-        {title} <span className="text-sm font-normal text-zinc-500">({count})</span>
+        {title} <span className="text-sm font-normal text-muted">({count})</span>
       </h2>
       <div className="overflow-x-auto">{children}</div>
     </section>
@@ -34,9 +34,9 @@ function Table({ headers, rows }: { headers: string[]; rows: ReactNode[][] }) {
   return (
     <table className="w-full border-collapse text-left text-sm">
       <thead>
-        <tr className="border-b border-zinc-300 dark:border-zinc-700">
+        <tr className="border-b border-line">
           {headers.map((h) => (
-            <th key={h} className="whitespace-nowrap px-2 py-1.5 font-medium text-zinc-500">
+            <th key={h} className="whitespace-nowrap px-2 py-1.5 font-medium text-muted">
               {h}
             </th>
           ))}
@@ -44,7 +44,7 @@ function Table({ headers, rows }: { headers: string[]; rows: ReactNode[][] }) {
       </thead>
       <tbody>
         {rows.map((cells, i) => (
-          <tr key={i} className="border-b border-zinc-100 dark:border-zinc-800">
+          <tr key={i} className="border-b border-line">
             {cells.map((c, j) => (
               <td key={j} className="px-2 py-1.5 align-top">
                 {c}
@@ -69,8 +69,8 @@ export default async function DebugPage() {
 
   return (
     <main className="mx-auto w-full max-w-6xl p-6">
-      <h1 className="text-3xl font-semibold">Bloomsbuddy debug</h1>
-      <p className="mb-8 mt-1 text-sm text-zinc-500">
+      <h1 className="text-title font-semibold">Bloomsbuddy debug</h1>
+      <p className="mb-8 mt-1 text-sm text-muted">
         Mock data only. All times shown in Europe/London. Demo mode:{" "}
         <strong>{isDemoMode() ? "ON" : "OFF"}</strong>
       </p>
