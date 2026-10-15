@@ -7,12 +7,11 @@ import { travelLabel } from "@/lib/buildings";
 export type RecState = { status: "loading" } | { status: "ok"; rec: Recommendation } | { status: "error" };
 
 const LOADING_LINES = [
-  "Guessing how packed the libraries are…",
-  "Checking what societies are up to…",
-  "Peeking at your deadlines…",
-  "Checking if home's worth the walk…",
-  "Scanning your to-do list…",
-  "Weighing up coffee vs. productivity ☕",
+  "Checking library busyness…",
+  "Checking society events…",
+  "Checking your deadlines…",
+  "Checking travel time home…",
+  "Checking your to-do list…",
 ];
 
 const TYPE_EMOJI: Record<RecommendationType, string> = { study: "📚", event: "🎉", rest: "☕", home: "🏠", food: "🍜" };
@@ -57,9 +56,9 @@ function Loading() {
 function Fallback({ onRetry }: { onRetry: () => void }) {
   return (
     <div role="alert" className="rounded-xl bg-white p-4 text-sm dark:bg-zinc-950">
-      <p className="font-semibold">Ah, my brain&apos;s buffering 😅</p>
+      <p className="font-semibold">Couldn&apos;t get recommendations</p>
       <p className="mt-1 text-zinc-600 dark:text-zinc-400">
-        Couldn&apos;t get picks for this gap. Worst case: grab a coffee and try again?
+        Something went wrong loading picks for this gap. Try again.
       </p>
       <button
         type="button"

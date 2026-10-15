@@ -10,7 +10,7 @@ import { Field, inputClass } from "./form-ui";
 
 type LookupState = { status: "idle" } | { status: "checking" } | { status: "error"; message: string };
 
-const OFFLINE = "Couldn't reach the SU website just now. Give it another go in a sec.";
+const OFFLINE = "Couldn't reach the SU website. Try again.";
 
 export function SocietyPicker({ existing, onAdd }: { existing: Society[]; onAdd: (society: Society) => void }) {
   const [link, setLink] = useState("");
