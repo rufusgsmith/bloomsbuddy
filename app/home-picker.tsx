@@ -204,7 +204,7 @@ function OptionCard({
   const Icon = icon;
   return (
     <div
-      className={`shrink-0 rounded-lg border transition-colors ${selected ? "border-square bg-square-tint" : "border-line bg-surface"}`}
+      className={`shrink-0 rounded-lg border transition-colors ${selected ? "border-ink bg-surface" : "border-line bg-surface"}`}
     >
       <button
         type="button"
@@ -223,7 +223,7 @@ function OptionCard({
         <span
           aria-hidden
           className={`flex size-5 shrink-0 items-center justify-center rounded-full ${
-            selected ? "border-[6px] border-square" : "border-2 border-line"
+            selected ? "border-[6px] border-ink" : "border-2 border-line"
           }`}
         />
       </button>
@@ -251,7 +251,7 @@ export function PickRow({
       aria-checked={selected}
       onClick={onPick}
       className={`flex min-h-14 w-full items-center gap-3 rounded-lg px-3 py-2 text-left transition-colors ${
-        selected ? "bg-square-tint ring-1 ring-square" : "hover:bg-sunken"
+        selected ? "bg-sunken ring-1 ring-ink" : "hover:bg-sunken"
       }`}
     >
       <span className="min-w-0 flex-1">
@@ -261,7 +261,7 @@ export function PickRow({
       <span
         aria-hidden
         className={`flex size-5 shrink-0 items-center justify-center rounded-full ${
-          selected ? "bg-square text-on-square" : "ring-1 ring-line"
+          selected ? "bg-ink text-paper" : "ring-1 ring-line"
         }`}
       >
         {selected && <Check size={12} strokeWidth={2.5} />}
