@@ -10,6 +10,7 @@ import { BUILDINGS, FOOD_SPOTS, travelTime, travelTimeBetween, type BuildingId, 
 import { estimateBusyness } from "../library-busyness";
 import { formatDuration } from "../duration";
 import { londonDateKey } from "../gaps";
+import { formatTime } from "../london-time";
 import { lunchInfo } from "../lunch";
 import { byDueThenEstimate, repeatLabel, todosForGap } from "../todos";
 import { deadlinesFromList, eventsFor, getProviders } from "../providers";
@@ -39,29 +40,16 @@ const MIN_MINS_AT_HOME = 30;
 const FOOD_SPOTS_SHOWN = 6;
 const MS_PER_DAY = 86_400_000;
 
-const londonDateTime = new Intl.DateTimeFormat("en-GB", {
-  timeZone: "Europe/London",
-  weekday: "short",
-  day: "numeric",
-  month: "short",
-  hour: "2-digit",
-  minute: "2-digit",
-});
 const londonDay = new Intl.DateTimeFormat("en-GB", {
   timeZone: "Europe/London",
   weekday: "short",
   day: "numeric",
   month: "short",
 });
-const londonTime = new Intl.DateTimeFormat("en-GB", {
-  timeZone: "Europe/London",
-  hour: "2-digit",
-  minute: "2-digit",
-});
 
-/** "Fri 16 Oct, 14:30" in London time, so Claude never does timezone maths. */
-const fmt = (iso: IsoDateTime) => londonDateTime.format(new Date(iso));
-const fmtTime = (iso: IsoDateTime) => londonTime.format(new Date(iso));
+/** "Fri 16 Oct, 2:30pm" in London time, so Claude never does timezone maths. */
+const fmt = (iso: IsoDateTime) => `${londonDay.format(new Date(iso))}, ${formatTime(iso)}`;
+const fmtTime = formatTime;
 /** "Fri 16 Oct", for events whose time isn't known. */
 const fmtDay = (iso: IsoDateTime) => londonDay.format(new Date(iso));
 /** "Thu 15 Oct" for a London day key. Midday UTC is always the same London day. */

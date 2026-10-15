@@ -3,7 +3,8 @@
 import Link from "next/link";
 import { useEffect, useMemo, useRef, useState, useSyncExternalStore } from "react";
 import { londonDateKey } from "@/lib/gaps";
-import { addDays, londonTodayKey } from "@/lib/london-time";
+import { addDays, formatTime, londonTodayKey } from "@/lib/london-time";
+import { DeleteButton } from "../form-ui";
 import { mockSocietyEvents } from "@/lib/mock";
 import { parseUserData, readRawUserData, saveUserData, subscribeUserData } from "@/lib/storage";
 import { termEndKey } from "@/lib/term";
@@ -17,12 +18,6 @@ import { SocietyPicker } from "../society-picker";
 
 type Result = { status: "ok"; events: SocietyEvent[] } | { status: "error" };
 
-const londonTime = new Intl.DateTimeFormat("en-GB", {
-  timeZone: "Europe/London",
-  hour: "2-digit",
-  minute: "2-digit",
-  hourCycle: "h23",
-});
 const londonDay = new Intl.DateTimeFormat("en-GB", {
   timeZone: "Europe/London",
   weekday: "short",
@@ -202,14 +197,13 @@ function Chip({
       )}
       {state === "error" && <span aria-label="Events failed to load" className="h-2 w-2 rounded-full bg-amber-500" />}
       {society.name}
-      <button
-        type="button"
-        onClick={onRemove}
-        aria-label={`Remove ${society.name}`}
+      <DeleteButton
+        onDelete={onRemove}
+        label={`Remove ${society.name}`}
         className="flex h-8 w-8 items-center justify-center rounded-full text-emerald-700 hover:bg-emerald-100 dark:text-emerald-300 dark:hover:bg-emerald-900"
       >
         ×
-      </button>
+      </DeleteButton>
     </span>
   );
 }
@@ -275,8 +269,8 @@ function dayLabel(dateKey: DateKey, today: DateKey): string {
 
 function timeLabel(e: SocietyEvent): string {
   if (e.timeTBC) return e.partOfDay ? `Time TBC · ${e.partOfDay}` : "Time TBC";
-  const start = londonTime.format(new Date(e.start));
-  return e.endEstimated ? start : `${start}–${londonTime.format(new Date(e.end))}`;
+  const start = formatTime(e.start);
+  return e.endEstimated ? start : `${start}–${formatTime(e.end)}`;
 }
 
 function EventCard({ event: e }: { event: SocietyEvent }) {

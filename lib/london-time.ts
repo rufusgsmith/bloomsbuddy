@@ -92,3 +92,21 @@ export function relativeDayLabel(dateKey: DateKey, todayKey: DateKey): string {
   if (diff >= 2 && diff <= 6) return londonWeekdayLong.format(date);
   return londonShortDate.format(date);
 }
+
+/** "HH:MM" (24-hour) → 12-hour, e.g. "14:00" → "2pm", "14:30" → "2:30pm", "00:00" → "12am". */
+export function formatWallTime(time: WallTime): string {
+  const [h, m] = time.split(":").map(Number);
+  const hour = h % 12 || 12;
+  return `${hour}${m ? `:${String(m).padStart(2, "0")}` : ""}${h < 12 ? "am" : "pm"}`;
+}
+
+/** An instant's London wall-clock time, 12-hour: "9am", "2:30pm". */
+export function formatTime(iso: IsoDateTime): string {
+  const { minutes } = londonWeekdayAndMinutes(iso);
+  const hh = String(Math.floor(minutes / 60)).padStart(2, "0");
+  const mm = String(minutes % 60).padStart(2, "0");
+  return formatWallTime(`${hh}:${mm}`);
+}
+
+/** "9am–11am". */
+export const formatTimeRange = (start: IsoDateTime, end: IsoDateTime) => `${formatTime(start)}–${formatTime(end)}`;

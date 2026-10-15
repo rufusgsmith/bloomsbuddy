@@ -2,9 +2,9 @@
 
 import { useRouter } from "next/navigation";
 import { useEffect, useMemo, useSyncExternalStore } from "react";
-import { eventsOnDay, findGaps, londonDateKey } from "@/lib/gaps";
+import { eventsOnDay, findGaps } from "@/lib/gaps";
 import { parseHome, readRawHome, subscribeHome } from "@/lib/home";
-import { addDays, dayOfWeek, londonTodayKey } from "@/lib/london-time";
+import { addDays, londonTodayKey } from "@/lib/london-time";
 import { demoMonday, mockTimetable } from "@/lib/mock";
 import { onboardingSkipped, parseUserData, readRawUserData, subscribeUserData } from "@/lib/storage";
 import { parseTodos, readRawTodos, subscribeTodos } from "@/lib/todos";
@@ -67,26 +67,25 @@ export function Home() {
   );
 }
 
-/** The mock week (always the current one). Opens on today, or on Monday at the weekend. */
+/** The mock week, Monday–Sunday (always the current one). Opens on today, or on Monday at the weekend. */
 function buildDemo(): { days: Day[]; initialDateKey: string } {
   const timetable = mockTimetable();
-  const dateKeys = [...new Set(timetable.map((e) => londonDateKey(e.start)))].sort();
+  const today = londonTodayKey();
+  const monday = demoMonday(today);
+  const dateKeys = Array.from({ length: 7 }, (_, i) => addDays(monday, i));
   const days = dateKeys.map((dateKey) => {
     const events = eventsOnDay(timetable, dateKey);
     return { dateKey, events, gaps: findGaps(events) };
   });
-  const today = londonTodayKey();
-  return { days, initialDateKey: dateKeys.includes(today) ? today : demoMonday(today) };
+  return { days, initialDateKey: dateKeys.includes(today) ? today : monday };
 }
 
-/** Every weekday of term, plus any weekend day that has a class. */
+/** Every day of term, Monday–Sunday, weekends included. */
 function buildDays(user: UserData): Day[] {
   const events = expandWeekly(user.classes, user.termStart, user.weeks);
-  const withEvents = new Set(events.map((e) => londonDateKey(e.start)));
   const days: Day[] = [];
   for (let i = 0; i < user.weeks * 7; i++) {
     const dateKey = addDays(user.termStart, i);
-    if (dayOfWeek(dateKey) > 5 && !withEvents.has(dateKey)) continue;
     const dayEvents = eventsOnDay(events, dateKey);
     days.push({ dateKey, events: dayEvents, gaps: findGaps(dayEvents) });
   }

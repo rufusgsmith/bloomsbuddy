@@ -3,10 +3,11 @@
 import Link from "next/link";
 import { useEffect, useState } from "react";
 import { BUILDINGS } from "@/lib/buildings";
-import { formatDuration, formatDurationShort } from "@/lib/duration";
+import { dayTagline } from "@/lib/day-tagline";
+import { formatDurationShort } from "@/lib/duration";
 import { londonDateKey } from "@/lib/gaps";
 import { homeLabel, homeLocation } from "@/lib/home";
-import { londonTodayKey, mondayOf, relativeDayLabel } from "@/lib/london-time";
+import { addDays, formatTime, londonTodayKey, mondayOf } from "@/lib/london-time";
 import type { Deadline, Gap, Home, Recommendation, Society, TimetableEvent, Todo } from "@/lib/types";
 import { HomeSheet } from "./home-sheet";
 import { RecommendationPanel, type RecState } from "./recommendation-card";
@@ -18,35 +19,25 @@ export interface Day {
 }
 
 // Always format in Europe/London, so the server and the browser render identical text.
-const londonTime = new Intl.DateTimeFormat("en-GB", {
-  timeZone: "Europe/London",
-  hour: "2-digit",
-  minute: "2-digit",
-});
 const londonWeekday = new Intl.DateTimeFormat("en-GB", { timeZone: "Europe/London", weekday: "short" });
 const londonDayMonth = new Intl.DateTimeFormat("en-GB", {
   timeZone: "Europe/London",
   day: "numeric",
   month: "short",
 });
-const londonFullDate = new Intl.DateTimeFormat("en-GB", {
-  timeZone: "Europe/London",
-  weekday: "long",
-  day: "numeric",
-  month: "long",
-});
+const londonWeekdayLong = new Intl.DateTimeFormat("en-GB", { timeZone: "Europe/London", weekday: "long" });
 
-const time = (iso: string) => londonTime.format(new Date(iso));
+const time = formatTime;
 // Midday UTC is always the same calendar day in London, whatever the season.
 const dayDate = (dateKey: string) => new Date(`${dateKey}T12:00:00Z`);
 const place = (id: keyof typeof BUILDINGS) => BUILDINGS[id].shortName;
 
-
-function tagline(gaps: Gap[]): string {
-  if (gaps.length === 0) return "Back-to-back today. Hydrate and survive 💪";
-  const usable = gaps.reduce((sum, g) => sum + g.usableMins, 0);
-  const noun = gaps.length === 1 ? "gap" : "gaps";
-  return `${gaps.length} ${noun}, ${formatDuration(usable)} of free time. Let's not waste it.`;
+/** The big title: "Today", "Tomorrow", "Yesterday", else the weekday ("Saturday"). The date goes underneath. */
+function dayTitle(dateKey: string, todayKey: string): string {
+  if (dateKey === todayKey) return "Today";
+  if (dateKey === addDays(todayKey, 1)) return "Tomorrow";
+  if (dateKey === addDays(todayKey, -1)) return "Yesterday";
+  return londonWeekdayLong.format(dayDate(dateKey));
 }
 
 type Item = { kind: "event"; event: TimetableEvent } | { kind: "gap"; gap: Gap } | { kind: "now"; at: number };
@@ -201,12 +192,13 @@ export function TodayTimeline({
         </div>
         {/* Only rendered in the browser (<Home> shows a skeleton on the server), so reading today here can't mismatch. */}
         <h1 className="text-3xl font-semibold tracking-tight">
-          {day ? relativeDayLabel(day.dateKey, londonTodayKey()) : "Today"}
+          {day ? dayTitle(day.dateKey, londonTodayKey()) : "Today"}
         </h1>
         {day && (
           <>
-            <p className="text-zinc-500 dark:text-zinc-400">{londonFullDate.format(dayDate(day.dateKey))}</p>
-            <p className="mt-1 text-sm text-zinc-600 dark:text-zinc-400">{tagline(day.gaps)}</p>
+            <p className="text-zinc-500 dark:text-zinc-400">{londonDayMonth.format(dayDate(day.dateKey))}</p>
+            {/* Worked out from this day's events on every render, so it follows timetable edits. */}
+            <p className="mt-1 text-sm text-zinc-600 dark:text-zinc-400">{dayTagline(day.dateKey, day.events, day.gaps)}</p>
           </>
         )}
         <HomeButton home={home} onClick={() => setHomeSheetOpen(true)} />
@@ -266,7 +258,7 @@ export function TodayTimeline({
 
       {items.length === 0 ? (
         <p className="rounded-2xl bg-zinc-100 p-6 text-center text-zinc-600 dark:bg-zinc-900 dark:text-zinc-400">
-          Nothing on today. Go touch grass in Gordon Square 🌳
+          Nothing on. Go touch grass in Gordon Square 🌳
         </p>
       ) : (
         <ol className="flex flex-col gap-3">
@@ -331,7 +323,7 @@ function endOf(item: Item): string {
   return item.kind === "event" ? item.event.end : item.gap.end;
 }
 
-/** A red rule across the timeline at the current time, e.g. "● 14:52 ────". */
+/** A red rule across the timeline at the current time, e.g. "● 2:52pm ────". */
 function NowLine({ at }: { at: number }) {
   const label = time(new Date(at).toISOString());
   return (
