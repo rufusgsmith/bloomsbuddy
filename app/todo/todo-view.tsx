@@ -140,7 +140,7 @@ export function TodoEditor({
       <AddTodo today={today} onAdd={(t) => onChange([...todos, t])} />
       {open.length === 0 ? (
         <p className="rounded-2xl border border-dashed border-zinc-300 p-6 text-center text-sm text-zinc-600 dark:border-zinc-700 dark:text-zinc-400">
-          {done.length ? "All done. Look at you go 🎉" : "Nothing on the list. Add something above and I'll find it a gap."}
+          {done.length ? "All done" : "No to-dos yet. Add one above."}
         </p>
       ) : (
         <ul className="flex flex-col gap-2">

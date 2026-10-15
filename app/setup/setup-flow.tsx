@@ -851,7 +851,7 @@ function ReviewStep({
       <div className="rounded-2xl border border-zinc-200 bg-white p-4 dark:border-zinc-800 dark:bg-zinc-950">
         <h3 className="font-semibold">To-do</h3>
         {openTodos.length === 0 ? (
-          <p className="mt-1 text-sm text-zinc-600 dark:text-zinc-400">Nothing yet. Enjoy it while it lasts ✨</p>
+          <p className="mt-1 text-sm text-zinc-600 dark:text-zinc-400">No to-dos yet</p>
         ) : (
           <ul className="mt-2 flex flex-col gap-1 text-sm">
             {openTodos.map((t) => (
@@ -864,14 +864,14 @@ function ReviewStep({
       <div className="rounded-2xl border border-zinc-200 bg-white p-4 dark:border-zinc-800 dark:bg-zinc-950">
         <h3 className="font-semibold">Home</h3>
         <p className="mt-1 text-sm text-zinc-600 dark:text-zinc-400">
-          {home ? homeLabel(home) : "Not set. Add it any time from Today 🏠"}
+          {home ? homeLabel(home) : "Not set. You can add it later from Today."}
         </p>
       </div>
 
       <div className="rounded-2xl border border-zinc-200 bg-white p-4 dark:border-zinc-800 dark:bg-zinc-950">
         <h3 className="font-semibold">Societies</h3>
         {societies.length === 0 ? (
-          <p className="mt-1 text-sm text-zinc-600 dark:text-zinc-400">None yet. Free pizza waits for no one 🍕</p>
+          <p className="mt-1 text-sm text-zinc-600 dark:text-zinc-400">No societies added</p>
         ) : (
           <p className="mt-1 text-sm">{societies.map((s) => s.name).join(", ")}</p>
         )}
@@ -880,7 +880,7 @@ function ReviewStep({
       <div className="rounded-2xl border border-zinc-200 bg-white p-4 dark:border-zinc-800 dark:bg-zinc-950">
         <h3 className="font-semibold">Deadlines</h3>
         {sortedDeadlines.length === 0 ? (
-          <p className="mt-1 text-sm text-zinc-600 dark:text-zinc-400">None added. Lucky you, or in denial? 👀</p>
+          <p className="mt-1 text-sm text-zinc-600 dark:text-zinc-400">No deadlines added</p>
         ) : (
           <ul className="mt-2 flex flex-col gap-1 text-sm">
             {sortedDeadlines.map((d) => (
@@ -1039,7 +1039,7 @@ function Uploader<K extends "timetable" | "deadlines">({
         />
         {reading ? (
           <span aria-live="polite" className="animate-pulse font-medium text-emerald-800 dark:text-emerald-200">
-            {state.from === "image" ? "Squinting at your screenshot…" : "Reading your text…"}
+            {state.from === "image" ? "Reading your screenshot…" : "Reading your text…"}
           </span>
         ) : (
           <>
@@ -1129,7 +1129,7 @@ function Uploader<K extends "timetable" | "deadlines">({
       ) : (
         state.status === "done" && (
           <p aria-live="polite" className="text-sm text-emerald-800 dark:text-emerald-200">
-            Got {plural(state.count)} ✨ Give them a quick check. I can get things wrong.
+            Found {plural(state.count)}. Check them before you continue, as the reading can be wrong.
           </p>
         )
       )}

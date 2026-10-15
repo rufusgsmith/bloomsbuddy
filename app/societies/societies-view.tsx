@@ -250,7 +250,7 @@ function EventList({
       ) : (
         days.length === 0 && (
           <p className="rounded-2xl border border-dashed border-zinc-300 p-6 text-center text-sm text-zinc-600 dark:border-zinc-700 dark:text-zinc-400">
-            Nothing else on this term. Suspiciously quiet.
+            No more events this term.
           </p>
         )
       )}

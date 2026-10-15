@@ -65,13 +65,10 @@ export function LibraryView() {
         </>
       ) : (
         <section className="rounded-2xl border border-zinc-200 bg-white p-5 dark:border-zinc-800 dark:bg-zinc-900">
-          <p className="text-4xl" aria-hidden>
-            🪑
-          </p>
-          <h2 className="mt-3 text-lg font-semibold">Hunting for a seat?</h2>
+          <h2 className="text-lg font-semibold">Library seats</h2>
           <p className="mt-1 text-sm text-zinc-600 dark:text-zinc-400">
-            UCL won&apos;t let me show their seat map in here, but it&apos;s one tap away. Check
-            which libraries have space before you trek across Bloomsbury.
+            The UCL seat map can&apos;t be shown here. Open it on the UCL site to see which
+            libraries have space.
           </p>
           <a
             href={SEATS_URL}

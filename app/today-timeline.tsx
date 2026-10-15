@@ -272,7 +272,7 @@ export function TodayTimeline({
 
       {items.length === 0 ? (
         <p className="rounded-2xl bg-zinc-100 p-6 text-center text-zinc-600 dark:bg-zinc-900 dark:text-zinc-400">
-          Nothing on. Go touch grass in Gordon Square 🌳
+          {day ? dayNote(day.dateKey, todayKey, []) : "Nothing scheduled today"}
         </p>
       ) : (
         <ol className="flex flex-col gap-3">
