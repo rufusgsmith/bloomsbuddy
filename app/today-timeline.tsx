@@ -7,8 +7,9 @@ import { dayNote } from "@/lib/day-note";
 import { formatDurationShort } from "@/lib/duration";
 import { londonDateKey } from "@/lib/gaps";
 import { homeLabel, homeLocation } from "@/lib/home";
-import { addDays, formatTime, londonTodayKey, mondayOf } from "@/lib/london-time";
+import { addDays, dayOfWeek, formatTime, londonWeekdayAndMinutes, mondayOf } from "@/lib/london-time";
 import type { Deadline, Gap, Home, Recommendation, Society, TimetableEvent, Todo } from "@/lib/types";
+import { DayCalendar, DayPills, type CalendarEvent, type CalendarGap } from "./day-calendar";
 import { PageHeader } from "./form-ui";
 import { HomeSheet } from "./home-sheet";
 import { RecommendationPanel, type RecState } from "./recommendation-card";
@@ -41,7 +42,31 @@ function dayTitle(dateKey: string, todayKey: string): string {
   return londonWeekdayLong.format(dayDate(dateKey));
 }
 
-type Item = { kind: "event"; event: TimetableEvent } | { kind: "gap"; gap: Gap } | { kind: "now"; at: number };
+/** Minutes since London midnight. */
+const minuteOfDay = (iso: string) => londonWeekdayAndMinutes(iso).minutes;
+
+function toCalendarEvent(e: TimetableEvent): CalendarEvent {
+  const startMin = minuteOfDay(e.start);
+  // An event running past midnight is cut off at the end of the day.
+  const endMin = londonDateKey(e.end) === londonDateKey(e.start) ? minuteOfDay(e.end) : 24 * 60;
+  return {
+    id: e.id,
+    startMin,
+    endMin,
+    kind: e.kind,
+    title: [e.moduleCode, e.title].filter(Boolean).join(" "),
+    detail: e.room || undefined,
+  };
+}
+
+function toCalendarGap(g: Gap): CalendarGap {
+  return {
+    id: g.id,
+    startMin: minuteOfDay(g.start),
+    endMin: minuteOfDay(g.end),
+    label: `${formatDurationShort(g.durationMins)} free`,
+  };
+}
 
 /** The current time in ms, updated on each minute boundary. */
 function useNow(): number {
@@ -60,20 +85,6 @@ function useNow(): number {
     };
   }, []);
   return now;
-}
-
-/**
- * The day's items with a "now" marker slotted in by time. Only on today, and only between
- * the first item's start and the last item's end: outside that there's no timeline to mark.
- */
-function withNowLine(items: Item[], dateKey: string, now: number): Item[] {
-  if (items.length === 0 || londonDateKey(new Date(now).toISOString()) !== dateKey) return items;
-  const first = Date.parse(startOf(items[0]));
-  const last = Math.max(...items.map((i) => Date.parse(endOf(i))));
-  if (now < first || now > last) return items;
-  const at = items.findIndex((i) => Date.parse(startOf(i)) > now);
-  const marker: Item = { kind: "now", at: now };
-  return at === -1 ? [...items, marker] : [...items.slice(0, at), marker, ...items.slice(at)];
 }
 
 export function TodayTimeline({
@@ -134,14 +145,9 @@ export function TodayTimeline({
     if (next) selectDay(next.dateKey);
   }
   const now = useNow();
-  const todayKey = londonTodayKey();
-  const sorted: Item[] = day
-    ? [
-        ...day.events.map((event): Item => ({ kind: "event", event })),
-        ...day.gaps.map((gap): Item => ({ kind: "gap", gap })),
-      ].sort((a, b) => Date.parse(startOf(a)) - Date.parse(startOf(b)))
-    : [];
-  const items = day ? withNowLine(sorted, day.dateKey, now) : sorted;
+  const nowIso = new Date(now).toISOString();
+  const todayKey = londonDateKey(nowIso);
+  const openGap = day?.gaps.find((g) => g.id === openGapId);
 
   async function loadRec(gap: Gap, dayGaps: Gap[]) {
     setRecs((r) => ({ ...r, [gap.id]: { status: "loading" } }));
@@ -234,70 +240,36 @@ export function TodayTimeline({
         </div>
       )}
 
-      <nav className="mb-6 flex gap-1.5" aria-label="Choose a day">
-        {weekDays.map((d) => {
-          const active = d.dateKey === dateKey;
-          const isToday = d.dateKey === todayKey;
-          const weekend = dayDate(d.dateKey).getUTCDay() % 6 === 0;
-          return (
-            <button
-              key={d.dateKey}
-              type="button"
-              onClick={() => selectDay(d.dateKey)}
-              aria-pressed={active}
-              aria-current={isToday ? "date" : undefined}
-              className={`relative flex min-h-14 min-w-0 flex-1 flex-col items-center justify-center rounded-xl text-xs transition-colors ${
-                active
-                  ? "bg-zinc-900 text-white dark:bg-zinc-100 dark:text-zinc-900"
-                  : `hover:bg-zinc-200 dark:hover:bg-zinc-800 ${
-                      weekend
-                        ? "bg-zinc-50 text-zinc-500 dark:bg-zinc-900/50 dark:text-zinc-500"
-                        : "bg-zinc-100 text-zinc-600 dark:bg-zinc-900 dark:text-zinc-400"
-                    }`
-              }`}
-            >
-              <span>{londonWeekday.format(dayDate(d.dateKey))}</span>
-              <span className="text-base font-semibold">{dayDate(d.dateKey).getUTCDate()}</span>
-              {/* Marks the real today, so it's easy to find again after browsing other days. */}
-              {isToday && (
-                <span
-                  aria-hidden
-                  className={`absolute bottom-1 size-1 rounded-full ${active ? "bg-emerald-400 dark:bg-emerald-600" : "bg-emerald-600 dark:bg-emerald-400"}`}
-                />
-              )}
-            </button>
-          );
-        })}
-      </nav>
+      <DayPills
+        days={weekDays.map((d) => ({
+          key: d.dateKey,
+          weekday: londonWeekday.format(dayDate(d.dateKey)),
+          date: dayDate(d.dateKey).getUTCDate(),
+          // Marks the real today, so it's easy to find again after browsing other days.
+          dot: d.dateKey === todayKey,
+          current: d.dateKey === todayKey,
+          weekend: dayOfWeek(d.dateKey) > 5,
+        }))}
+        active={dateKey ?? ""}
+        onSelect={selectDay}
+      />
 
-      {items.length === 0 ? (
-        <p className="rounded-2xl bg-zinc-100 p-6 text-center text-zinc-600 dark:bg-zinc-900 dark:text-zinc-400">
-          {day ? dayNote(day.dateKey, todayKey, []) : "Nothing scheduled today"}
-        </p>
-      ) : (
-        <ol className="flex flex-col gap-3">
-          {items.map((item) =>
-            item.kind === "now" ? (
-              <li key="now">
-                <NowLine at={item.at} />
-              </li>
-            ) : item.kind === "event" ? (
-              <li key={item.event.id}>
-                <EventBlock event={item.event} />
-              </li>
-            ) : (
-              <li key={item.gap.id}>
-                <GapBlock
-                  gap={item.gap}
-                  open={openGapId === item.gap.id}
-                  onToggle={() => toggleGap(item.gap)}
-                  rec={recs[item.gap.id]}
-                  onRetry={() => day && loadRec(item.gap, day.gaps)}
-                />
-              </li>
-            ),
-          )}
-        </ol>
+      {day && (
+        <DayCalendar
+          events={day.events.map(toCalendarEvent)}
+          gaps={day.gaps.map(toCalendarGap)}
+          nowMin={day.dateKey === todayKey ? minuteOfDay(nowIso) : null}
+          openId={openGapId}
+          onGapTap={(id) => {
+            const gap = day.gaps.find((g) => g.id === id);
+            if (gap) toggleGap(gap);
+          }}
+          panel={
+            openGap && (
+              <GapPanel gap={openGap} rec={recs[openGap.id]} onRetry={() => loadRec(openGap, day.gaps)} />
+            )
+          }
+        />
       )}
     </main>
   );
@@ -327,103 +299,37 @@ function WeekButton({
   );
 }
 
-function startOf(item: Item): string {
-  if (item.kind === "now") return new Date(item.at).toISOString();
-  return item.kind === "event" ? item.event.start : item.gap.start;
-}
-
-function endOf(item: Item): string {
-  if (item.kind === "now") return new Date(item.at).toISOString();
-  return item.kind === "event" ? item.event.end : item.gap.end;
-}
-
-/** A red rule across the timeline at the current time, e.g. "● 14:52 ────". */
-function NowLine({ at }: { at: number }) {
-  const label = time(new Date(at).toISOString());
-  return (
-    <div role="separator" aria-label={`Now, ${label}`} className="flex items-center gap-2">
-      <span aria-hidden className="size-2.5 shrink-0 rounded-full bg-red-500" />
-      <span className="text-xs font-semibold tabular-nums text-red-600 dark:text-red-400">{label}</span>
-      <span aria-hidden className="h-0.5 flex-1 bg-red-500" />
-    </div>
-  );
-}
-
-function EventBlock({ event }: { event: TimetableEvent }) {
-  return (
-    <div className="rounded-2xl border border-zinc-200 bg-white p-4 dark:border-zinc-800 dark:bg-zinc-950">
-      <div className="flex items-center justify-between gap-2 text-sm text-zinc-500">
-        <span className="tabular-nums">
-          {time(event.start)}–{time(event.end)}
-        </span>
-        <span className="rounded-full bg-zinc-100 px-2 py-0.5 text-xs capitalize dark:bg-zinc-800">
-          {event.kind}
-        </span>
-      </div>
-      <p className="mt-1 font-semibold">
-        <span className="text-zinc-500">{event.moduleCode}</span> {event.title}
-      </p>
-      <p className="mt-0.5 text-sm text-zinc-600 dark:text-zinc-400">{event.room}</p>
-    </div>
-  );
-}
-
-function GapBlock({
-  gap,
-  open,
-  onToggle,
-  rec,
-  onRetry,
-}: {
-  gap: Gap;
-  open: boolean;
-  onToggle: () => void;
-  rec: RecState | undefined;
-  onRetry: () => void;
-}) {
+/** Opens inline under a tapped gap: the trip, what's either side, then Claude's picks. */
+function GapPanel({ gap, rec, onRetry }: { gap: Gap; rec: RecState | undefined; onRetry: () => void }) {
   const from = place(gap.locationId);
   const to = place(gap.nextLocationId);
   const sameBuilding = gap.locationId === gap.nextLocationId;
 
-  // The header and the panel are siblings: the panel has its own buttons, and buttons can't nest.
   return (
-    <div className="rounded-2xl border-2 border-dashed border-emerald-400 bg-emerald-50 dark:border-emerald-700 dark:bg-emerald-950/40">
-      <button
-        type="button"
-        onClick={onToggle}
-        aria-expanded={open}
-        aria-controls={`${gap.id}-panel`}
-        className="block w-full rounded-2xl p-4 text-left transition-colors hover:bg-emerald-100 active:bg-emerald-100 dark:hover:bg-emerald-950/70"
-      >
-        <span className="flex items-center justify-between gap-2 text-sm text-emerald-700 dark:text-emerald-300">
+    <div
+      id={`${gap.id}-panel`}
+      className="rounded-2xl border-2 border-emerald-400 bg-emerald-50 p-4 dark:border-emerald-700 dark:bg-emerald-950/40"
+    >
+      <div className="mb-3 border-b border-emerald-200 pb-3 text-sm text-emerald-900 dark:border-emerald-800 dark:text-emerald-100">
+        <p className="font-semibold">
           <span className="tabular-nums">
             {time(gap.start)}–{time(gap.end)}
-          </span>
-          <span aria-hidden className={`transition-transform ${open ? "rotate-180" : ""}`}>
-            ▾
-          </span>
-        </span>
-        <span className="block mt-1 font-semibold text-emerald-900 dark:text-emerald-100">
-          {formatDurationShort(gap.durationMins)} free · {formatDurationShort(gap.usableMins)} usable
-        </span>
-        <span className="block mt-0.5 text-sm text-emerald-800 dark:text-emerald-200">
-          {sameBuilding ? `Staying in ${from}, no walk needed` : `${from} → ${to}, ${formatDurationShort(gap.travelMins)} ${gap.travelMode === "tube" ? "by tube" : "walk"}`}
-        </span>
-      </button>
-
-      {open && (
-        <div id={`${gap.id}-panel`} className="mx-4 mb-4 border-t border-emerald-200 pt-3 dark:border-emerald-800">
-          <div className="mb-3 text-sm text-emerald-900 dark:text-emerald-100">
-            <p>
-              After <strong>{gap.prevEvent.title}</strong> ({place(gap.prevLocationId)})
-            </p>
-            <p>
-              Before <strong>{gap.nextEvent.title}</strong> at {time(gap.end)} ({gap.nextEvent.room})
-            </p>
-          </div>
-          <RecommendationPanel state={rec ?? { status: "loading" }} onRetry={onRetry} />
-        </div>
-      )}
+          </span>{" "}
+          · {formatDurationShort(gap.durationMins)} free · {formatDurationShort(gap.usableMins)} usable
+        </p>
+        <p className="mt-0.5 text-emerald-800 dark:text-emerald-200">
+          {sameBuilding
+            ? `Staying in ${from}, no walk needed`
+            : `${from} → ${to}, ${formatDurationShort(gap.travelMins)} ${gap.travelMode === "tube" ? "by tube" : "walk"}`}
+        </p>
+        <p className="mt-2">
+          After <strong>{gap.prevEvent.title}</strong> ({place(gap.prevLocationId)})
+        </p>
+        <p>
+          Before <strong>{gap.nextEvent.title}</strong> at {time(gap.end)} ({gap.nextEvent.room})
+        </p>
+      </div>
+      <RecommendationPanel state={rec ?? { status: "loading" }} onRetry={onRetry} />
     </div>
   );
 }

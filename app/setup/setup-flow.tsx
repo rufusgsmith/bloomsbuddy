@@ -17,6 +17,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useEffect, useRef, useState, useSyncExternalStore, type ReactNode } from "react";
 import { BUILDINGS, type BuildingId } from "@/lib/buildings";
+import { DayCalendar, DayPills } from "../day-calendar";
 import { DeleteButton, Field, inputClass, PageHeader } from "../form-ui";
 import { HomePicker } from "../home-picker";
 import { SocietyPicker } from "../society-picker";
@@ -316,32 +317,51 @@ function TimetableStep({
   onNext: () => void;
   nextLabel?: string;
 }) {
-  const update = (id: string, patch: Partial<WeeklyClass>) =>
+  // 1 = Monday … 7 = Sunday. Opens on the first day with classes.
+  const [selectedDay, setSelectedDay] = useState(() => (classes.length ? Math.min(...classes.map((c) => c.dayOfWeek)) : 1));
+  const [editingId, setEditingId] = useState<string | null>(null);
+
+  const update = (id: string, patch: Partial<WeeklyClass>) => {
     setClasses(classes.map((c) => (c.id === id ? { ...c, ...patch } : c)));
-  const remove = (id: string) => setClasses(classes.filter((c) => c.id !== id));
-  const add = () =>
+    // Moving a class to another day takes the calendar with it, so the form stays open.
+    if (patch.dayOfWeek && id === editingId) setSelectedDay(patch.dayOfWeek);
+  };
+  const remove = (id: string) => {
+    setClasses(classes.filter((c) => c.id !== id));
+    if (id === editingId) setEditingId(null);
+  };
+  const add = () => {
+    const id = newId("cls");
     setClasses([
       ...classes,
       {
-        id: newId("cls"),
+        id,
         moduleCode: "",
         title: "",
         kind: "lecture",
-        dayOfWeek: 1,
+        dayOfWeek: selectedDay,
         startTime: "09:00",
         endTime: "10:00",
         room: "",
         buildingId: "main-building",
       },
     ]);
+    setEditingId(id);
+  };
 
-  // Group by weekday for display, keeping each row's place in the list stable while typing.
-  const byDay = DAYS.map((label, i) => ({
-    label,
-    rows: classes
-      .filter((c) => c.dayOfWeek === i + 1)
-      .sort((a, b) => a.startTime.localeCompare(b.startTime)),
-  })).filter((d) => d.rows.length > 0);
+  // Classes without a usable start and end can't go on the calendar, so they're listed above it to fix.
+  // The one being edited stays put (drawn with stand-in times), so the form doesn't jump away mid-edit.
+  const placeable = (c: WeeklyClass) =>
+    c.id === editingId || (isWallTime(c.startTime) && isWallTime(c.endTime) && c.endTime > c.startTime);
+  const unplaced = classes.filter((c) => !placeable(c));
+  const dayClasses = classes.filter((c) => c.dayOfWeek === selectedDay && placeable(c));
+  const editing = dayClasses.find((c) => c.id === editingId);
+  const toMin = (t: string) => Number(t.slice(0, 2)) * 60 + Number(t.slice(3, 5));
+  const span = (c: WeeklyClass) => {
+    const startMin = isWallTime(c.startTime) ? toMin(c.startTime) : 9 * 60;
+    const endMin = isWallTime(c.endTime) ? toMin(c.endTime) : 0;
+    return { startMin, endMin: endMin > startMin ? endMin : Math.min(24 * 60, startMin + 30) };
+  };
 
   const lastFriday = addDays(termStart, weeks * 7 - 3);
 
@@ -363,29 +383,73 @@ function TimetableStep({
         onResult={(rows, mode) => setClasses(mode === "replace" ? rows : [...classes, ...rows])}
       />
 
-      {byDay.length > 0 && (
-        <div className="flex flex-col gap-4">
-          {byDay.map((day) => (
-            <div key={day.label}>
-              <h3 className="mb-2 text-sm font-semibold text-zinc-600 dark:text-zinc-400">{day.label}</h3>
-              <ul className="flex flex-col gap-3">
-                {day.rows.map((c) => (
-                  <li key={c.id}>
-                    <ClassRow value={c} onChange={(patch) => update(c.id, patch)} onRemove={() => remove(c.id)} />
-                  </li>
-                ))}
-              </ul>
-            </div>
-          ))}
+      {unplaced.length > 0 && (
+        <div>
+          <h3 className="mb-2 text-sm font-semibold text-red-600 dark:text-red-400">Needs fixing</h3>
+          <ul className="flex flex-col gap-3">
+            {unplaced.map((c) => (
+              <li key={c.id}>
+                <ClassRow value={c} onChange={(patch) => update(c.id, patch)} onRemove={() => remove(c.id)} />
+              </li>
+            ))}
+          </ul>
         </div>
       )}
+
+      <div>
+        <DayPills
+          label="Choose a weekday"
+          days={DAYS.map((weekday, i) => ({
+            key: String(i + 1),
+            weekday,
+            dot: classes.some((c) => c.dayOfWeek === i + 1),
+            weekend: i >= 5,
+          }))}
+          active={String(selectedDay)}
+          onSelect={(key) => {
+            setSelectedDay(Number(key));
+            setEditingId(null);
+          }}
+        />
+        <p className="mb-1 text-sm text-zinc-600 dark:text-zinc-400">
+          {dayClasses.length === 0
+            ? `No classes on ${DAYS[selectedDay - 1]}`
+            : "Tap a class to edit it."}
+        </p>
+        <DayCalendar
+          events={dayClasses.map((c) => ({
+            id: c.id,
+            ...span(c),
+            kind: c.kind,
+            title: [c.moduleCode, c.title].filter(Boolean).join(" ") || "Untitled class",
+            detail: c.room || undefined,
+            invalid: !!classProblem(c) || c.buildingGuessed,
+          }))}
+          openId={editing?.id ?? null}
+          onEventTap={(id) => setEditingId(editingId === id ? null : id)}
+          panel={
+            editing && (
+              <div className="flex flex-col gap-2">
+                <ClassRow value={editing} onChange={(patch) => update(editing.id, patch)} onRemove={() => remove(editing.id)} />
+                <button
+                  type="button"
+                  onClick={() => setEditingId(null)}
+                  className="min-h-11 self-end rounded-full bg-zinc-900 px-5 text-sm font-medium text-white hover:bg-zinc-700 dark:bg-zinc-100 dark:text-zinc-900 dark:hover:bg-zinc-300"
+                >
+                  Done
+                </button>
+              </div>
+            )
+          }
+        />
+      </div>
 
       <button
         type="button"
         onClick={add}
         className="min-h-11 rounded-xl border-2 border-dashed border-zinc-300 text-sm font-medium text-zinc-600 hover:border-zinc-400 hover:bg-zinc-50 dark:border-zinc-700 dark:text-zinc-400 dark:hover:bg-zinc-900"
       >
-        + Add a class by hand
+        + Add a class on {DAYS[selectedDay - 1]}
       </button>
 
       <fieldset className="rounded-2xl bg-zinc-100 p-4 dark:bg-zinc-900">

@@ -39,6 +39,7 @@ Every data source sits behind a **provider interface** with a `mock` and a `real
 
 ## Layout
 - `app/`: Next.js routes and UI. Claude calls go in route handlers (server-side only). Bottom tabs (`tab-bar.tsx`): Today, To-do, Library, Societies, Deadlines
+- `app/day-calendar.tsx`: the shared one-day calendar (`DayCalendar`: hour grid from 08:00–22:00, widened to fit; events placed by time with a solid colour per type; tappable 30+ min gaps; red now line, today only; an inline panel opens under the tapped item) and the Mon–Sun `DayPills`. Today uses it for gaps and recommendations; the timetable editor (`TimetableStep` in `app/setup/setup-flow.tsx`) uses it to tap a class and edit it inline
 - `lib/types.ts`: shared domain types (serialisable; they go to localStorage and into prompts)
 - `lib/buildings.ts`: UCL building and hall coordinates, mock `FOOD_SPOTS`, `walkingMins()`, `travelTime()` (buildings) and `travelTimeBetween()` (any lat/lng, e.g. a postcode)
 - `lib/home.ts`: the student's home in localStorage (`bloomsbuddy:home`) + `homeLocation()` for the recommend request
