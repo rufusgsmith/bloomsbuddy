@@ -2,21 +2,43 @@
 
 import Link from "next/link";
 import { useEffect, useMemo, useRef, useState, useSyncExternalStore } from "react";
+import { clashMessage, findClashes } from "@/lib/clashes";
+import { newId } from "@/lib/deadline-draft";
 import { londonDateKey } from "@/lib/gaps";
-import { addDays, formatTime, londonTodayKey } from "@/lib/london-time";
+import { addDays, formatTime, londonIso, londonTodayKey } from "@/lib/london-time";
+import {
+  dayEventsFor,
+  deleteManualEvent,
+  findSocietyAdd,
+  manualFromSociety,
+  parseEvents,
+  readRawEvents,
+  saveManualEvent,
+  subscribeEvents,
+  type EventStore,
+} from "@/lib/manual-events";
 import { DeleteButton, PageHeader } from "../form-ui";
-import { mockSocietyEvents } from "@/lib/mock";
+import { mockSocietyEvents, mockTimetable } from "@/lib/mock";
 import { parseUserData, readRawUserData, saveUserData, subscribeUserData } from "@/lib/storage";
 import { termEndKey } from "@/lib/term";
-import type { DateKey, Society, SocietyEvent, UserData } from "@/lib/types";
+import { expandWeekly } from "@/lib/timetable";
+import type { DateKey, Society, SocietyEvent, TimetableEvent, UserData } from "@/lib/types";
 import { SocietyPicker } from "../society-picker";
 
 // The Societies tab: the student's societies as chips (add/remove), then all their upcoming
 // events until the end of term, grouped by day (past ones hidden). Each society loads on its
 // own (scraping can take a few seconds), so one slow or broken SU page never holds up the rest.
 // Without a saved timetable there's nowhere to save societies, so it shows the demo ones read-only.
+// Any event with a real time can be added to the calendar (a one-off manual event linked by
+// societyEventId), which works in the demo week too.
 
 type Result = { status: "ok"; events: SocietyEvent[] } | { status: "error" };
+
+/** What adding an event needs: the saved manual events, and the timetable to check clashes against. */
+interface Calendar {
+  store: EventStore;
+  timetable: TimetableEvent[];
+}
 
 const londonDay = new Intl.DateTimeFormat("en-GB", {
   timeZone: "Europe/London",
@@ -29,17 +51,25 @@ export function SocietiesView() {
   // "" = checked, nothing saved. null = not checked yet (server render / hydration).
   const raw = useSyncExternalStore(subscribeUserData, () => readRawUserData() ?? "", () => null);
   const user = useMemo(() => parseUserData(raw), [raw]);
+  const rawEvents = useSyncExternalStore(subscribeEvents, () => readRawEvents() ?? "", () => null);
+  const store = useMemo(() => parseEvents(rawEvents), [rawEvents]);
+  // Browser only (raw is null on the server), so the demo week never moves with the server's clock.
+  const timetable = useMemo(
+    () => (raw === null ? [] : user ? expandWeekly(user.classes, user.termStart, user.weeks) : mockTimetable()),
+    [raw, user],
+  );
+  const calendar = useMemo(() => ({ store, timetable }), [store, timetable]);
 
   return (
     <main className="mx-auto w-full max-w-md px-4 pb-28 pt-8">
       <PageHeader title="Societies" />
-      {raw === null ? <Skeleton /> : user ? <Mine user={user} /> : <Demo />}
+      {raw === null ? <Skeleton /> : user ? <Mine user={user} calendar={calendar} /> : <Demo calendar={calendar} />}
     </main>
   );
 }
 
 /** The student's own societies: editable, events fetched per society. */
-function Mine({ user }: { user: UserData }) {
+function Mine({ user, calendar }: { user: UserData; calendar: Calendar }) {
   const societies = useMemo(() => user.societies ?? [], [user]);
   const [results, setResults] = useState<Record<string, Result>>({});
   const [saveFailed, setSaveFailed] = useState(false);
@@ -123,14 +153,20 @@ function Mine({ user }: { user: UserData }) {
       ))}
 
       {societies.length > 0 && (
-        <EventList events={events} now={clock.now} today={clock.today} stillLoading={loading.length} />
+        <EventList
+          events={events}
+          now={clock.now}
+          today={clock.today}
+          stillLoading={loading.length}
+          calendar={calendar}
+        />
       )}
     </>
   );
 }
 
 /** No saved timetable: the demo week's societies and events, read-only. */
-function Demo() {
+function Demo({ calendar }: { calendar: Calendar }) {
   const [clock] = useState(() => ({ now: Date.now(), today: londonTodayKey() }));
   // Built in the browser only, so the server never moves the demo week with its own clock.
   const events = useMemo(() => mockSocietyEvents(), []);
@@ -157,7 +193,7 @@ function Demo() {
           </li>
         ))}
       </ul>
-      <EventList events={events} now={clock.now} today={clock.today} stillLoading={0} />
+      <EventList events={events} now={clock.now} today={clock.today} stillLoading={0} calendar={calendar} />
     </>
   );
 }
@@ -211,11 +247,13 @@ function EventList({
   now,
   today,
   stillLoading,
+  calendar,
 }: {
   events: SocietyEvent[];
   now: number;
   today: DateKey;
   stillLoading: number;
+  calendar: Calendar;
 }) {
   const days = useMemo(() => {
     const upcoming = [...new Map(events.map((e) => [e.id, e])).values()]
@@ -237,7 +275,7 @@ function EventList({
           <ul className="flex flex-col gap-2">
             {dayEvents.map((e) => (
               <li key={e.id}>
-                <EventCard event={e} />
+                <EventCard event={e} calendar={calendar} />
               </li>
             ))}
           </ul>
@@ -270,7 +308,7 @@ function timeLabel(e: SocietyEvent): string {
   return e.endEstimated ? start : `${start}–${formatTime(e.end)}`;
 }
 
-function EventCard({ event: e }: { event: SocietyEvent }) {
+function EventCard({ event: e, calendar }: { event: SocietyEvent; calendar: Calendar }) {
   // Only what the page actually said: no cost tag when it didn't mention cost.
   const tags: { label: string; tone: string }[] = [];
   if (e.membersOnly) tags.push({ label: "Members only", tone: "bg-violet-100 text-violet-800 dark:bg-violet-950 dark:text-violet-200" });
@@ -303,7 +341,89 @@ function EventCard({ event: e }: { event: SocietyEvent }) {
           ))}
         </div>
       )}
+      {/* A "Time TBC" session has no real time to block out. */}
+      {!e.timeTBC && <AddToCalendar event={e} calendar={calendar} />}
     </article>
+  );
+}
+
+/**
+ * "Add to my calendar", then "Added ✓" (two taps to remove, like every delete). Adding over
+ * another event first asks "Add anyway" / "Cancel".
+ */
+function AddToCalendar({ event: e, calendar }: { event: SocietyEvent; calendar: Calendar }) {
+  const added = findSocietyAdd(calendar.store, e.id);
+  const [clash, setClash] = useState<string | null>(null);
+  const [saveFailed, setSaveFailed] = useState(false);
+
+  function add(anyway: boolean) {
+    const m = manualFromSociety(e, newId("ev"));
+    if (!anyway) {
+      const found = findClashes(
+        dayEventsFor(calendar.timetable, calendar.store, m.date),
+        londonIso(m.date, m.startTime),
+        londonIso(m.date, m.endTime),
+      );
+      if (found.length) {
+        setClash(clashMessage(found));
+        return;
+      }
+    }
+    setClash(null);
+    setSaveFailed(!saveManualEvent(m));
+  }
+
+  function remove() {
+    if (added) setSaveFailed(!deleteManualEvent(added.id));
+  }
+
+  const buttonClass = "min-h-11 rounded-full px-4 text-sm font-medium";
+  return (
+    <div className="mt-3">
+      {added ? (
+        <DeleteButton
+          onDelete={remove}
+          armedText="Tap again to remove"
+          label={`Added to your calendar. Remove ${e.title}`}
+          className={`${buttonClass} bg-emerald-100 text-emerald-800 hover:bg-emerald-200 dark:bg-emerald-950 dark:text-emerald-200 dark:hover:bg-emerald-900`}
+        >
+          Added ✓
+        </DeleteButton>
+      ) : clash ? (
+        <div role="alert" className="rounded-xl border border-amber-300 bg-amber-50 p-3 dark:border-amber-800 dark:bg-amber-950/40">
+          <p className="mb-2 text-sm font-medium text-amber-900 dark:text-amber-100">⚠️ {clash}</p>
+          <div className="flex justify-end gap-2">
+            <button
+              type="button"
+              onClick={() => setClash(null)}
+              className={`${buttonClass} text-zinc-700 hover:bg-amber-100 dark:text-zinc-300 dark:hover:bg-amber-900/40`}
+            >
+              Cancel
+            </button>
+            <button
+              type="button"
+              onClick={() => add(true)}
+              className={`${buttonClass} bg-zinc-900 text-white hover:bg-zinc-700 dark:bg-zinc-100 dark:text-zinc-900 dark:hover:bg-zinc-300`}
+            >
+              Add anyway
+            </button>
+          </div>
+        </div>
+      ) : (
+        <button
+          type="button"
+          onClick={() => add(false)}
+          className={`${buttonClass} bg-zinc-100 text-zinc-800 hover:bg-zinc-200 dark:bg-zinc-800 dark:text-zinc-100 dark:hover:bg-zinc-700`}
+        >
+          Add to my calendar
+        </button>
+      )}
+      {saveFailed && (
+        <p role="alert" className="mt-2 text-sm text-red-600 dark:text-red-400">
+          Your browser wouldn&apos;t let me save that. Private mode?
+        </p>
+      )}
+    </div>
   );
 }
 

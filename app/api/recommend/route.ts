@@ -4,6 +4,7 @@
 // societies are the student's SU societies; outside demo mode their real events replace the mock ones.
 // home ({ label, lat, lng }) is where the student lives, so Claude can suggest popping back.
 // todos are the To-do tab's open and repeating items; recommendForGap keeps the ones that fit the gap.
+// addedEventIds are society event ids already on the student's calendar: fixed plans, never suggested again.
 import { recommendForGap } from "@/lib/recommend/recommend";
 import { isSlug } from "@/lib/societies/su-site";
 import { isTodo, migrateTodo } from "@/lib/todos";
@@ -13,6 +14,7 @@ import type { Deadline, Gap, HomeLocation, Society } from "@/lib/types";
 const MAX_SOCIETIES = 10;
 /** Keeps the get_todos result (and the prompt) small. */
 const MAX_TODOS = 30;
+const MAX_ADDED_EVENTS = 100;
 
 function isGap(x: unknown): x is Gap {
   const g = x as Partial<Gap> | null;
@@ -60,7 +62,7 @@ function isHomeLocation(x: unknown): x is HomeLocation {
 }
 
 export async function POST(request: Request) {
-  let body: { gap?: unknown; dayGaps?: unknown; deadlines?: unknown; societies?: unknown; home?: unknown; todos?: unknown };
+  let body: { gap?: unknown; dayGaps?: unknown; deadlines?: unknown; societies?: unknown; home?: unknown; todos?: unknown; addedEventIds?: unknown };
   try {
     body = await request.json();
   } catch {
@@ -87,7 +89,10 @@ export async function POST(request: Request) {
     const todos = Array.isArray(body.todos)
       ? body.todos.map(migrateTodo).filter(isTodo).filter((t) => !t.done || t.repeat).slice(0, MAX_TODOS)
       : undefined;
-    return Response.json(await recommendForGap(body.gap, dayGaps, { deadlines, societies, home, todos }));
+    const addedEventIds = Array.isArray(body.addedEventIds)
+      ? body.addedEventIds.filter((id): id is string => typeof id === "string" && id.length <= 200).slice(0, MAX_ADDED_EVENTS)
+      : undefined;
+    return Response.json(await recommendForGap(body.gap, dayGaps, { deadlines, societies, home, todos, addedEventIds }));
   } catch (err) {
     console.error("[recommend] failed:", err);
     return Response.json({ error: "Couldn't get a recommendation, try again" }, { status: 502 });

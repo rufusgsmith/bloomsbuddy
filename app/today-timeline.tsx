@@ -126,6 +126,8 @@ export function TodayTimeline({
   const homeLoc = homeLocation(home);
   // Repeating to-dos go too, even if ticked: /api/recommend works out which come up on the gap's day.
   const openTodos = todos.filter((t) => !t.done || t.repeat);
+  // Society events already on the calendar, so Claude doesn't suggest them again.
+  const addedEventIds = manualEvents.flatMap((m) => (m.societyEventId ? [m.societyEventId] : []));
 
   const day = days.find((d) => d.dateKey === dateKey);
 
@@ -188,6 +190,7 @@ export function TodayTimeline({
           ...(societies?.length ? { societies } : {}),
           ...(homeLoc ? { home: homeLoc } : {}),
           ...(openTodos.length ? { todos: openTodos } : {}),
+          ...(addedEventIds.length ? { addedEventIds } : {}),
         }),
       });
       if (!res.ok) throw new Error(`HTTP ${res.status}`);
@@ -235,7 +238,13 @@ export function TodayTimeline({
         <HomeButton home={home} onClick={() => setHomeSheetOpen(true)} />
       </PageHeader>
       {homeSheetOpen && <HomeSheet home={home} onClose={() => setHomeSheetOpen(false)} />}
-      {eventForm && <EventSheet target={eventForm} onClose={() => setEventForm(null)} />}
+      {eventForm && (
+        <EventSheet
+          target={eventForm}
+          eventsOn={(k) => days.find((d) => d.dateKey === k)?.events ?? []}
+          onClose={() => setEventForm(null)}
+        />
+      )}
 
       {mode === "demo" && (
         <Link

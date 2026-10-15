@@ -6,9 +6,10 @@
 // class is hidden, and an edited copy is saved as a one-off ManualEvent.
 
 import { BUILDINGS, type BuildingId } from "./buildings";
+import { eventsOnDay, londonDateKey } from "./gaps";
 import { dayOfWeek, isDateKey, isWallTime, londonIso, londonWeekdayAndMinutes } from "./london-time";
 import { isPostcodeShape } from "./postcode";
-import type { DateKey, EventKind, EventLocation, ManualEvent, TimetableEvent, WallTime } from "./types";
+import type { DateKey, EventKind, EventLocation, ManualEvent, SocietyEvent, TimetableEvent, WallTime } from "./types";
 
 const KEY = "bloomsbuddy:events";
 /** Fired on this tab after we write. The "storage" event only reaches other tabs. */
@@ -69,6 +70,7 @@ export function isManualEvent(x: unknown): x is ManualEvent {
     typeof m.weekly === "boolean" &&
     (m.moduleCode === undefined || typeof m.moduleCode === "string") &&
     (m.fromClass === undefined || m.fromClass === true) &&
+    (m.societyEventId === undefined || typeof m.societyEventId === "string") &&
     (m.room === undefined || typeof m.room === "string") &&
     (m.location === undefined || isLocation(m.location))
   );
@@ -165,6 +167,35 @@ export function eventsForDay(classes: TimetableEvent[], store: EventStore, dateK
   ];
 }
 
+/** Same, from a whole timetable (any days): picks out that day's classes first. */
+export const dayEventsFor = (timetable: TimetableEvent[], store: EventStore, dateKey: DateKey) =>
+  eventsForDay(eventsOnDay(timetable, dateKey), store, dateKey);
+
+// ---------- Society events ----------
+
+/** The student's copy of a society event, if they've added it to their calendar. */
+export const findSocietyAdd = (store: EventStore, societyEventId: string) =>
+  store.events.find((m) => m.societyEventId === societyEventId);
+
+/** A society event as a one-off manual event, linked back to it. Cut at midnight if it runs over. */
+export function manualFromSociety(e: SocietyEvent, id: string): ManualEvent {
+  const date = londonDateKey(e.start);
+  const startMin = londonWeekdayAndMinutes(e.start).minutes;
+  const endMin = londonDateKey(e.end) === date ? londonWeekdayAndMinutes(e.end).minutes : 24 * 60;
+  return {
+    id,
+    title: e.title.slice(0, MAX_TITLE),
+    societyEventId: e.id,
+    kind: "society",
+    date,
+    startTime: wallTimeOf(startMin),
+    endTime: wallTimeOf(Math.max(endMin, startMin + 1)),
+    ...(e.venue ? { room: e.venue } : {}),
+    ...(e.buildingId ? { location: { kind: "building" as const, buildingId: e.buildingId } } : {}),
+    weekly: false,
+  };
+}
+
 // ---------- The form ----------
 
 export type LocationChoice = "none" | "building" | "postcode";
@@ -174,6 +205,7 @@ export interface EventDraft {
   title: string;
   moduleCode?: string;
   fromClass?: true;
+  societyEventId?: string;
   kind: EventKind;
   date: DateKey;
   startTime: WallTime;
@@ -212,6 +244,7 @@ export function draftFromManual(m: ManualEvent): EventDraft {
     title: m.title,
     moduleCode: m.moduleCode,
     ...(m.fromClass ? { fromClass: true as const } : {}),
+    ...(m.societyEventId ? { societyEventId: m.societyEventId } : {}),
     kind: m.kind,
     date: m.date,
     startTime: m.startTime,
@@ -273,6 +306,7 @@ export function eventFromDraft(
     title: d.title.trim(),
     ...(d.moduleCode ? { moduleCode: d.moduleCode } : {}),
     ...(d.fromClass ? { fromClass: true as const } : {}),
+    ...(d.societyEventId ? { societyEventId: d.societyEventId } : {}),
     kind: d.kind,
     date: d.date,
     startTime: d.startTime,
