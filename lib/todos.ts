@@ -3,7 +3,7 @@
 // The pure helpers below (validation, repeats, which to-dos fit a gap) are shared with /api/recommend.
 
 import { londonDateKey } from "./gaps";
-import { addDays, dayOfWeek, isDateKey, isWallTime, londonWeekdayAndMinutes } from "./london-time";
+import { addDays, dayOfWeek, formatWallTime, isDateKey, isWallTime, londonWeekdayAndMinutes } from "./london-time";
 import type { DateKey, Gap, PartOfDay, Todo, TodoRepeat, Weekday } from "./types";
 
 const KEY = "bloomsbuddy:todos";
@@ -199,7 +199,7 @@ export function repeatLabel(r: TodoRepeat): string {
           ? "Every day"
           : (r.days ?? []).map((d) => WEEKDAY_SHORT[d - 1]).join(", ")
         : `${ordinal(r.dayOfMonth ?? 1)} of the month`;
-  const at = r.time ?? (r.partOfDay ? PARTS_OF_DAY.find((p) => p.value === r.partOfDay)?.label : undefined);
+  const at = r.time ? formatWallTime(r.time) : (r.partOfDay ? PARTS_OF_DAY.find((p) => p.value === r.partOfDay)?.label : undefined);
   return `↻ ${when}${at ? ` · ${at}` : ""}`;
 }
 

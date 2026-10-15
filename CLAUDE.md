@@ -63,3 +63,9 @@ Every data source sits behind a **provider interface** with a `mock` and a `real
 - Secrets live only in `.env.local` (gitignored). `ANTHROPIC_API_KEY` is server-side only and never imported into client components.
 - `.env.example` documents every env var.
 - Keep dependencies minimal and ask before adding new ones.
+
+## UI rules
+Follow these everywhere in the app:
+- **Times are always 12-hour**: "2pm", "2:30pm", "9am–11am". Never "1400" or "14:00". Use `formatTime` / `formatTimeRange` / `formatWallTime` from `lib/london-time.ts`. (Storage and `<input type="time">` stay "HH:MM"; only what's shown changes.) Claude is told the same in the system prompt.
+- **Delete is two taps**: the first tap turns the button red with "Tap again to delete", and it resets after 3s. No confirm dialogs or option menus. Use `DeleteButton` from `app/form-ui.tsx`.
+- **Every view shows Monday–Sunday**, including Saturday and Sunday.

@@ -1,7 +1,7 @@
 "use client";
 
 import { useMemo, useState, useSyncExternalStore, type FormEvent, type ReactNode } from "react";
-import { inputClass } from "../form-ui";
+import { DeleteButton, inputClass } from "../form-ui";
 import { formatDurationShort } from "@/lib/duration";
 import { londonTodayKey, relativeDayLabel } from "@/lib/london-time";
 import {
@@ -222,7 +222,6 @@ function TodoForm({
   const [draft, setDraft] = useState<TodoDraft>(() => toDraft(initial));
   // Errors only show once a field has been touched (or on submit), so a fresh form isn't red.
   const [touched, setTouched] = useState({ duration: false, doBefore: false, repeat: false });
-  const [confirmDelete, setConfirmDelete] = useState(false);
   const set = (patch: Partial<TodoDraft>) => setDraft((d) => ({ ...d, ...patch }));
   const touch = (k: keyof typeof touched) => setTouched((t) => ({ ...t, [k]: true }));
 
@@ -287,13 +286,12 @@ function TodoForm({
 
           <div className="flex items-center gap-2">
             {onDelete && (
-              <button
-                type="button"
-                onClick={() => (confirmDelete ? onDelete() : setConfirmDelete(true))}
+              <DeleteButton
+                onDelete={onDelete}
                 className="min-h-11 rounded-full px-3 text-sm font-medium text-red-600 hover:bg-red-50 dark:text-red-400 dark:hover:bg-red-950"
               >
-                {confirmDelete ? "Tap again to delete" : "Delete"}
-              </button>
+                Delete
+              </DeleteButton>
             )}
             <button type="button" onClick={onCancel} className={`ml-auto ${secondaryButton}`}>
               Cancel
@@ -626,14 +624,13 @@ function TodoRow({
         <PencilIcon />
       </button>
       {!allowTick && (
-        <button
-          type="button"
-          onClick={onRemove}
-          aria-label={`Remove ${t.title}`}
+        <DeleteButton
+          onDelete={onRemove}
+          label={`Remove ${t.title}`}
           className="mr-1 flex size-11 shrink-0 items-center justify-center rounded-full text-xl text-zinc-500 hover:bg-red-50 hover:text-red-600 dark:hover:bg-red-950 dark:hover:text-red-400"
         >
           ×
-        </button>
+        </DeleteButton>
       )}
     </div>
   );

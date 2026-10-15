@@ -17,13 +17,13 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useEffect, useRef, useState, useSyncExternalStore, type ReactNode } from "react";
 import { BUILDINGS, type BuildingId } from "@/lib/buildings";
-import { Field, inputClass } from "../form-ui";
+import { DeleteButton, Field, inputClass } from "../form-ui";
 import { HomePicker } from "../home-picker";
 import { SocietyPicker } from "../society-picker";
 import { TodoEditor } from "../todo/todo-view";
 import { blankDraft, deadlineProblem, fromDraft, newId, toDraft, type DraftDeadline } from "@/lib/deadline-draft";
 import { homeLabel, parseHome, readRawHome, saveHome } from "@/lib/home";
-import { addDays, isDateKey, isWallTime, londonTodayKey, mondayOf } from "@/lib/london-time";
+import { addDays, formatWallTime, isDateKey, isWallTime, londonTodayKey, mondayOf } from "@/lib/london-time";
 import {
   clearUserData,
   markOnboardingSkipped,
@@ -887,7 +887,8 @@ function ReviewStep({
             {sortedDeadlines.map((d) => (
               <li key={d.id}>
                 <span className="tabular-nums text-zinc-500">
-                  {isDateKey(d.date) ? londonWeekdayDayMonth.format(dayDate(d.date)) : d.date} {d.time}
+                  {isDateKey(d.date) ? londonWeekdayDayMonth.format(dayDate(d.date)) : d.date}{" "}
+                  {isWallTime(d.time) ? formatWallTime(d.time) : d.time}
                 </span>{" "}
                 {d.moduleCode && <span className="text-zinc-500">{d.moduleCode} </span>}
                 {d.title}
@@ -914,13 +915,14 @@ function SaveError() {
 
 function UseDemoButton({ onClick }: { onClick: () => void }) {
   return (
-    <button
-      type="button"
-      onClick={onClick}
-      className="self-center rounded-full px-3 py-2 text-sm text-zinc-500 underline-offset-4 hover:underline"
-    >
-      Delete my timetable and use the demo week
-    </button>
+    <span className="self-center">
+      <DeleteButton
+        onDelete={onClick}
+        className="rounded-full px-3 py-2 text-sm text-zinc-500 underline-offset-4 hover:underline"
+      >
+        Delete my timetable and use the demo week
+      </DeleteButton>
+    </span>
   );
 }
 
@@ -1142,14 +1144,13 @@ function Uploader<K extends "timetable" | "deadlines">({
 
 function RemoveButton({ label, onClick }: { label: string; onClick: () => void }) {
   return (
-    <button
-      type="button"
-      aria-label={label}
-      onClick={onClick}
+    <DeleteButton
+      onDelete={onClick}
+      label={label}
       className="flex size-11 shrink-0 items-center justify-center rounded-lg text-zinc-500 hover:bg-red-50 hover:text-red-600 dark:hover:bg-red-950/40"
     >
       ✕
-    </button>
+    </DeleteButton>
   );
 }
 

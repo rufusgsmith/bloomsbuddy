@@ -2,10 +2,10 @@
 
 import Link from "next/link";
 import { useMemo, useRef, useState, useSyncExternalStore, type ReactNode } from "react";
-import { Field, inputClass } from "../form-ui";
+import { DeleteButton, Field, inputClass } from "../form-ui";
 import { blankDraft, deadlineProblem, fromDraft, toDraft, type DraftDeadline } from "@/lib/deadline-draft";
 import { londonDateKey } from "@/lib/gaps";
-import { addDays, londonTodayKey, mondayOf } from "@/lib/london-time";
+import { addDays, formatTime, londonTodayKey, mondayOf } from "@/lib/london-time";
 import { mockDeadlines } from "@/lib/mock";
 import { prepareImage } from "@/lib/prepare-image";
 import { parseUserData, readRawUserData, saveUserData, subscribeUserData } from "@/lib/storage";
@@ -20,15 +20,14 @@ const MS_PER_DAY = 86_400_000;
 /** Badges turn red at this many days left or fewer. */
 const URGENT_DAYS = 2;
 
-const londonDue = new Intl.DateTimeFormat("en-GB", {
+const londonDueDay = new Intl.DateTimeFormat("en-GB", {
   timeZone: "Europe/London",
   weekday: "short",
   day: "numeric",
   month: "short",
-  hour: "2-digit",
-  minute: "2-digit",
-  hourCycle: "h23",
 });
+/** "Fri 16 Oct, 5pm". */
+const dueLabel = (iso: string) => `${londonDueDay.format(new Date(iso))}, ${formatTime(iso)}`;
 
 
 /** Whole London calendar days from one day key to another. */
@@ -325,7 +324,7 @@ function DeadlineRow({ deadline: d, today, past }: { deadline: Deadline; today: 
         {d.moduleCode && <p className="text-xs font-semibold text-emerald-700 dark:text-emerald-400">{d.moduleCode}</p>}
         <p className="font-medium">{d.title}</p>
         <p className="mt-0.5 text-sm text-zinc-600 dark:text-zinc-400">
-          {londonDue.format(new Date(d.due))}
+          {dueLabel(d.due)}
           {d.weight !== undefined && ` · ${d.weight}%`}
         </p>
       </div>
@@ -359,8 +358,6 @@ function DeadlineForm({
   onSave: () => void;
   onDelete: () => void;
 }) {
-  // Delete takes two taps instead of a browser confirm() dialog.
-  const [confirmDelete, setConfirmDelete] = useState(false);
   const problem = deadlineProblem(d);
 
   return (
@@ -413,13 +410,12 @@ function DeadlineForm({
       {problem && <p className="mt-2 text-sm text-red-600 dark:text-red-400">{problem}</p>}
       <div className="mt-3 flex gap-2">
         {!isNew && (
-          <button
-            type="button"
-            onClick={() => (confirmDelete ? onDelete() : setConfirmDelete(true))}
+          <DeleteButton
+            onDelete={onDelete}
             className="min-h-11 rounded-full px-4 text-sm font-medium text-red-600 hover:bg-red-50 dark:text-red-400 dark:hover:bg-red-950"
           >
-            {confirmDelete ? "Tap again to delete" : "Delete"}
-          </button>
+            Delete
+          </DeleteButton>
         )}
         <button
           type="button"

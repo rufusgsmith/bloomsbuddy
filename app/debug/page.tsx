@@ -4,26 +4,18 @@ import type { ReactNode } from "react";
 import { BUILDINGS, travelLabel, travelTime, type BuildingId } from "@/lib/buildings";
 import { isDemoMode } from "@/lib/config";
 import { estimateBusyness, LIBRARY_SNAPSHOT } from "@/lib/library-busyness";
-import { londonIso, londonTodayKey } from "@/lib/london-time";
+import { formatTime, formatWallTime, londonIso, londonTodayKey } from "@/lib/london-time";
 import { mockDeadlines, mockSocietyEvents, mockTimetable } from "@/lib/mock";
 
-const londonDateTime = new Intl.DateTimeFormat("en-GB", {
+const londonDay = new Intl.DateTimeFormat("en-GB", {
   timeZone: "Europe/London",
   weekday: "short",
   day: "numeric",
   month: "short",
-  hour: "2-digit",
-  minute: "2-digit",
-  timeZoneName: "short",
-});
-const londonTime = new Intl.DateTimeFormat("en-GB", {
-  timeZone: "Europe/London",
-  hour: "2-digit",
-  minute: "2-digit",
 });
 
-const dt = (iso: string) => londonDateTime.format(new Date(iso));
-const t = (iso: string) => londonTime.format(new Date(iso));
+const dt = (iso: string) => `${londonDay.format(new Date(iso))}, ${formatTime(iso)}`;
+const t = formatTime;
 const BUSYNESS_TIMES = ["09:00", "12:00", "15:00", "18:00"];
 const buildingName = (id?: BuildingId) => (id ? BUILDINGS[id].shortName : "—");
 
@@ -130,7 +122,7 @@ export default async function DebugPage() {
 
       <Section title={`Library busyness (estimated for ${londonTodayKey()})`} count={LIBRARY_SNAPSHOT.length}>
         <Table
-          headers={["Library", "Tue 11:40 snapshot", ...BUSYNESS_TIMES]}
+          headers={["Library", "Tue 11:40am snapshot", ...BUSYNESS_TIMES.map(formatWallTime)]}
           rows={LIBRARY_SNAPSHOT.map((s) => [
             s.name,
             `${s.free} / ${s.total} free`,
