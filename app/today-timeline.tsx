@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { useEffect, useState } from "react";
 import { BUILDINGS } from "@/lib/buildings";
-import { dayTagline } from "@/lib/day-tagline";
+import { dayNote } from "@/lib/day-note";
 import { formatDurationShort } from "@/lib/duration";
 import { londonDateKey } from "@/lib/gaps";
 import { homeLabel, homeLocation } from "@/lib/home";
@@ -198,7 +198,7 @@ export function TodayTimeline({
           <>
             <p className="text-zinc-500 dark:text-zinc-400">{londonDayMonth.format(dayDate(day.dateKey))}</p>
             {/* Worked out from this day's events on every render, so it follows timetable edits. */}
-            <p className="mt-1 text-sm text-zinc-600 dark:text-zinc-400">{dayTagline(day.dateKey, day.events, day.gaps)}</p>
+            <p className="mt-1 text-sm text-zinc-600 dark:text-zinc-400">{dayNote(day.dateKey, todayKey, day.events)}</p>
           </>
         )}
         <HomeButton home={home} onClick={() => setHomeSheetOpen(true)} />
@@ -337,7 +337,7 @@ function endOf(item: Item): string {
   return item.kind === "event" ? item.event.end : item.gap.end;
 }
 
-/** A red rule across the timeline at the current time, e.g. "● 2:52pm ────". */
+/** A red rule across the timeline at the current time, e.g. "● 14:52 ────". */
 function NowLine({ at }: { at: number }) {
   const label = time(new Date(at).toISOString());
   return (

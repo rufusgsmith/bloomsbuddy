@@ -47,7 +47,7 @@ const londonDay = new Intl.DateTimeFormat("en-GB", {
   month: "short",
 });
 
-/** "Fri 16 Oct, 2:30pm" in London time, so Claude never does timezone maths. */
+/** "Fri 16 Oct, 14:30" in London time, so Claude never does timezone maths. */
 const fmt = (iso: IsoDateTime) => `${londonDay.format(new Date(iso))}, ${formatTime(iso)}`;
 const fmtTime = formatTime;
 /** "Fri 16 Oct", for events whose time isn't known. */

@@ -66,6 +66,7 @@ Every data source sits behind a **provider interface** with a `mock` and a `real
 
 ## UI rules
 Follow these everywhere in the app:
-- **Times are always 12-hour**: "2pm", "2:30pm", "9am–11am". Never "1400" or "14:00". Use `formatTime` / `formatTimeRange` / `formatWallTime` from `lib/london-time.ts`. (Storage and `<input type="time">` stay "HH:MM"; only what's shown changes.) Claude is told the same in the system prompt.
+- **Times are always 24-hour**: "14:00", "09:30", "09:00–11:00". Never "2pm", "9am" or "1400". Use `formatTime` / `formatTimeRange` / `formatWallTime` from `lib/london-time.ts`. Claude is told the same in the system prompt.
+- **Day notes are plain and factual**: no jokes, no emojis. E.g. "Nothing scheduled today", "1 event today", "4 events, first at 09:00", "Back-to-back from 10:00 to 14:00", "Weekend, nothing scheduled". Computed from that day's events on every render by `dayNote` in `lib/day-note.ts`.
 - **Delete is two taps**: the first tap turns the button red with "Tap again to delete", and it resets after 3s. No confirm dialogs or option menus. Use `DeleteButton` from `app/form-ui.tsx`.
 - **Every view shows Monday–Sunday**, including Saturday and Sunday.

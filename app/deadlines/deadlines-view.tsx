@@ -26,7 +26,7 @@ const londonDueDay = new Intl.DateTimeFormat("en-GB", {
   day: "numeric",
   month: "short",
 });
-/** "Fri 16 Oct, 5pm". */
+/** "Fri 16 Oct, 17:00". */
 const dueLabel = (iso: string) => `${londonDueDay.format(new Date(iso))}, ${formatTime(iso)}`;
 
 
