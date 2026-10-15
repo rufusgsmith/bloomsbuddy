@@ -230,120 +230,128 @@ export function TodayTimeline({
   }
 
   return (
-    <main className="mx-auto w-full max-w-md px-4 pb-40 pt-8">
-      {/* Only rendered in the browser (<Home> shows a skeleton on the server), so reading today here can't mismatch. */}
-      <PageHeader
-        title={day ? dayTitle(day.dateKey, todayKey) : "Today"}
-        action={
-          mode === "user" && (
-            <Link
-              href="/timetable"
-              className="rounded-full px-3 py-1.5 text-sm text-zinc-600 hover:bg-zinc-100 dark:text-zinc-400 dark:hover:bg-zinc-900"
-            >
-              Edit timetable
-            </Link>
-          )
-        }
-      >
-        {day && (
-          <>
-            <p className="text-zinc-500 dark:text-zinc-400">{londonDayMonth.format(dayDate(day.dateKey))}</p>
-            {/* Worked out from this day's events on every render, so it follows timetable edits. */}
-            <p className="mt-1 text-sm text-zinc-600 dark:text-zinc-400">{dayNote(day.dateKey, todayKey, day.events)}</p>
-          </>
-        )}
-        <HomeButton home={home} onClick={() => setHomeSheetOpen(true)} />
-      </PageHeader>
-      {homeSheetOpen && <HomeSheet home={home} onClose={() => setHomeSheetOpen(false)} />}
-      {eventForm && (
-        <EventSheet
-          target={eventForm}
-          eventsOn={(k) => days.find((d) => d.dateKey === k)?.events ?? []}
-          onClose={() => setEventForm(null)}
-        />
-      )}
-
-      {mode === "demo" && (
-        <Link
-          href="/setup"
-          className="mb-5 flex items-center justify-between gap-3 rounded-2xl bg-emerald-600 p-4 text-white hover:bg-emerald-700 dark:bg-emerald-500 dark:text-emerald-950 dark:hover:bg-emerald-400"
-        >
-          <span>
-            <span className="block font-semibold">This is a demo week</span>
-            <span className="block text-sm opacity-90">Snap your timetable and Moodle to make it yours.</span>
-          </span>
-          <span aria-hidden className="text-xl">
-            →
-          </span>
-        </Link>
-      )}
-
-      {weekStarts.length > 1 && (
-        <div className="mb-2 flex items-center justify-between">
-          <WeekButton label="Previous week" disabled={weekIndex <= 0} onClick={() => moveWeek(-1)}>
-            ‹
-          </WeekButton>
-          <p className="text-sm font-medium text-zinc-600 dark:text-zinc-400">
-            Week {weekIndex + 1} · w/c {londonDayMonth.format(dayDate(weekStart))}
-          </p>
-          <WeekButton label="Next week" disabled={weekIndex >= weekStarts.length - 1} onClick={() => moveWeek(1)}>
-            ›
-          </WeekButton>
-        </div>
-      )}
-
-      <DayPills
-        days={weekDays.map((d) => ({
-          key: d.dateKey,
-          weekday: londonWeekday.format(dayDate(d.dateKey)),
-          date: dayDate(d.dateKey).getUTCDate(),
-          // Marks the real today, so it's easy to find again after browsing other days.
-          dot: d.dateKey === todayKey,
-          current: d.dateKey === todayKey,
-          weekend: dayOfWeek(d.dateKey) > 5,
-        }))}
-        active={dateKey ?? ""}
-        onSelect={selectDay}
-      />
-
-      {day && (
-        <DayCalendar
-          events={day.events.map(toCalendarEvent)}
-          gaps={day.gaps.map(toCalendarGap)}
-          markers={day.deadlines.map(toCalendarMarker)}
-          nowMin={day.dateKey === todayKey ? minuteOfDay(nowIso) : null}
-          openId={openId}
-          onEventTap={editEvent}
-          onMarkerTap={(id) => setOpenId(openId === id ? null : id)}
-          onSlotTap={(min) => setEventForm({ kind: "new", draft: blankDraft(day.dateKey, min) })}
-          onGapTap={(id) => {
-            const gap = day.gaps.find((g) => g.id === id);
-            if (gap) toggleGap(gap);
-          }}
-          panel={
-            openGap ? (
-              <GapPanel gap={openGap} rec={recs[openGap.id]} onReload={() => loadRec(openGap, day.gaps)} />
-            ) : openTodo ? (
-              <ItemPanel
-                title={openTodo.title}
-                when={`${time(openTodo.start)}–${time(openTodo.end)} · To-do`}
-                href="/todo"
-                tab="To-do"
-                onRemove={removeFromToday}
-              />
-            ) : openDeadline ? (
-              <ItemPanel
-                title={[openDeadline.moduleCode, openDeadline.title].filter(Boolean).join(" ")}
-                when={`Due ${time(openDeadline.due)} · Deadline`}
-                href="/deadlines"
-                tab="Deadlines"
-                onRemove={removeFromToday}
-              />
-            ) : null
+    // Exactly the screen above the tab bar (min-h-16 + its 1px border + the safe area); dvh, so
+    // mobile browser bars don't change it. The top stays put and only the calendar scrolls.
+    <main className="mx-auto flex h-dvh w-full max-w-md flex-col overflow-hidden pb-[calc(4rem+1px+env(safe-area-inset-bottom))]">
+      <div className="shrink-0 border-b border-zinc-200 px-4 pt-8 dark:border-zinc-800">
+        {/* Only rendered in the browser (<Home> shows a skeleton on the server), so reading today here can't mismatch. */}
+        <PageHeader
+          title={day ? dayTitle(day.dateKey, todayKey) : "Today"}
+          action={
+            mode === "user" && (
+              <Link
+                href="/timetable"
+                className="rounded-full px-3 py-1.5 text-sm text-zinc-600 hover:bg-zinc-100 dark:text-zinc-400 dark:hover:bg-zinc-900"
+              >
+                Edit timetable
+              </Link>
+            )
           }
+        >
+          {day && (
+            <>
+              <p className="text-zinc-500 dark:text-zinc-400">{londonDayMonth.format(dayDate(day.dateKey))}</p>
+              {/* Worked out from this day's events on every render, so it follows timetable edits. */}
+              <p className="mt-1 text-sm text-zinc-600 dark:text-zinc-400">{dayNote(day.dateKey, todayKey, day.events)}</p>
+            </>
+          )}
+          <HomeButton home={home} onClick={() => setHomeSheetOpen(true)} />
+        </PageHeader>
+        {homeSheetOpen && <HomeSheet home={home} onClose={() => setHomeSheetOpen(false)} />}
+        {eventForm && (
+          <EventSheet
+            target={eventForm}
+            eventsOn={(k) => days.find((d) => d.dateKey === k)?.events ?? []}
+            onClose={() => setEventForm(null)}
+          />
+        )}
+
+        {mode === "demo" && (
+          <Link
+            href="/setup"
+            className="mb-5 flex items-center justify-between gap-3 rounded-2xl bg-emerald-600 p-4 text-white hover:bg-emerald-700 dark:bg-emerald-500 dark:text-emerald-950 dark:hover:bg-emerald-400"
+          >
+            <span>
+              <span className="block font-semibold">This is a demo week</span>
+              <span className="block text-sm opacity-90">Snap your timetable and Moodle to make it yours.</span>
+            </span>
+            <span aria-hidden className="text-xl">
+              →
+            </span>
+          </Link>
+        )}
+
+        {weekStarts.length > 1 && (
+          <div className="mb-2 flex items-center justify-between">
+            <WeekButton label="Previous week" disabled={weekIndex <= 0} onClick={() => moveWeek(-1)}>
+              ‹
+            </WeekButton>
+            <p className="text-sm font-medium text-zinc-600 dark:text-zinc-400">
+              Week {weekIndex + 1} · w/c {londonDayMonth.format(dayDate(weekStart))}
+            </p>
+            <WeekButton label="Next week" disabled={weekIndex >= weekStarts.length - 1} onClick={() => moveWeek(1)}>
+              ›
+            </WeekButton>
+          </div>
+        )}
+
+        <DayPills
+          days={weekDays.map((d) => ({
+            key: d.dateKey,
+            weekday: londonWeekday.format(dayDate(d.dateKey)),
+            date: dayDate(d.dateKey).getUTCDate(),
+            // Marks the real today, so it's easy to find again after browsing other days.
+            dot: d.dateKey === todayKey,
+            current: d.dateKey === todayKey,
+            weekend: dayOfWeek(d.dateKey) > 5,
+          }))}
+          active={dateKey ?? ""}
+          onSelect={selectDay}
         />
-      )}
-      {day && <KindLegend />}
+      </div>
+
+      {/* Bottom padding so the last hours can scroll clear of the + and ✨ buttons. */}
+      <div className="min-h-0 flex-1 overflow-y-auto px-4 pb-24">
+
+        {day && (
+          <DayCalendar
+            events={day.events.map(toCalendarEvent)}
+            gaps={day.gaps.map(toCalendarGap)}
+            markers={day.deadlines.map(toCalendarMarker)}
+            nowMin={day.dateKey === todayKey ? minuteOfDay(nowIso) : null}
+            openId={openId}
+            onEventTap={editEvent}
+            onMarkerTap={(id) => setOpenId(openId === id ? null : id)}
+            onSlotTap={(min) => setEventForm({ kind: "new", draft: blankDraft(day.dateKey, min) })}
+            onGapTap={(id) => {
+              const gap = day.gaps.find((g) => g.id === id);
+              if (gap) toggleGap(gap);
+            }}
+            panel={
+              openGap ? (
+                <GapPanel gap={openGap} rec={recs[openGap.id]} onReload={() => loadRec(openGap, day.gaps)} />
+              ) : openTodo ? (
+                <ItemPanel
+                  title={openTodo.title}
+                  when={`${time(openTodo.start)}–${time(openTodo.end)} · To-do`}
+                  href="/todo"
+                  tab="To-do"
+                  onRemove={removeFromToday}
+                />
+              ) : openDeadline ? (
+                <ItemPanel
+                  title={[openDeadline.moduleCode, openDeadline.title].filter(Boolean).join(" ")}
+                  when={`Due ${time(openDeadline.due)} · Deadline`}
+                  href="/deadlines"
+                  tab="Deadlines"
+                  onRemove={removeFromToday}
+                />
+              ) : null
+            }
+          />
+        )}
+        {day && <KindLegend />}
+      </div>
 
       {day && (
         <button
