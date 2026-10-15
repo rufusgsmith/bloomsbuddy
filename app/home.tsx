@@ -140,14 +140,15 @@ function pickInitialDay(days: Day[]): string {
 
 function Skeleton() {
   return (
-    <main aria-busy="true" className="mx-auto w-full max-w-md animate-pulse px-4 pb-28 pt-8">
-      <div className="mb-2 h-4 w-24 rounded bg-zinc-200 dark:bg-zinc-800" />
-      <div className="mb-6 h-9 w-56 rounded bg-zinc-200 dark:bg-zinc-800" />
-      <div className="mb-6 h-12 rounded-xl bg-zinc-100 dark:bg-zinc-900" />
-      <div className="flex flex-col gap-3">
-        <div className="h-24 rounded-2xl bg-zinc-100 dark:bg-zinc-900" />
-        <div className="h-24 rounded-2xl bg-zinc-100 dark:bg-zinc-900" />
-      </div>
+    // Same frame as TodayTimeline, so nothing jumps when the real page appears.
+    <main
+      aria-busy="true"
+      className="mx-auto flex h-dvh w-full max-w-md animate-pulse flex-col overflow-hidden px-4 pb-[calc(4rem+1px+env(safe-area-inset-bottom))] pt-4"
+    >
+      <div className="mb-1 h-8 w-40 rounded bg-zinc-200 dark:bg-zinc-800" />
+      <div className="mb-3 h-4 w-56 rounded bg-zinc-200 dark:bg-zinc-800" />
+      <div className="mb-2 h-14 rounded-xl bg-zinc-100 dark:bg-zinc-900" />
+      <div className="min-h-0 flex-1 rounded-2xl bg-zinc-100 dark:bg-zinc-900" />
     </main>
   );
 }
