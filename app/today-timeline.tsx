@@ -14,8 +14,8 @@ import { blankDraft, draftFromClass, draftFromManual, nextHalfHour } from "@/lib
 import { saveTodos } from "@/lib/todos";
 import type { Deadline, Gap, Home, ManualEvent, Recommendation, Society, TimetableEvent, Todo } from "@/lib/types";
 import { DayCalendar, DayPills, KindLegend, type CalendarEvent, type CalendarGap, type CalendarMarker } from "./day-calendar";
-import { DaySheet } from "./day-sheet";
 import { EventSheet, type EventFormTarget } from "./event-form";
+import { PageHeader } from "./form-ui";
 import { HomeSheet } from "./home-sheet";
 import { RecommendationPanel, type RecState } from "./recommendation-card";
 
@@ -229,65 +229,31 @@ export function TodayTimeline({
     if (!recs[gap.id] && day) void loadRec(gap, day.gaps);
   }
 
-  const panel = !day
-    ? null
-    : openGap
-      ? { title: "Free gap", body: <GapPanel gap={openGap} rec={recs[openGap.id]} onReload={() => loadRec(openGap, day.gaps)} /> }
-      : openTodo
-        ? {
-            title: "To-do",
-            body: (
-              <ItemPanel
-                title={openTodo.title}
-                when={`${time(openTodo.start)}–${time(openTodo.end)} · To-do`}
-                href="/todo"
-                tab="To-do"
-                onRemove={removeFromToday}
-              />
-            ),
-          }
-        : openDeadline
-          ? {
-              title: "Deadline",
-              body: (
-                <ItemPanel
-                  title={[openDeadline.moduleCode, openDeadline.title].filter(Boolean).join(" ")}
-                  when={`Due ${time(openDeadline.due)} · Deadline`}
-                  href="/deadlines"
-                  tab="Deadlines"
-                  onRemove={removeFromToday}
-                />
-              ),
-            }
-          : null;
-
   return (
-    // Exactly the screen above the tab bar (min-h-16 + its 1px border + the safe area). dvh, so
-    // mobile browser bars can't make it scroll. Only the sheets scroll.
-    <main className="mx-auto flex h-dvh w-full max-w-md flex-col overflow-hidden px-4 pb-[calc(4rem+1px+env(safe-area-inset-bottom))] pt-4">
+    <main className="mx-auto w-full max-w-md px-4 pb-40 pt-8">
       {/* Only rendered in the browser (<Home> shows a skeleton on the server), so reading today here can't mismatch. */}
-      <header className="mb-2 shrink-0">
-        <div className="flex items-center gap-2">
-          <h1 className="min-w-0 flex-1 truncate text-2xl font-semibold tracking-tight">
-            {day ? dayTitle(day.dateKey, todayKey) : "Today"}
-          </h1>
-          <HomeChip home={home} onClick={() => setHomeSheetOpen(true)} />
-          {mode === "user" && (
+      <PageHeader
+        title={day ? dayTitle(day.dateKey, todayKey) : "Today"}
+        action={
+          mode === "user" && (
             <Link
               href="/timetable"
-              className="flex min-h-10 shrink-0 items-center rounded-full px-2 text-sm text-zinc-600 hover:bg-zinc-100 dark:text-zinc-400 dark:hover:bg-zinc-900"
+              className="rounded-full px-3 py-1.5 text-sm text-zinc-600 hover:bg-zinc-100 dark:text-zinc-400 dark:hover:bg-zinc-900"
             >
               Edit timetable
             </Link>
-          )}
-        </div>
+          )
+        }
+      >
         {day && (
-          // Worked out from this day's events on every render, so it follows timetable edits.
-          <p className="truncate text-sm text-zinc-600 dark:text-zinc-400">
-            {londonDayMonth.format(dayDate(day.dateKey))} · {dayNote(day.dateKey, todayKey, day.events)}
-          </p>
+          <>
+            <p className="text-zinc-500 dark:text-zinc-400">{londonDayMonth.format(dayDate(day.dateKey))}</p>
+            {/* Worked out from this day's events on every render, so it follows timetable edits. */}
+            <p className="mt-1 text-sm text-zinc-600 dark:text-zinc-400">{dayNote(day.dateKey, todayKey, day.events)}</p>
+          </>
         )}
-      </header>
+        <HomeButton home={home} onClick={() => setHomeSheetOpen(true)} />
+      </PageHeader>
       {homeSheetOpen && <HomeSheet home={home} onClose={() => setHomeSheetOpen(false)} />}
       {eventForm && (
         <EventSheet
@@ -296,26 +262,24 @@ export function TodayTimeline({
           onClose={() => setEventForm(null)}
         />
       )}
-      {panel && (
-        <DaySheet title={panel.title} onClose={() => setOpenId(null)}>
-          {panel.body}
-        </DaySheet>
-      )}
 
       {mode === "demo" && (
         <Link
           href="/setup"
-          className="mb-2 flex shrink-0 items-center justify-between gap-2 rounded-xl bg-emerald-600 px-3 py-2 text-sm text-white hover:bg-emerald-700 dark:bg-emerald-500 dark:text-emerald-950 dark:hover:bg-emerald-400"
+          className="mb-5 flex items-center justify-between gap-3 rounded-2xl bg-emerald-600 p-4 text-white hover:bg-emerald-700 dark:bg-emerald-500 dark:text-emerald-950 dark:hover:bg-emerald-400"
         >
-          <span className="truncate">
-            <span className="font-semibold">Demo week</span> · Snap your timetable to make it yours
+          <span>
+            <span className="block font-semibold">This is a demo week</span>
+            <span className="block text-sm opacity-90">Snap your timetable and Moodle to make it yours.</span>
           </span>
-          <span aria-hidden>→</span>
+          <span aria-hidden className="text-xl">
+            →
+          </span>
         </Link>
       )}
 
       {weekStarts.length > 1 && (
-        <div className="mb-1 flex shrink-0 items-center justify-between">
+        <div className="mb-2 flex items-center justify-between">
           <WeekButton label="Previous week" disabled={weekIndex <= 0} onClick={() => moveWeek(-1)}>
             ‹
           </WeekButton>
@@ -342,31 +306,44 @@ export function TodayTimeline({
         onSelect={selectDay}
       />
 
-      {/* Takes whatever height is left; the calendar sizes its hours to fit it. */}
-      <div className="min-h-0 flex-1">
-        {day && (
-          <DayCalendar
-            fit
-            events={day.events.map(toCalendarEvent)}
-            gaps={day.gaps.map(toCalendarGap)}
-            markers={day.deadlines.map(toCalendarMarker)}
-            nowMin={day.dateKey === todayKey ? minuteOfDay(nowIso) : null}
-            openId={openId}
-            onEventTap={editEvent}
-            onMarkerTap={(id) => setOpenId(openId === id ? null : id)}
-            onSlotTap={(min) => setEventForm({ kind: "new", draft: blankDraft(day.dateKey, min) })}
-            onGapTap={(id) => {
-              const gap = day.gaps.find((g) => g.id === id);
-              if (gap) toggleGap(gap);
-            }}
-          />
-        )}
-      </div>
       {day && (
-        <div className="shrink-0">
-          <KindLegend />
-        </div>
+        <DayCalendar
+          events={day.events.map(toCalendarEvent)}
+          gaps={day.gaps.map(toCalendarGap)}
+          markers={day.deadlines.map(toCalendarMarker)}
+          nowMin={day.dateKey === todayKey ? minuteOfDay(nowIso) : null}
+          openId={openId}
+          onEventTap={editEvent}
+          onMarkerTap={(id) => setOpenId(openId === id ? null : id)}
+          onSlotTap={(min) => setEventForm({ kind: "new", draft: blankDraft(day.dateKey, min) })}
+          onGapTap={(id) => {
+            const gap = day.gaps.find((g) => g.id === id);
+            if (gap) toggleGap(gap);
+          }}
+          panel={
+            openGap ? (
+              <GapPanel gap={openGap} rec={recs[openGap.id]} onReload={() => loadRec(openGap, day.gaps)} />
+            ) : openTodo ? (
+              <ItemPanel
+                title={openTodo.title}
+                when={`${time(openTodo.start)}–${time(openTodo.end)} · To-do`}
+                href="/todo"
+                tab="To-do"
+                onRemove={removeFromToday}
+              />
+            ) : openDeadline ? (
+              <ItemPanel
+                title={[openDeadline.moduleCode, openDeadline.title].filter(Boolean).join(" ")}
+                when={`Due ${time(openDeadline.due)} · Deadline`}
+                href="/deadlines"
+                tab="Deadlines"
+                onRemove={removeFromToday}
+              />
+            ) : null
+          }
+        />
       )}
+      {day && <KindLegend />}
 
       {day && (
         <button
@@ -400,7 +377,7 @@ function WeekButton({
       aria-label={label}
       disabled={disabled}
       onClick={onClick}
-      className="flex size-9 items-center justify-center rounded-full text-2xl text-zinc-600 hover:bg-zinc-100 disabled:opacity-30 disabled:hover:bg-transparent dark:text-zinc-400 dark:hover:bg-zinc-900"
+      className="flex size-11 items-center justify-center rounded-full text-2xl text-zinc-600 hover:bg-zinc-100 disabled:opacity-30 disabled:hover:bg-transparent dark:text-zinc-400 dark:hover:bg-zinc-900"
     >
       {children}
     </button>
@@ -481,22 +458,49 @@ function ItemPanel({
   );
 }
 
-/** Opens the Home sheet. A small chip in the header: where home is, or "Add home". */
-function HomeChip({ home, onClick }: { home: Home | null; onClick: () => void }) {
+/** Opens the Home sheet. Shows where home is, or invites the student to add it. */
+function HomeButton({ home, onClick }: { home: Home | null; onClick: () => void }) {
+  if (!home) {
+    return (
+      <button
+        type="button"
+        onClick={onClick}
+        aria-haspopup="dialog"
+        className="mt-4 flex min-h-14 w-full items-center gap-3 rounded-2xl border-2 border-dashed border-emerald-400 px-4 py-2.5 text-left transition-colors hover:bg-emerald-50 dark:border-emerald-700 dark:hover:bg-emerald-950/40"
+      >
+        <span className="min-w-0 flex-1">
+          <span className="block font-semibold text-emerald-700 dark:text-emerald-300">🏠 Add your home</span>
+          <span className="block text-sm text-zinc-600 dark:text-zinc-400">So I know when a gap&apos;s long enough to pop back</span>
+        </span>
+        <span aria-hidden className="text-xl text-emerald-600 dark:text-emerald-400">
+          +
+        </span>
+      </button>
+    );
+  }
   return (
     <button
       type="button"
       onClick={onClick}
       aria-haspopup="dialog"
-      aria-label={home ? `Home: ${homeLabel(home)}. Change` : "Add your home"}
-      className={`flex min-h-10 min-w-0 max-w-[9rem] shrink items-center gap-1 rounded-full px-3 text-sm transition-colors ${
-        home
-          ? "bg-zinc-100 text-zinc-700 hover:bg-zinc-200 dark:bg-zinc-900 dark:text-zinc-300 dark:hover:bg-zinc-800"
-          : "border border-dashed border-emerald-400 font-medium text-emerald-700 hover:bg-emerald-50 dark:border-emerald-700 dark:text-emerald-300 dark:hover:bg-emerald-950/40"
-      }`}
+      aria-label={`Home: ${homeLabel(home)}. Change`}
+      className="mt-4 flex min-h-14 w-full items-center gap-3 rounded-2xl border border-zinc-200 bg-white px-3 py-2.5 text-left transition-colors hover:bg-zinc-50 dark:border-zinc-800 dark:bg-zinc-950 dark:hover:bg-zinc-900"
     >
-      <span aria-hidden>🏠</span>
-      <span className="truncate">{home ? homeLabel(home) : "Add home"}</span>
+      <span
+        aria-hidden
+        className="flex size-10 shrink-0 items-center justify-center rounded-full bg-emerald-100 text-lg dark:bg-emerald-950"
+      >
+        🏠
+      </span>
+      <span className="min-w-0 flex-1">
+        <span className="block text-xs font-medium text-zinc-500">Home</span>
+        <span className={`block truncate font-medium ${home.kind === "none" ? "text-zinc-500" : ""}`}>
+          {homeLabel(home)}
+        </span>
+      </span>
+      <span aria-hidden className="text-xl text-zinc-400">
+        ›
+      </span>
     </button>
   );
 }
