@@ -295,8 +295,9 @@ function ChatSheet({
             }}
             rows={1}
             maxLength={2000}
-            placeholder="What can I do Saturday 14:00–17:00?"
-            className="max-h-32 min-h-11 flex-1 resize-none rounded-2xl border border-zinc-300 bg-white px-3 py-2.5 text-base text-zinc-900 dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-100 sm:text-sm"
+            placeholder="Ask about any time…"
+            // Empty box never scrolls (a wrapped placeholder made it scroll on iPhone).
+            className={`max-h-32 min-h-11 flex-1 resize-none rounded-2xl border border-zinc-300 bg-white px-3 py-2.5 text-base text-zinc-900 dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-100 sm:text-sm ${draft ? "" : "overflow-hidden"}`}
           />
           <button
             type="submit"
