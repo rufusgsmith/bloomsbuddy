@@ -193,8 +193,9 @@ export function DayCalendar({
   );
 
   return (
-    // Padding so the first and last hour labels (centred on their lines) aren't cut off.
-    <div className="py-2">
+    // Padding so the first and last hour labels (centred on their lines) aren't cut off. A little
+    // more on top, so the first hour (usually 08:00) doesn't sit tight under the day pills.
+    <div className="pb-2 pt-5">
       {split === null ? (
         segment(start, end, true)
       ) : (
