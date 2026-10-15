@@ -1,10 +1,11 @@
 "use client";
 
+import { Ban, Building2, Check, House, type LucideIcon } from "lucide-react";
 import { useMemo, useState, type FormEvent, type ReactNode } from "react";
 import { BUILDINGS, getBuilding, HALL_IDS, searchBuildings, travelLabel, travelTime, type Area, type BuildingId } from "@/lib/buildings";
 import { isPostcodeShape } from "@/lib/postcode";
 import type { Home } from "@/lib/types";
-import { inputClass } from "./form-ui";
+import { ICON_LG, inputClass, primaryButton } from "./form-ui";
 import { lookupPostcode } from "./postcode-lookup";
 
 // Picks where the student lives: a UCL hall, private accommodation (a postcode), or no home.
@@ -91,7 +92,7 @@ export function HomePicker({
         <OptionCard
           selected={choice === "hall"}
           onPick={() => pick("hall")}
-          icon="🏛️"
+          icon={Building2}
           title="UCL hall"
           subtitle={hallId && choice === "hall" ? BUILDINGS[hallId].name : "Including intercollegiate halls"}
         >
@@ -105,13 +106,13 @@ export function HomePicker({
           />
           <div role="radiogroup" aria-label="Halls" className="mt-3 flex flex-col gap-3">
             {groups.length === 0 && (
-              <p className="py-4 text-center text-sm text-zinc-500">
+              <p className="py-4 text-sm text-muted">
                 No hall called that. Living privately? Pick Private accommodation.
               </p>
             )}
             {groups.map((g) => (
               <section key={g.label}>
-                <h3 className="mb-1 text-sm font-semibold text-zinc-600 dark:text-zinc-400">{g.label}</h3>
+                <h3 className="mb-1 text-sm font-semibold text-muted">{g.label}</h3>
                 <ul className="flex flex-col gap-1">
                   {g.ids.map((id) => (
                     <li key={id}>
@@ -129,14 +130,14 @@ export function HomePicker({
         <OptionCard
           selected={choice === "private"}
           onPick={() => pick("private")}
-          icon="🏡"
+          icon={House}
           title="Private accommodation"
           subtitle="Flat, house share, living with family"
         >
           <label className="flex flex-col gap-1.5">
             <span className="text-sm font-medium">Your postcode</span>
             <input
-              className={`${inputClass} uppercase placeholder:normal-case aria-invalid:border-red-500`}
+              className={`${inputClass} uppercase placeholder:normal-case aria-invalid:border-danger`}
               value={postcode}
               onChange={(e) => setPostcode(e.target.value)}
               onBlur={() => setPostcodeTouched(true)}
@@ -146,11 +147,11 @@ export function HomePicker({
               aria-invalid={postcodeTouched && !!postcodeError}
             />
             {postcodeTouched && postcodeError ? (
-              <span role="alert" className="text-sm text-red-600 dark:text-red-400">
+              <span role="alert" className="text-sm text-danger">
                 {postcodeError}
               </span>
             ) : (
-              <span className="text-xs text-zinc-500">Only used to work out travel times. Saved on this device.</span>
+              <span className="text-xs text-muted">Only used to work out travel times. Saved on this device.</span>
             )}
           </label>
         </OptionCard>
@@ -158,14 +159,14 @@ export function HomePicker({
         <OptionCard
           selected={choice === "none"}
           onPick={() => pick("none")}
-          icon="🚫"
+          icon={Ban}
           title="Skip / don't use my home"
           subtitle="I won't suggest heading home. Switch it on any time."
         />
       </div>
 
       {error && (
-        <p role="alert" className="mt-3 text-sm text-red-600 dark:text-red-400">
+        <p role="alert" className="mt-3 text-sm text-danger">
           {error}
         </p>
       )}
@@ -175,7 +176,7 @@ export function HomePicker({
         <button
           type="submit"
           disabled={!canSubmit}
-          className="min-h-12 flex-1 rounded-full bg-emerald-600 px-4 font-medium text-white hover:bg-emerald-700 disabled:cursor-not-allowed disabled:opacity-40 dark:bg-emerald-500 dark:text-emerald-950 dark:hover:bg-emerald-400"
+          className={`${primaryButton} flex-1`}
         >
           {busy ? "Finding it…" : submitLabel}
         </button>
@@ -195,18 +196,15 @@ function OptionCard({
 }: {
   selected: boolean;
   onPick: () => void;
-  icon: string;
+  icon: LucideIcon;
   title: string;
   subtitle: string;
   children?: ReactNode;
 }) {
+  const Icon = icon;
   return (
     <div
-      className={`shrink-0 rounded-2xl border transition-colors ${
-        selected
-          ? "border-emerald-500 bg-emerald-50/50 dark:border-emerald-600 dark:bg-emerald-950/30"
-          : "border-zinc-200 dark:border-zinc-800"
-      }`}
+      className={`shrink-0 rounded-lg border transition-colors ${selected ? "border-square bg-square-tint" : "border-line bg-surface"}`}
     >
       <button
         type="button"
@@ -215,17 +213,17 @@ function OptionCard({
         onClick={onPick}
         className="flex min-h-16 w-full items-center gap-3 px-4 py-3 text-left"
       >
-        <span aria-hidden className="flex size-10 shrink-0 items-center justify-center rounded-full bg-white text-xl shadow-sm dark:bg-zinc-800">
-          {icon}
+        <span aria-hidden className="flex size-10 shrink-0 items-center justify-center rounded-lg bg-sunken text-muted">
+          <Icon {...ICON_LG} />
         </span>
         <span className="min-w-0 flex-1">
           <span className="block font-medium">{title}</span>
-          <span className="block truncate text-sm text-zinc-500">{subtitle}</span>
+          <span className="block truncate text-sm text-muted">{subtitle}</span>
         </span>
         <span
           aria-hidden
           className={`flex size-5 shrink-0 items-center justify-center rounded-full ${
-            selected ? "border-[6px] border-emerald-600 dark:border-emerald-500" : "border-2 border-zinc-300 dark:border-zinc-600"
+            selected ? "border-[6px] border-square" : "border-2 border-line"
           }`}
         />
       </button>
@@ -252,23 +250,21 @@ export function PickRow({
       role="radio"
       aria-checked={selected}
       onClick={onPick}
-      className={`flex min-h-14 w-full items-center gap-3 rounded-xl px-3 py-2 text-left transition-colors ${
-        selected
-          ? "bg-emerald-100 ring-2 ring-emerald-500 dark:bg-emerald-950/60"
-          : "bg-white hover:bg-zinc-100 dark:bg-zinc-950 dark:hover:bg-zinc-900"
+      className={`flex min-h-14 w-full items-center gap-3 rounded-lg px-3 py-2 text-left transition-colors ${
+        selected ? "bg-square-tint ring-1 ring-square" : "hover:bg-sunken"
       }`}
     >
       <span className="min-w-0 flex-1">
         <span className="block truncate font-medium">{name}</span>
-        <span className="block truncate text-xs text-zinc-500">{children}</span>
+        <span className="block truncate text-xs text-muted">{children}</span>
       </span>
       <span
         aria-hidden
-        className={`flex size-6 shrink-0 items-center justify-center rounded-full text-xs ${
-          selected ? "bg-emerald-600 text-white dark:bg-emerald-500 dark:text-emerald-950" : "ring-1 ring-zinc-300 dark:ring-zinc-700"
+        className={`flex size-5 shrink-0 items-center justify-center rounded-full ${
+          selected ? "bg-square text-on-square" : "ring-1 ring-line"
         }`}
       >
-        {selected ? "✓" : ""}
+        {selected && <Check size={12} strokeWidth={2.5} />}
       </span>
     </button>
   );

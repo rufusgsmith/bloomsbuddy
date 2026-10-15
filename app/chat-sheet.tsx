@@ -1,5 +1,6 @@
 "use client";
 
+import { CalendarDays, Check, ListTodo, MapPin, Repeat, RotateCw, SendHorizontal, Sparkles, X } from "lucide-react";
 import { useEffect, useRef, useState, type FormEvent, type ReactNode } from "react";
 import { clashMessage, findClashes } from "@/lib/clashes";
 import { newId } from "@/lib/deadline-draft";
@@ -11,6 +12,7 @@ import { EVENT_KINDS, saveManualEvent } from "@/lib/manual-events";
 import { requestContext } from "@/lib/request-context";
 import { parseTodos, readRawTodos, saveTodos } from "@/lib/todos";
 import type { ChatMessage, ChatProposal, DateKey, Deadline, Home, ManualEvent, Society, TimetableEvent, Todo } from "@/lib/types";
+import { ClashNotice, FAB_POSITION, ghostButton, ICON, ICON_LG, iconButton, primaryButton, secondaryButton, SHEET, SheetHandle } from "./form-ui";
 import type { Day } from "./today-timeline";
 
 // The chat assistant on Today. Session-only: the conversation lives in sessionStorage, so it survives
@@ -119,13 +121,10 @@ export function ChatAssistant({
         onClick={() => setOpen(true)}
         aria-label="Ask Bloomsbuddy"
         aria-haspopup="dialog"
-        className="fixed bottom-[calc(9.5rem+env(safe-area-inset-bottom))] right-[max(1rem,calc(50%-14rem+1rem))] z-30 flex size-14 items-center justify-center rounded-full bg-emerald-600 text-2xl text-white shadow-lg hover:bg-emerald-700 dark:bg-emerald-500 dark:text-emerald-950 dark:hover:bg-emerald-400"
+        className={`${FAB_POSITION} bottom-[calc(9.5rem+env(safe-area-inset-bottom))] z-30 flex size-14 items-center justify-center rounded-full bg-square text-on-square shadow-[0_2px_8px_rgb(0_0_0/0.15)] transition-colors hover:bg-square-hover md:bottom-24`}
       >
         {/* Sparkle: the assistant. Not a speech bubble. */}
-        <svg aria-hidden viewBox="0 0 24 24" fill="currentColor" className="size-7">
-          <path d="M12 2.5l1.9 5.6 5.6 1.9-5.6 1.9L12 17.5l-1.9-5.6L4.5 10l5.6-1.9L12 2.5z" />
-          <path d="M18.5 14.5l.9 2.6 2.6.9-2.6.9-.9 2.6-.9-2.6-2.6-.9 2.6-.9.9-2.6z" />
-        </svg>
+        <Sparkles size={24} strokeWidth={1.75} aria-hidden />
       </button>
       {open && (
         <ChatSheet
@@ -205,17 +204,17 @@ function ChatSheet({
         onClose();
       }}
       onClick={(e) => e.target === e.currentTarget && onClose()}
-      className="mb-0 mt-auto h-[min(92dvh,760px)] max-h-none w-full max-w-full overflow-hidden rounded-t-3xl bg-white p-0 text-zinc-900 shadow-xl backdrop:bg-black/50 backdrop:backdrop-blur-[2px] md:my-0 md:ml-auto md:mr-0 md:h-dvh md:max-w-sm md:rounded-none md:rounded-l-3xl dark:bg-zinc-950 dark:text-zinc-100"
+      className={SHEET}
     >
       <div className="flex h-full flex-col">
-        <div className="border-b border-zinc-200 px-5 pt-3 dark:border-zinc-800">
-          <div aria-hidden className="mx-auto mb-3 h-1.5 w-10 rounded-full bg-zinc-300 md:hidden dark:bg-zinc-700" />
+        <div className="border-b border-line px-5 pt-3">
+          <SheetHandle />
           <div className="mb-3 flex items-start justify-between gap-3 md:mt-4">
             <div>
-              <h2 id="chat-sheet-title" className="text-xl font-semibold tracking-tight">
+              <h2 id="chat-sheet-title" className="text-xl font-semibold">
                 Ask Bloomsbuddy
               </h2>
-              <p className="mt-0.5 text-sm text-zinc-600 dark:text-zinc-400">Any day, any time, not just gaps</p>
+              <p className="mt-0.5 text-sm text-muted">Any day, any time, not just gaps</p>
             </div>
             <div className="-mr-2 flex shrink-0 items-center">
               {messages.length > 0 && (
@@ -223,7 +222,7 @@ function ChatSheet({
                   type="button"
                   onClick={onClear}
                   disabled={status === "loading"}
-                  className="min-h-11 rounded-full px-3 text-sm text-zinc-600 hover:bg-zinc-100 disabled:opacity-40 dark:text-zinc-400 dark:hover:bg-zinc-900"
+                  className={ghostButton}
                 >
                   Clear
                 </button>
@@ -232,9 +231,9 @@ function ChatSheet({
                 type="button"
                 onClick={onClose}
                 aria-label="Close"
-                className="flex size-11 items-center justify-center rounded-full text-2xl leading-none text-zinc-500 hover:bg-zinc-100 dark:hover:bg-zinc-900"
+                className={iconButton}
               >
-                ×
+                <X {...ICON_LG} />
               </button>
             </div>
           </div>
@@ -270,9 +269,10 @@ function ChatSheet({
               <button
                 type="button"
                 onClick={onRetry}
-                className="min-h-11 rounded-full bg-zinc-100 px-4 text-sm font-medium text-zinc-700 hover:bg-zinc-200 dark:bg-zinc-800 dark:text-zinc-200 dark:hover:bg-zinc-700"
+                className={secondaryButton}
               >
-                ↻ Retry
+                <RotateCw {...ICON} />
+                Retry
               </button>
             </div>
           )}
@@ -280,7 +280,7 @@ function ChatSheet({
 
         <form
           onSubmit={submit}
-          className="flex items-end gap-2 border-t border-zinc-200 px-4 pb-[calc(1rem+env(safe-area-inset-bottom))] pt-3 dark:border-zinc-800"
+          className="flex items-end gap-2 border-t border-line px-4 pb-[calc(1rem+env(safe-area-inset-bottom))] pt-3"
         >
           <label htmlFor="chat-input" className="sr-only">
             Message
@@ -296,14 +296,15 @@ function ChatSheet({
             rows={1}
             maxLength={2000}
             placeholder="What can I do Saturday 14:00–17:00?"
-            className="max-h-32 min-h-11 flex-1 resize-none rounded-2xl border border-zinc-300 bg-white px-3 py-2.5 text-base text-zinc-900 dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-100 sm:text-sm"
+            className="max-h-32 min-h-11 flex-1 resize-none rounded-xl border border-line bg-surface px-3 py-2.5 text-base text-ink sm:text-sm"
           />
           <button
             type="submit"
             disabled={status === "loading" || !draft.trim()}
-            className="min-h-11 shrink-0 rounded-full bg-emerald-600 px-5 text-sm font-medium text-white hover:bg-emerald-700 disabled:cursor-not-allowed disabled:opacity-40 dark:bg-emerald-500 dark:text-emerald-950 dark:hover:bg-emerald-400"
+            aria-label="Send"
+            className={`${primaryButton} w-11 px-0`}
           >
-            Send
+            <SendHorizontal {...ICON_LG} />
           </button>
         </form>
       </div>
@@ -316,11 +317,11 @@ const plainText = (s: string) => s.replace(/\*\*(.+?)\*\*/g, "$1").replace(/^#+\
 
 function Bubble({ role, children }: { role: ChatMessage["role"]; children: ReactNode }) {
   return role === "user" ? (
-    <p className="max-w-[85%] self-end whitespace-pre-wrap rounded-2xl rounded-br-md bg-emerald-600 px-3.5 py-2 text-sm text-white dark:bg-emerald-500 dark:text-emerald-950">
+    <p className="max-w-[85%] self-end whitespace-pre-wrap rounded-xl rounded-br-sm bg-ink px-3 py-2 text-sm text-paper">
       {children}
     </p>
   ) : (
-    <p className="max-w-[90%] self-start whitespace-pre-wrap rounded-2xl rounded-bl-md bg-zinc-100 px-3.5 py-2 text-sm text-zinc-900 dark:bg-zinc-900 dark:text-zinc-100">
+    <p className="max-w-[90%] self-start whitespace-pre-wrap rounded-xl rounded-bl-sm bg-sunken px-3 py-2 text-sm text-ink">
       {children}
     </p>
   );
@@ -331,14 +332,14 @@ function TypingIndicator() {
     <div
       role="status"
       aria-label="Bloomsbuddy is typing"
-      className="flex items-center gap-1 self-start rounded-2xl rounded-bl-md bg-zinc-100 px-4 py-3 dark:bg-zinc-900"
+      className="flex items-center gap-1 self-start rounded-xl rounded-bl-sm bg-sunken px-4 py-3"
     >
       {[0, 150, 300].map((delay) => (
         <span
           key={delay}
           aria-hidden
           style={{ animationDelay: `${delay}ms` }}
-          className="size-2 animate-bounce rounded-full bg-zinc-400 dark:bg-zinc-500"
+          className="size-1.5 animate-bounce rounded-full bg-muted"
         />
       ))}
     </div>
@@ -390,7 +391,7 @@ function ProposalCard({
           relativeDayLabel(p.event.date, todayKey),
           `${formatWallTime(p.event.startTime)}–${formatWallTime(p.event.endTime)}`,
           kindLabel(p.event.kind),
-          ...(p.event.weekly ? ["↻ Weekly"] : []),
+          ...(p.event.weekly ? ["Weekly"] : []),
           ...(p.event.room ? [p.event.room] : []),
         ]
       : [
@@ -399,60 +400,51 @@ function ProposalCard({
         ];
 
   return (
-    <div className="ml-2 rounded-2xl border border-zinc-200 bg-white p-3 dark:border-zinc-800 dark:bg-zinc-950">
-      <p className="text-xs font-medium text-zinc-500">{p.kind === "event" ? "📅 Add to calendar" : "📝 Add to to-do"}</p>
-      <p className="mt-0.5 font-semibold">{p.kind === "event" ? p.event.title : p.todo.title}</p>
-      {(details.length > 0 || location) && (
-        <p className="mt-0.5 text-sm tabular-nums text-zinc-600 dark:text-zinc-400">
+    <div className="ml-4 border-l-2 border-line py-1 pl-3">
+      <p className="flex items-center gap-1.5 text-xs font-medium text-muted">
+        {p.kind === "event" ? <CalendarDays {...ICON} size={14} /> : <ListTodo {...ICON} size={14} />}
+        {p.kind === "event" ? "Add to calendar" : "Add to to-do"}
+      </p>
+      <p className="mt-1 font-semibold">{p.kind === "event" ? p.event.title : p.todo.title}</p>
+      {(details.length > 0 || location || (p.kind === "event" && p.event.weekly)) && (
+        <p className="mt-0.5 flex flex-wrap items-center gap-x-1.5 text-sm tabular-nums text-muted">
+          {p.kind === "event" && p.event.weekly && <Repeat {...ICON} size={14} />}
           {details.join(" · ")}
-          {location && `${details.length ? " · " : ""}📍 ${locationLabel(location)}`}
+          {location && (
+            <span className="inline-flex items-center gap-1">
+              {details.length > 0 && <span aria-hidden>·</span>}
+              <MapPin {...ICON} size={14} />
+              {locationLabel(location)}
+            </span>
+          )}
         </p>
       )}
 
       {p.status ? (
-        <p className="mt-2 text-sm font-medium text-zinc-600 dark:text-zinc-400">
-          {p.status === "added" ? <span className="text-emerald-700 dark:text-emerald-300">Added ✓</span> : "Dismissed"}
+        <p className="mt-2 flex items-center gap-1 text-sm font-medium text-muted">
+          {p.status === "added" ? (
+            <span className="inline-flex items-center gap-1 text-square">
+              <Check {...ICON} />
+              Added
+            </span>
+          ) : (
+            "Dismissed"
+          )}
         </p>
       ) : clash ? (
-        <div role="alert" className="mt-3 rounded-xl bg-amber-50 p-3 dark:bg-amber-950/40">
-          <p className="mb-2 text-sm font-medium text-amber-900 dark:text-amber-100">⚠️ {clash}</p>
-          <div className="flex items-center justify-end gap-2">
-            <button
-              type="button"
-              onClick={() => setClash(null)}
-              className="min-h-11 rounded-full px-4 text-sm font-medium text-zinc-700 hover:bg-amber-100 dark:text-zinc-300 dark:hover:bg-amber-900/40"
-            >
-              Cancel
-            </button>
-            <button
-              type="button"
-              onClick={() => add(true)}
-              className="min-h-11 rounded-full bg-zinc-900 px-5 text-sm font-medium text-white hover:bg-zinc-700 dark:bg-zinc-100 dark:text-zinc-900 dark:hover:bg-zinc-300"
-            >
-              Add anyway
-            </button>
-          </div>
-        </div>
+        <ClashNotice className="mt-3" message={clash} onCancel={() => setClash(null)} onConfirm={() => add(true)} />
       ) : (
-        <div className="mt-2 flex items-center justify-end gap-2">
-          <button
-            type="button"
-            onClick={() => onDone("dismissed")}
-            className="min-h-11 rounded-full px-4 text-sm font-medium text-zinc-600 hover:bg-zinc-100 dark:text-zinc-400 dark:hover:bg-zinc-900"
-          >
-            Dismiss
-          </button>
-          <button
-            type="button"
-            onClick={() => add()}
-            className="min-h-11 rounded-full bg-emerald-600 px-5 text-sm font-medium text-white hover:bg-emerald-700 dark:bg-emerald-500 dark:text-emerald-950 dark:hover:bg-emerald-400"
-          >
+        <div className="mt-2 flex items-center gap-2">
+          <button type="button" onClick={() => add()} className={primaryButton}>
             Add
+          </button>
+          <button type="button" onClick={() => onDone("dismissed")} className={ghostButton}>
+            Dismiss
           </button>
         </div>
       )}
       {error && (
-        <p role="alert" className="mt-2 text-sm text-red-600 dark:text-red-400">
+        <p role="alert" className="mt-2 text-sm text-danger">
           {error}
         </p>
       )}

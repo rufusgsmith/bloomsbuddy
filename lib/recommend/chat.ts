@@ -137,7 +137,7 @@ function studentContext(ctx: ChatContext, today: DateKey, nowIso: string, deadli
       `- ${t.title}`,
       t.estMinutes ? formatDuration(t.estMinutes) : "no estimate",
       t.doBefore ? `do before ${fmtDateKey(t.doBefore)}${t.doBefore < today ? " (overdue)" : ""}` : "",
-      t.repeat ? repeatLabel(t.repeat).replace(/^↻ /, "repeats ") : "",
+      t.repeat ? `repeats ${repeatLabel(t.repeat)}` : "",
       t.location ? `at ${locationLabel(t.location)}` : "",
     ]
       .filter(Boolean)

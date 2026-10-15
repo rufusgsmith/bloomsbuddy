@@ -1,7 +1,8 @@
 "use client";
 
+import { ArrowRight, ChevronLeft, ChevronRight, House, Plus } from "lucide-react";
 import Link from "next/link";
-import { useEffect, useState } from "react";
+import { useEffect, useState, type ReactNode } from "react";
 import { BUILDINGS } from "@/lib/buildings";
 import { setDeadlineOnCalendar, setOnToday } from "@/lib/calendar-items";
 import { dayNote } from "@/lib/day-note";
@@ -15,7 +16,7 @@ import { saveTodos } from "@/lib/todos";
 import type { Deadline, Gap, Home, ManualEvent, Recommendation, Society, TimetableEvent, Todo } from "@/lib/types";
 import { DayCalendar, DayPills, KindLegend, type CalendarEvent, type CalendarGap, type CalendarMarker } from "./day-calendar";
 import { EventSheet, type EventFormTarget } from "./event-form";
-import { PageHeader } from "./form-ui";
+import { FAB_POSITION, ghostButton, iconButton, ICON, PAGE_FRAME, PageHeader, secondaryButton } from "./form-ui";
 import { HomeSheet } from "./home-sheet";
 import { RecommendationPanel, type RecState } from "./recommendation-card";
 
@@ -41,6 +42,7 @@ const time = formatTime;
 // Midday UTC is always the same calendar day in London, whatever the season.
 const dayDate = (dateKey: string) => new Date(`${dateKey}T12:00:00Z`);
 const place = (id: keyof typeof BUILDINGS) => BUILDINGS[id].shortName;
+
 
 /** The big title: "Today", "Tomorrow", "Yesterday", else the weekday ("Saturday"). The date goes underneath. */
 function dayTitle(dateKey: string, todayKey: string): string {
@@ -232,17 +234,14 @@ export function TodayTimeline({
   return (
     // Exactly the screen above the tab bar (min-h-16 + its 1px border + the safe area); dvh, so
     // mobile browser bars don't change it. The top stays put and only the calendar scrolls.
-    <main className="mx-auto flex h-dvh w-full max-w-md flex-col overflow-hidden pb-[calc(4rem+1px+env(safe-area-inset-bottom))]">
-      <div className="shrink-0 border-b border-zinc-200 px-4 pt-8 dark:border-zinc-800">
+    <main className={PAGE_FRAME}>
+      <div className="shrink-0 border-b border-line px-4 pt-8 md:px-8 md:pt-10">
         {/* Only rendered in the browser (<Home> shows a skeleton on the server), so reading today here can't mismatch. */}
         <PageHeader
           title={day ? dayTitle(day.dateKey, todayKey) : "Today"}
           action={
             mode === "user" && (
-              <Link
-                href="/timetable"
-                className="rounded-full px-3 py-1.5 text-sm text-zinc-600 hover:bg-zinc-100 dark:text-zinc-400 dark:hover:bg-zinc-900"
-              >
+              <Link href="/timetable" className={`${ghostButton} -mr-3 -mt-1`}>
                 Edit timetable
               </Link>
             )
@@ -250,9 +249,12 @@ export function TodayTimeline({
         >
           {day && (
             <>
-              <p className="text-zinc-500 dark:text-zinc-400">{londonDayMonth.format(dayDate(day.dateKey))}</p>
-              {/* Worked out from this day's events on every render, so it follows timetable edits. */}
-              <p className="mt-1 text-sm text-zinc-600 dark:text-zinc-400">{dayNote(day.dateKey, todayKey, day.events)}</p>
+              {/* The note is worked out from this day's events on every render, so it follows timetable edits. */}
+              <p className="mt-1 text-sm text-muted">
+                <span className="text-ink">{londonDayMonth.format(dayDate(day.dateKey))}</span>
+                <span aria-hidden> · </span>
+                {dayNote(day.dateKey, todayKey, day.events)}
+              </p>
             </>
           )}
           <HomeButton home={home} onClick={() => setHomeSheetOpen(true)} />
@@ -267,30 +269,25 @@ export function TodayTimeline({
         )}
 
         {mode === "demo" && (
-          <Link
-            href="/setup"
-            className="mb-5 flex items-center justify-between gap-3 rounded-2xl bg-emerald-600 p-4 text-white hover:bg-emerald-700 dark:bg-emerald-500 dark:text-emerald-950 dark:hover:bg-emerald-400"
-          >
-            <span>
-              <span className="block font-semibold">This is a demo week</span>
-              <span className="block text-sm opacity-90">Snap your timetable and Moodle to make it yours.</span>
-            </span>
-            <span aria-hidden className="text-xl">
-              →
-            </span>
-          </Link>
+          <p className="-mt-4 mb-1 flex flex-wrap items-center gap-x-2 text-sm text-muted">
+            You&apos;re looking at a demo week.
+            <Link href="/setup" className="inline-flex min-h-11 items-center gap-1 font-medium text-square hover:underline">
+              Add your timetable
+              <ArrowRight {...ICON} />
+            </Link>
+          </p>
         )}
 
         {weekStarts.length > 1 && (
           <div className="mb-2 flex items-center justify-between">
             <WeekButton label="Previous week" disabled={weekIndex <= 0} onClick={() => moveWeek(-1)}>
-              ‹
+              <ChevronLeft size={20} strokeWidth={1.75} aria-hidden />
             </WeekButton>
-            <p className="text-sm font-medium text-zinc-600 dark:text-zinc-400">
+            <p className="text-sm font-medium tabular-nums text-muted">
               Week {weekIndex + 1} · w/c {londonDayMonth.format(dayDate(weekStart))}
             </p>
             <WeekButton label="Next week" disabled={weekIndex >= weekStarts.length - 1} onClick={() => moveWeek(1)}>
-              ›
+              <ChevronRight size={20} strokeWidth={1.75} aria-hidden />
             </WeekButton>
           </div>
         )}
@@ -311,7 +308,7 @@ export function TodayTimeline({
       </div>
 
       {/* Bottom padding so the last hours can scroll clear of the + and ✨ buttons. */}
-      <div className="min-h-0 flex-1 overflow-y-auto px-4 pb-24">
+      <div className="min-h-0 flex-1 overflow-y-auto px-4 pb-24 md:px-8">
 
         {day && (
           <DayCalendar
@@ -359,9 +356,9 @@ export function TodayTimeline({
           onClick={addEvent}
           aria-label="Add event"
           aria-haspopup="dialog"
-          className="fixed bottom-[calc(5rem+env(safe-area-inset-bottom))] right-[max(1rem,calc(50%-14rem+1rem))] z-30 flex size-14 items-center justify-center rounded-full bg-zinc-900 text-3xl leading-none text-white shadow-lg hover:bg-zinc-700 dark:bg-zinc-100 dark:text-zinc-900 dark:hover:bg-zinc-300"
+          className={`${FAB_POSITION} bottom-[calc(5rem+env(safe-area-inset-bottom))] z-30 flex size-14 items-center justify-center rounded-full bg-ink text-paper shadow-[0_2px_8px_rgb(0_0_0/0.15)] transition-opacity hover:opacity-90 md:bottom-6`}
         >
-          +
+          <Plus size={24} strokeWidth={2} aria-hidden />
         </button>
       )}
     </main>
@@ -377,7 +374,7 @@ function WeekButton({
   label: string;
   disabled: boolean;
   onClick: () => void;
-  children: string;
+  children: ReactNode;
 }) {
   return (
     <button
@@ -385,7 +382,7 @@ function WeekButton({
       aria-label={label}
       disabled={disabled}
       onClick={onClick}
-      className="flex size-11 items-center justify-center rounded-full text-2xl text-zinc-600 hover:bg-zinc-100 disabled:opacity-30 disabled:hover:bg-transparent dark:text-zinc-400 dark:hover:bg-zinc-900"
+      className={iconButton}
     >
       {children}
     </button>
@@ -399,29 +396,32 @@ function GapPanel({ gap, rec, onReload }: { gap: Gap; rec: RecState | undefined;
   const sameBuilding = gap.locationId === gap.nextLocationId;
 
   return (
-    <div
-      id={`${gap.id}-panel`}
-      className="rounded-2xl border-2 border-emerald-400 bg-emerald-50 p-4 dark:border-emerald-700 dark:bg-emerald-950/40"
-    >
-      <div className="mb-3 border-b border-emerald-200 pb-3 text-sm text-emerald-900 dark:border-emerald-800 dark:text-emerald-100">
-        <p className="font-semibold">
-          <span className="tabular-nums">
+    <div id={`${gap.id}-panel`} className="rounded-xl border border-square/40 bg-surface p-4">
+      <div className="mb-4 border-b border-line pb-3 text-sm">
+        <p className="text-base font-semibold">
+          {formatDurationShort(gap.usableMins)} to use{" "}
+          <span className="font-normal tabular-nums text-muted">
             {time(gap.start)}–{time(gap.end)}
-          </span>{" "}
-          · {formatDurationShort(gap.durationMins)} free · {formatDurationShort(gap.usableMins)} usable
+          </span>
         </p>
-        <p className="mt-0.5 text-emerald-800 dark:text-emerald-200">
+        <p className="mt-1 text-muted">
           {sameBuilding
             ? `Staying in ${from}, no walk needed`
-            : `${from} → ${to}, ${formatDurationShort(gap.travelMins)} ${gap.travelMode === "tube" ? "by tube" : "walk"}`}
+            : `${from} to ${to}, ${formatDurationShort(gap.travelMins)} ${gap.travelMode === "tube" ? "by tube" : "walk"}`}
+          {" · "}
+          {formatDurationShort(gap.durationMins)} free in total
         </p>
-        <p className="mt-2">
-          After <strong>{gap.prevEvent.title}</strong> ({place(gap.prevLocationId)})
-        </p>
-        <p>
-          Before <strong>{gap.nextEvent.title}</strong> at {time(gap.end)}
-          {gap.nextEvent.room && ` (${gap.nextEvent.room})`}
-        </p>
+        <dl className="mt-3 grid grid-cols-[auto_1fr] gap-x-3 gap-y-1">
+          <dt className="text-muted">After</dt>
+          <dd>
+            <span className="font-medium">{gap.prevEvent.title}</span> ({place(gap.prevLocationId)})
+          </dd>
+          <dt className="text-muted">Before</dt>
+          <dd>
+            <span className="font-medium">{gap.nextEvent.title}</span> at <span className="tabular-nums">{time(gap.end)}</span>
+            {gap.nextEvent.room && ` (${gap.nextEvent.room})`}
+          </dd>
+        </dl>
       </div>
       <RecommendationPanel state={rec ?? { status: "loading" }} onReload={onReload} />
     </div>
@@ -443,72 +443,45 @@ function ItemPanel({
   onRemove: () => void;
 }) {
   return (
-    <div className="rounded-2xl border border-zinc-200 bg-white p-4 dark:border-zinc-800 dark:bg-zinc-950">
+    <div className="rounded-xl border border-line bg-surface p-4">
       <p className="font-semibold">{title}</p>
-      <p className="mt-0.5 text-sm tabular-nums text-zinc-600 dark:text-zinc-400">{when}</p>
-      <div className="mt-3 flex flex-wrap items-center gap-2">
-        <button
-          type="button"
-          onClick={onRemove}
-          className="min-h-11 rounded-full bg-zinc-900 px-4 text-sm font-medium text-white hover:bg-zinc-700 dark:bg-zinc-100 dark:text-zinc-900 dark:hover:bg-zinc-300"
-        >
+      <p className="mt-1 text-sm tabular-nums text-muted">{when}</p>
+      <div className="mt-4 flex flex-wrap items-center gap-2">
+        <button type="button" onClick={onRemove} className={secondaryButton}>
           Remove from Today
         </button>
-        <Link
-          href={href}
-          className="flex min-h-11 items-center rounded-full px-3 text-sm text-zinc-600 hover:bg-zinc-100 dark:text-zinc-400 dark:hover:bg-zinc-900"
-        >
+        <Link href={href} className={ghostButton}>
           Open {tab} tab
         </Link>
       </div>
-      <p className="mt-2 text-xs text-zinc-500">It stays in the {tab} tab, and you can add it back there.</p>
+      <p className="mt-2 text-xs text-muted">It stays in the {tab} tab, and you can add it back there.</p>
     </div>
   );
 }
 
-/** Opens the Home sheet. Shows where home is, or invites the student to add it. */
+/** Opens the Home sheet: one compact row with where home is, or an invite to add it. */
 function HomeButton({ home, onClick }: { home: Home | null; onClick: () => void }) {
-  if (!home) {
-    return (
-      <button
-        type="button"
-        onClick={onClick}
-        aria-haspopup="dialog"
-        className="mt-4 flex min-h-14 w-full items-center gap-3 rounded-2xl border-2 border-dashed border-emerald-400 px-4 py-2.5 text-left transition-colors hover:bg-emerald-50 dark:border-emerald-700 dark:hover:bg-emerald-950/40"
-      >
-        <span className="min-w-0 flex-1">
-          <span className="block font-semibold text-emerald-700 dark:text-emerald-300">🏠 Add your home</span>
-          <span className="block text-sm text-zinc-600 dark:text-zinc-400">So I know when a gap&apos;s long enough to pop back</span>
-        </span>
-        <span aria-hidden className="text-xl text-emerald-600 dark:text-emerald-400">
-          +
-        </span>
-      </button>
-    );
-  }
   return (
     <button
       type="button"
       onClick={onClick}
       aria-haspopup="dialog"
-      aria-label={`Home: ${homeLabel(home)}. Change`}
-      className="mt-4 flex min-h-14 w-full items-center gap-3 rounded-2xl border border-zinc-200 bg-white px-3 py-2.5 text-left transition-colors hover:bg-zinc-50 dark:border-zinc-800 dark:bg-zinc-950 dark:hover:bg-zinc-900"
+      aria-label={home ? `Home: ${homeLabel(home)}. Change` : "Add your home"}
+      className="-mx-2 mt-2 flex min-h-11 w-[calc(100%+1rem)] items-center gap-2 rounded-lg px-2 text-left text-sm transition-colors hover:bg-sunken"
     >
-      <span
-        aria-hidden
-        className="flex size-10 shrink-0 items-center justify-center rounded-full bg-emerald-100 text-lg dark:bg-emerald-950"
-      >
-        🏠
-      </span>
-      <span className="min-w-0 flex-1">
-        <span className="block text-xs font-medium text-zinc-500">Home</span>
-        <span className={`block truncate font-medium ${home.kind === "none" ? "text-zinc-500" : ""}`}>
-          {homeLabel(home)}
+      <House {...ICON} className="shrink-0 text-muted" />
+      {home ? (
+        <span className="min-w-0 flex-1 truncate">
+          <span className="text-muted">Home: </span>
+          <span className={home.kind === "none" ? "text-muted" : "font-medium"}>{homeLabel(home)}</span>
         </span>
-      </span>
-      <span aria-hidden className="text-xl text-zinc-400">
-        ›
-      </span>
+      ) : (
+        <span className="min-w-0 flex-1 truncate">
+          <span className="font-medium text-square">Add your home</span>
+          <span className="hidden text-muted sm:inline"> so I know when a gap&apos;s long enough to pop back</span>
+        </span>
+      )}
+      <ChevronRight {...ICON} className="shrink-0 text-muted" />
     </button>
   );
 }

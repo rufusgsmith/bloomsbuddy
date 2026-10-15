@@ -2,7 +2,23 @@
 
 import Link from "next/link";
 import { useMemo, useRef, useState, useSyncExternalStore, type ReactNode } from "react";
-import { CalendarButton, DeleteButton, Field, inputClass, PageHeader, TabPage } from "../form-ui";
+import { ArrowRight, Camera, MapPin, Plus } from "lucide-react";
+import {
+  Badge,
+  CalendarButton,
+  DeleteButton,
+  EmptyState,
+  Field,
+  ghostButton,
+  ICON,
+  inputClass,
+  Notice,
+  PageHeader,
+  primaryButton,
+  RowsSkeleton,
+  secondaryButton,
+  TabPage,
+} from "../form-ui";
 import {
   parseDeadlineIds,
   readRawCalendarDeadlines,
@@ -91,18 +107,13 @@ export function DeadlinesView() {
         <Editor user={user} />
       ) : (
         <>
-          <Link
-            href="/setup"
-            className="mb-5 flex items-center justify-between gap-3 rounded-2xl bg-emerald-600 p-4 text-white hover:bg-emerald-700 dark:bg-emerald-500 dark:text-emerald-950 dark:hover:bg-emerald-400"
-          >
-            <span>
-              <span className="block font-semibold">These are demo deadlines</span>
-              <span className="block text-sm opacity-90">Snap your timetable and Moodle to track your own.</span>
-            </span>
-            <span aria-hidden className="text-xl">
-              →
-            </span>
-          </Link>
+          <p className="mb-4 flex flex-wrap items-center gap-x-2 text-sm text-muted">
+            These are demo deadlines.
+            <Link href="/setup" className="inline-flex min-h-11 items-center gap-1 font-medium text-square hover:underline">
+              Scan your Moodle
+              <ArrowRight {...ICON} />
+            </Link>
+          </p>
           <Groups deadlines={demo ?? []} />
         </>
       )}
@@ -155,9 +166,9 @@ function Editor({ user }: { user: UserData }) {
   return (
     <>
       {saveFailed && (
-        <p role="alert" className="mb-4 rounded-xl bg-red-50 p-3 text-sm text-red-700 dark:bg-red-950 dark:text-red-300">
+        <Notice tone="bad" className="mb-4">
           Your browser wouldn&apos;t let us save that. Is private mode or blocked storage on?
-        </p>
+        </Notice>
       )}
       {draft && isNew ? (
         <div className="mb-5">{form(draft)}</div>
@@ -169,21 +180,18 @@ function Editor({ user }: { user: UserData }) {
               setIsNew(true);
               setDraft(blankDraft());
             }}
-            className="min-h-12 flex-1 rounded-full bg-emerald-600 px-4 font-medium text-white hover:bg-emerald-700 dark:bg-emerald-500 dark:text-emerald-950 dark:hover:bg-emerald-400"
+            className={`${primaryButton} flex-1`}
           >
-            + Add deadline
+            <Plus {...ICON} />
+            Add deadline
           </button>
           <RescanButton onScanned={addScanned} />
         </div>
       )}
       {user.deadlines.length === 0 && !draft ? (
-        <p className="rounded-2xl border border-dashed border-zinc-300 p-6 text-center text-sm text-zinc-600 dark:border-zinc-700 dark:text-zinc-400">
-          No deadlines. Add one above, or scan your Moodle in{" "}
-          <Link href="/setup" className="font-medium text-emerald-700 underline dark:text-emerald-400">
-            setup
-          </Link>
-          .
-        </p>
+        <EmptyState title="No deadlines yet">
+          Add one above, or re-scan a screenshot of your Moodle timeline and I&apos;ll read them off it.
+        </EmptyState>
       ) : (
         <Groups
           deadlines={user.deadlines}
@@ -240,7 +248,7 @@ function RescanButton({ onScanned }: { onScanned: (d: Deadline[]) => { added: nu
   return (
     <>
       <label
-        className={`flex min-h-12 flex-1 items-center justify-center gap-1.5 rounded-full border border-emerald-500 px-4 text-center text-sm font-medium text-emerald-800 hover:bg-emerald-50 dark:text-emerald-200 dark:hover:bg-emerald-950/40 ${
+        className={`${secondaryButton} flex-1 has-[:focus-visible]:outline-2 has-[:focus-visible]:outline-square ${
           reading ? "cursor-wait animate-pulse" : "cursor-pointer"
         }`}
       >
@@ -252,13 +260,13 @@ function RescanButton({ onScanned }: { onScanned: (d: Deadline[]) => { added: nu
           onChange={(e) => void scan(e.target.files?.[0])}
           className="sr-only"
         />
-        <span aria-hidden>📸</span>
+        <Camera {...ICON} />
         <span aria-live="polite">{reading ? "Squinting…" : "Re-scan Moodle screenshot"}</span>
       </label>
       {(state.status === "done" || state.status === "error") && (
         <p
           role={state.status === "error" ? "alert" : "status"}
-          className={`basis-full text-sm ${state.status === "error" ? "text-red-600 dark:text-red-400" : "text-emerald-700 dark:text-emerald-400"}`}
+          className={`basis-full text-sm ${state.status === "error" ? "text-danger" : "text-muted"}`}
         >
           {state.status === "error" ? state.message : scanSummary(state.added, state.updated)}
         </p>
@@ -305,10 +313,10 @@ function Groups({
         .filter((g) => g.items.length > 0)
         .map((g) => (
           <section key={g.title}>
-            <h2 className="mb-2 text-sm font-semibold text-zinc-600 dark:text-zinc-400">{g.title}</h2>
-            <ul className="flex flex-col gap-2">
+            <h2 className="mb-1 text-sm font-medium text-muted">{g.title}</h2>
+            <ul className="border-b border-line">
               {g.items.map((d) => (
-                <li key={d.id}>
+                <li key={d.id} className="border-t border-line">
                   {formFor(d) ?? (
                     <DeadlineRow
                       deadline={d}
@@ -328,7 +336,7 @@ function Groups({
 }
 
 /**
- * One deadline card. Tapping it edits (a button under the content, so the "Add to calendar"
+ * One deadline row. Tapping it edits (a button under the content, so the "Add to calendar"
  * pill in the bottom-right corner isn't nested inside another button).
  */
 function DeadlineRow({
@@ -347,26 +355,29 @@ function DeadlineRow({
   const title = [d.moduleCode, d.title].filter(Boolean).join(" ");
   return (
     <div
-      className={`relative flex gap-3 rounded-2xl border border-zinc-200 p-4 dark:border-zinc-800 ${past ? "opacity-60" : ""}`}
+      className={`relative flex gap-3 py-3 ${past ? "opacity-60" : ""}`}
     >
       {onEdit && (
         <button
           type="button"
           onClick={onEdit}
           aria-label={`Edit ${d.title}`}
-          className="absolute inset-0 rounded-2xl hover:bg-zinc-50 dark:hover:bg-zinc-900"
+          className="absolute -inset-x-2 inset-y-0 rounded-lg hover:bg-sunken"
         />
       )}
       <div className="pointer-events-none relative min-w-0 flex-1">
-        {d.moduleCode && <p className="text-xs font-semibold text-emerald-700 dark:text-emerald-400">{d.moduleCode}</p>}
+        {d.moduleCode && <p className="text-xs font-medium text-muted">{d.moduleCode}</p>}
         <p className="font-medium">{d.title}</p>
-        <p className="mt-0.5 text-sm text-zinc-600 dark:text-zinc-400">
+        <p className="mt-0.5 text-sm tabular-nums text-muted">
           {dueLabel(d.due)}
           {d.weight !== undefined && ` · ${d.weight}%`}
         </p>
         {d.location && (
-          <span className="mt-1.5 inline-block rounded-full bg-zinc-100 px-2 py-0.5 text-xs font-medium text-zinc-700 dark:bg-zinc-800 dark:text-zinc-300">
-            📍 {locationLabel(d.location)}
+          <span className="mt-1 inline-block">
+            <Badge>
+              <MapPin {...ICON} size={12} />
+              {locationLabel(d.location)}
+            </Badge>
           </span>
         )}
       </div>
@@ -390,12 +401,7 @@ function DeadlineRow({
 
 function DaysLeft({ days, past }: { days: number; past: boolean }) {
   const label = past ? "Overdue" : days === 0 ? "Today" : days === 1 ? "Tomorrow" : `${days} days`;
-  const tone = past
-    ? "bg-zinc-100 text-zinc-500 dark:bg-zinc-800 dark:text-zinc-400"
-    : days <= URGENT_DAYS
-      ? "bg-red-100 text-red-700 dark:bg-red-950 dark:text-red-300"
-      : "bg-zinc-100 text-zinc-700 dark:bg-zinc-800 dark:text-zinc-300";
-  return <span className={`shrink-0 rounded-full px-2.5 py-1 text-xs font-semibold ${tone}`}>{label}</span>;
+  return <Badge tone={!past && days <= URGENT_DAYS ? "bad" : "neutral"}>{label}</Badge>;
 }
 
 function DeadlineForm({
@@ -426,7 +432,7 @@ function DeadlineForm({
         setSaveError(await onSave());
         setBusy(false);
       }}
-      className="rounded-2xl border border-emerald-400 bg-white p-3 dark:border-emerald-700 dark:bg-zinc-950"
+      className="my-2 rounded-xl border border-ink/30 bg-surface p-3"
     >
       <div className="grid grid-cols-[7rem_1fr] gap-2">
         <Field label="Module">
@@ -468,7 +474,7 @@ function DeadlineForm({
         </Field>
       </div>
       <fieldset className="mt-2 flex min-w-0 flex-col gap-1">
-        <legend className="mb-1 text-xs font-medium text-zinc-500">Where (optional, e.g. a lab)</legend>
+        <legend className="mb-1 text-xs font-medium text-muted">Where (optional, e.g. a lab)</legend>
         <LocationPicker
           value={d}
           onChange={(patch) => {
@@ -478,7 +484,7 @@ function DeadlineForm({
         />
       </fieldset>
       {(problem || saveError) && (
-        <p role="alert" className="mt-2 text-sm text-red-600 dark:text-red-400">
+        <p role="alert" className="mt-2 text-sm text-danger">
           {problem ?? saveError}
         </p>
       )}
@@ -486,7 +492,7 @@ function DeadlineForm({
         {!isNew && (
           <DeleteButton
             onDelete={onDelete}
-            className="min-h-11 rounded-full px-4 text-sm font-medium text-red-600 hover:bg-red-50 dark:text-red-400 dark:hover:bg-red-950"
+            className={`${ghostButton} text-danger hover:bg-danger-tint hover:text-danger`}
           >
             Delete
           </DeleteButton>
@@ -494,14 +500,14 @@ function DeadlineForm({
         <button
           type="button"
           onClick={onCancel}
-          className="ml-auto min-h-11 rounded-full bg-zinc-100 px-4 text-sm font-medium text-zinc-700 hover:bg-zinc-200 dark:bg-zinc-800 dark:text-zinc-200 dark:hover:bg-zinc-700"
+          className={`${ghostButton} ml-auto`}
         >
           Cancel
         </button>
         <button
           type="submit"
           disabled={!!problem || busy}
-          className="min-h-11 rounded-full bg-emerald-600 px-5 text-sm font-medium text-white hover:bg-emerald-700 disabled:cursor-not-allowed disabled:opacity-40 dark:bg-emerald-500 dark:text-emerald-950 dark:hover:bg-emerald-400"
+          className={primaryButton}
         >
           {busy ? "Saving…" : isNew ? "Add" : "Save"}
         </button>
@@ -512,11 +518,5 @@ function DeadlineForm({
 
 
 function Skeleton() {
-  return (
-    <div aria-busy="true" className="flex animate-pulse flex-col gap-3">
-      <div className="h-12 rounded-full bg-zinc-100 dark:bg-zinc-900" />
-      <div className="h-20 rounded-2xl bg-zinc-100 dark:bg-zinc-900" />
-      <div className="h-20 rounded-2xl bg-zinc-100 dark:bg-zinc-900" />
-    </div>
-  );
+  return <RowsSkeleton rows={4} rowClassName="h-20" />;
 }
