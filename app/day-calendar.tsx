@@ -179,7 +179,8 @@ export function DayCalendar({
       ) : (
         <>
           {segment(start, split, split === end)}
-          <div ref={panelRef} className="my-2 scroll-mt-4 scroll-mb-28">
+          {/* Lined up with the event and gap boxes: past the hour labels (left-12), inset like inset-x-1. */}
+          <div ref={panelRef} className="my-2 ml-[calc(3rem+0.25rem)] mr-1 scroll-mt-4 scroll-mb-28">
             {panel}
           </div>
           {split < end && segment(split, end, true)}

@@ -230,13 +230,15 @@ function Chip({
       )}
       {state === "error" && <span aria-label="Events failed to load" className="h-2 w-2 rounded-full bg-amber-500" />}
       {society.name}
-      <DeleteButton
-        onDelete={onRemove}
-        label={`Remove ${society.name}`}
+      {/* One tap: re-adding a society is easy, so no "Tap again to delete" here. */}
+      <button
+        type="button"
+        onClick={onRemove}
+        aria-label={`Remove ${society.name}`}
         className="-my-1.5 flex size-11 items-center justify-center rounded-full text-emerald-700 hover:bg-emerald-100 dark:text-emerald-300 dark:hover:bg-emerald-900"
       >
         ×
-      </DeleteButton>
+      </button>
     </span>
   );
 }
