@@ -10,6 +10,7 @@ import { BUILDINGS, FOOD_SPOTS, travelTime, travelTimeBetween, type BuildingId, 
 import { estimateBusyness } from "../library-busyness";
 import { formatDuration } from "../duration";
 import { londonDateKey } from "../gaps";
+import { locationName, locationPoint } from "../location";
 import { formatTime } from "../london-time";
 import { lunchInfo } from "../lunch";
 import { byDueThenEstimate, repeatLabel, todosForGap } from "../todos";
@@ -17,6 +18,7 @@ import { deadlinesFromList, eventsFor, getProviders } from "../providers";
 import type {
   BusynessLevel,
   Deadline,
+  EventLocation,
   Gap,
   HomeLocation,
   IsoDateTime,
@@ -110,6 +112,24 @@ function makeTools(
   const here = gap.locationId;
   const next = gap.nextLocationId;
 
+  /**
+   * The trip for a to-do or deadline tied to a place: there from where the student is, on to what's
+   * next, and the minutes left at the place. Done here so Claude doesn't do the maths.
+   */
+  const placeTrip = (loc: EventLocation | undefined) => {
+    if (!loc) return null;
+    const there = travelTimeBetween(BUILDINGS[here], locationPoint(loc));
+    const onward = travelTimeBetween(locationPoint(loc), BUILDINGS[next]);
+    return {
+      place: locationName(loc),
+      minsThere: there.mins,
+      modeThere: there.mode,
+      minsOnToNext: onward.mins,
+      modeOnToNext: onward.mode,
+      minsAtPlace: Math.max(0, gap.durationMins - there.mins - onward.mins),
+    };
+  };
+
   const getStudySpaces = betaTool({
     name: "get_study_spaces",
     description:
@@ -182,7 +202,8 @@ function makeTools(
 
   const getDeadlines = betaTool({
     name: "get_deadlines",
-    description: "The student's upcoming coursework deadlines, due within `within_days` days of the gap starting.",
+    description:
+      "The student's upcoming coursework deadlines, due within `within_days` days of the gap starting. location is null, or the place the work has to happen (a lab, a studio) with travel minutes there from where the student is (minsThere), on to their next lecture (minsOnToNext), and minsAtPlace: how long they'd get there in this gap.",
     inputSchema: {
       type: "object",
       properties: {
@@ -219,6 +240,7 @@ function makeTools(
           estimatedHours: d.estimatedHours ?? null,
           laterGapsTodayBeforeDue,
           totalLaterMinsBeforeDue: laterGapsTodayBeforeDue.reduce((sum, g) => sum + g.usableMinsBeforeDue, 0),
+          location: placeTrip(d.location),
         };
       });
       return rows.length ? JSON.stringify(rows) : `No deadlines in the next ${days} days.`;
@@ -265,13 +287,15 @@ function makeTools(
   const getTodos = todos?.length ? betaTool({
     name: "get_todos",
     description:
-      "The student's own to-do items that could go in this gap, soonest do-before date first. One-off items say when to do them by (daysUntilDoBefore counts London calendar days from the gap; negative = overdue). Repeating items (repeats is set) only appear when they come up on the gap's day and their preferred time or part of day falls in the gap, so they're timely now. Each has the student's time estimate if they gave one, and fitsInGap (whether the estimate fits the gap's usable minutes, or \"unknown\" with no estimate).",
+      "The student's own to-do items that could go in this gap, soonest do-before date first. One-off items say when to do them by (daysUntilDoBefore counts London calendar days from the gap; negative = overdue). Repeating items (repeats is set) only appear when they come up on the gap's day and their preferred time or part of day falls in the gap, so they're timely now. Each has the student's time estimate if they gave one. location is null, or the place it has to be done with travel minutes there from where the student is (minsThere), on to their next lecture (minsOnToNext), and minsAtPlace: how long they'd get there. fitsInGap says whether the estimate fits (in minsAtPlace when there's a location, else the gap's usable minutes), or \"unknown\" with no estimate.",
     inputSchema: { type: "object", properties: {}, additionalProperties: false },
     run: async () => {
       debug("tool get_todos", { count: todos.length });
       const gapDay = londonDateKey(gap.start);
       const rows = [...todos].sort(byDueThenEstimate).map((t) => {
         seen.todoIds.add(t.id);
+        const trip = placeTrip(t.location);
+        const room = trip ? trip.minsAtPlace : gap.usableMins;
         return {
           id: t.id,
           title: t.title,
@@ -282,7 +306,8 @@ function makeTools(
           repeats: t.repeat ? repeatLabel(t.repeat).replace(/^↻ /, "") : null,
           estMinutes: t.estMinutes ?? null,
           estimate: t.estMinutes ? formatDuration(t.estMinutes) : "not estimated",
-          fitsInGap: t.estMinutes ? t.estMinutes <= gap.usableMins : "unknown",
+          fitsInGap: t.estMinutes ? t.estMinutes <= room : "unknown",
+          location: trip,
         };
       });
       return JSON.stringify(rows);

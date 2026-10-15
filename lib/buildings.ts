@@ -128,6 +128,22 @@ export const HALL_IDS = (Object.keys(BUILDINGS) as BuildingId[])
   .filter((id) => BUILDINGS[id].kind === "hall")
   .sort((a, b) => BUILDINGS[a].name.localeCompare(BUILDINGS[b].name));
 
+/**
+ * Buildings whose name or short name contains the query (any case), names starting with it first,
+ * then A–Z. An empty query matches everything. Shared by the home picker and the location picker.
+ */
+export function searchBuildings(ids: readonly BuildingId[], query: string): BuildingId[] {
+  const q = query.trim().toLowerCase();
+  const name = (id: BuildingId) => BUILDINGS[id].name.toLowerCase();
+  const matches = ids.filter((id) => !q || name(id).includes(q) || BUILDINGS[id].shortName.toLowerCase().includes(q));
+  return matches.sort(
+    (a, b) => Number(!name(a).startsWith(q)) - Number(!name(b).startsWith(q)) || name(a).localeCompare(name(b)),
+  );
+}
+
+/** Every building, for the location picker. */
+export const ALL_BUILDING_IDS = Object.keys(BUILDINGS) as BuildingId[];
+
 // ---- Lunch spots near Bloomsbury campus ----
 // MOCK data: plausible places with approximate coordinates and made-up queue notes. Not a live
 // feed and not a provider: like the buildings, it's static reference data.

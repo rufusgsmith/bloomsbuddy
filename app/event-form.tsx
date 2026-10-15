@@ -1,7 +1,6 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import type { BuildingId } from "@/lib/buildings";
 import { clashMessage, findClashes } from "@/lib/clashes";
 import { newId } from "@/lib/deadline-draft";
 import { londonIso } from "@/lib/london-time";
@@ -14,12 +13,11 @@ import {
   saveManualEvent,
   validateEventDraft,
   type EventDraft,
-  type LocationChoice,
 } from "@/lib/manual-events";
-import { normalisePostcode } from "@/lib/postcode";
 import type { DateKey, EventKind, ManualEvent, TimetableEvent, WallTime } from "@/lib/types";
-import { BuildingOptions } from "./building-options";
 import { DeleteButton, Field, inputClass } from "./form-ui";
+import { LocationPicker } from "./location-picker";
+import { resolveLocation } from "./postcode-lookup";
 
 /** What the form is open for: a new event, one of the student's own, or one day of a timetable class. */
 export type EventFormTarget =
@@ -64,23 +62,6 @@ export function EventSheet({
   const isClass = target.kind === "class";
   const title = target.kind === "new" ? "Add event" : "Edit event";
 
-  /** A postcode's coordinates: reused when it hasn't changed, else looked up on postcodes.io via /api/postcode. */
-  async function lookupPostcode(): Promise<{ postcode: string; lat: number; lng: number } | string> {
-    const pc = normalisePostcode(draft.postcode);
-    const old = target.kind === "manual" ? target.event.location : undefined;
-    if (old?.kind === "postcode" && normalisePostcode(old.postcode) === pc) return old;
-    try {
-      const res = await fetch(`/api/postcode?pc=${encodeURIComponent(pc)}`);
-      const body = (await res.json()) as { postcode?: string; lat?: number; lng?: number; error?: string };
-      if (!res.ok || typeof body.lat !== "number" || typeof body.lng !== "number") {
-        return body.error ?? "Couldn't find that postcode";
-      }
-      return { postcode: body.postcode ?? pc, lat: body.lat, lng: body.lng };
-    } catch {
-      return "Couldn't look that postcode up. Check your connection?";
-    }
-  }
-
   /** Events the draft would overlap on its date (the first one, if weekly), leaving out the one being edited. */
   function clashes() {
     const skip = (e: TimetableEvent) =>
@@ -106,16 +87,14 @@ export function EventSheet({
     }
     setClash(null);
     setBusy(true);
-    let place: { postcode: string; lat: number; lng: number } | undefined;
-    if (draft.locationChoice === "postcode") {
-      const found = await lookupPostcode();
-      if (typeof found === "string") {
-        setBusy(false);
-        setSaveError(found);
-        return;
-      }
-      place = found;
+    // A postcode's coordinates: reused when it hasn't changed, else looked up via /api/postcode.
+    const location = await resolveLocation(draft, target.kind === "manual" ? target.event.location : undefined);
+    if (typeof location === "string") {
+      setBusy(false);
+      setSaveError(location);
+      return;
     }
+    const place = location?.kind === "postcode" ? location : undefined;
     const ok =
       target.kind === "new"
         ? saveManualEvent(eventFromDraft(newId("ev"), draft, place))
@@ -220,34 +199,10 @@ export function EventSheet({
             <input value={draft.room} onChange={(e) => set({ room: e.target.value })} placeholder="Roberts 309" className={inputClass} />
           </Field>
 
-          <Field label="Location (for travel times)">
-            <select
-              value={draft.locationChoice === "building" ? draft.buildingId : draft.locationChoice}
-              onChange={(e) => {
-                const v = e.target.value;
-                if (v === "none" || v === "postcode") set({ locationChoice: v as LocationChoice });
-                else set({ locationChoice: "building", buildingId: v as BuildingId });
-              }}
-              className={inputClass}
-            >
-              <option value="none">None</option>
-              <option value="postcode">Other place (postcode)</option>
-              <BuildingOptions />
-            </select>
-          </Field>
-
-          {draft.locationChoice === "postcode" && (
-            <Field label="Postcode">
-              <input
-                value={draft.postcode}
-                onChange={(e) => set({ postcode: e.target.value })}
-                placeholder="WC1E 6BT"
-                autoComplete="postal-code"
-                autoCapitalize="characters"
-                className={inputClass}
-              />
-            </Field>
-          )}
+          <fieldset className="flex min-w-0 flex-col gap-1">
+            <legend className="mb-1 text-xs font-medium text-zinc-500">Location (for travel times)</legend>
+            <LocationPicker value={draft} onChange={set} />
+          </fieldset>
 
           {!isClass && (
             <label className="flex min-h-11 items-center justify-between gap-3">

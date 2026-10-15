@@ -3,6 +3,7 @@
 // The pure helpers below (validation, repeats, which to-dos fit a gap) are shared with /api/recommend.
 
 import { londonDateKey } from "./gaps";
+import { isLocation, locationDraftFrom, locationDraftProblem, type LocationDraft } from "./location";
 import { addDays, dayOfWeek, formatWallTime, isDateKey, isWallTime, londonWeekdayAndMinutes } from "./london-time";
 import type { DateKey, Gap, PartOfDay, Todo, TodoRepeat, Weekday } from "./types";
 
@@ -59,6 +60,7 @@ export function isTodo(x: unknown): x is Todo {
     (t.doBefore === undefined || isDateKey(t.doBefore)) &&
     (t.doneOn === undefined || isDateKey(t.doneOn)) &&
     (t.repeat === undefined || isRepeat(t.repeat)) &&
+    (t.location === undefined || isLocation(t.location)) &&
     (t.estMinutes === undefined ||
       (Number.isInteger(t.estMinutes) && t.estMinutes > 0 && t.estMinutes <= MAX_EST_MINS))
   );
@@ -81,6 +83,7 @@ export function migrateTodo(x: unknown): unknown {
     ...(doBefore !== undefined && !repeat ? { doBefore } : {}),
     ...(repeat ? { repeat } : {}),
     ...(repeat && o.doneOn !== undefined ? { doneOn: o.doneOn } : {}),
+    ...(o.location !== undefined ? { location: o.location } : {}),
   };
 }
 
@@ -233,8 +236,12 @@ export function todosForGap(todos: Todo[], gap: Pick<Gap, "start" | "end">): Tod
 
 // ---------- The form ----------
 
-/** What the to-do form edits. Number fields are strings so half-typed input can be validated. */
-export interface TodoDraft {
+/**
+ * What the to-do form edits. Number fields are strings so half-typed input can be validated.
+ * The location fields are checked here, but the form attaches the location itself on save
+ * (a postcode needs a lookup first).
+ */
+export interface TodoDraft extends LocationDraft {
   title: string;
   hours: string;
   minutes: string;
@@ -251,6 +258,7 @@ export interface TodoDraftErrors {
   duration?: string;
   doBefore?: string;
   repeat?: string;
+  location?: string;
 }
 
 export function toDraft(t?: Todo): TodoDraft {
@@ -265,6 +273,7 @@ export function toDraft(t?: Todo): TodoDraft {
     dayOfMonth: t?.repeat?.dayOfMonth ?? null,
     time: t?.repeat?.time ?? "",
     partOfDay: t?.repeat?.partOfDay ?? null,
+    ...locationDraftFrom(t?.location),
   };
 }
 
@@ -320,6 +329,9 @@ export function validateTodoDraft(
       });
     }
   }
+
+  const locationProblem = locationDraftProblem(d);
+  if (locationProblem) errors.location = locationProblem;
 
   if (Object.keys(errors).length > 0) return { errors };
   const todo: Todo = {

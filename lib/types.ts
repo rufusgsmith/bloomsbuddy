@@ -69,6 +69,8 @@ export interface Deadline {
   weight?: number;
   source: "moodle" | "manual";
   estimatedHours?: number;
+  /** Where the work has to happen (a lab, a studio), if anywhere in particular. */
+  location?: EventLocation;
 }
 
 export interface SocietyEvent {
@@ -183,6 +185,8 @@ export interface Todo {
   done: boolean;
   /** London day it was last ticked. Only kept for repeating to-dos. */
   doneOn?: DateKey;
+  /** Where it has to be done (a shop, an office), if anywhere in particular. */
+  location?: EventLocation;
 }
 
 /** "YYYY-MM-DD", a Europe/London calendar day. */
@@ -222,7 +226,7 @@ export interface UserData {
   savedAt: IsoDateTime;
 }
 
-/** Where a manual event happens: a UCL building, or anywhere else by postcode. */
+/** A place for a manual event, to-do or deadline: a UCL building, or anywhere else by postcode. */
 export type EventLocation =
   | { kind: "building"; buildingId: BuildingId }
   | { kind: "postcode"; postcode: string; lat: number; lng: number };

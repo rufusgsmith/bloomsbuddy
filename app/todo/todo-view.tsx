@@ -3,6 +3,7 @@
 import { useMemo, useState, useSyncExternalStore, type FormEvent, type ReactNode } from "react";
 import { DeleteButton, inputClass, PageHeader } from "../form-ui";
 import { formatDurationShort } from "@/lib/duration";
+import { locationLabel } from "@/lib/location";
 import { londonTodayKey, relativeDayLabel } from "@/lib/london-time";
 import {
   byDueThenEstimate,
@@ -26,6 +27,8 @@ import {
   type TodoDraft,
 } from "@/lib/todos";
 import type { DateKey, Todo, Weekday } from "@/lib/types";
+import { LocationPicker } from "../location-picker";
+import { resolveLocation } from "../postcode-lookup";
 
 // The To-do tab. Saved straight to localStorage on every change, in the demo week too.
 // Open to-dos are sent with each recommendation request, so Claude can slot one into a gap.
@@ -215,17 +218,25 @@ function TodoForm({
   const editing = !!initial;
   const [draft, setDraft] = useState<TodoDraft>(() => toDraft(initial));
   // Errors only show once a field has been touched (or on submit), so a fresh form isn't red.
-  const [touched, setTouched] = useState({ duration: false, doBefore: false, repeat: false });
+  const [touched, setTouched] = useState({ duration: false, doBefore: false, repeat: false, location: false });
+  const [busy, setBusy] = useState(false);
+  const [saveError, setSaveError] = useState<string | null>(null);
   const set = (patch: Partial<TodoDraft>) => setDraft((d) => ({ ...d, ...patch }));
   const touch = (k: keyof typeof touched) => setTouched((t) => ({ ...t, [k]: true }));
 
   const { todo, errors } = validateTodoDraft(draft, today, initial ?? { id: "", done: false });
   const expanded = editing || draft.title.length > 0;
 
-  function submit(e: FormEvent) {
+  async function submit(e: FormEvent) {
     e.preventDefault();
-    setTouched({ duration: true, doBefore: true, repeat: true });
-    if (todo) onSubmit(todo);
+    setTouched({ duration: true, doBefore: true, repeat: true, location: true });
+    if (!todo || busy) return;
+    // A postcode's coordinates: reused when it hasn't changed, else looked up via /api/postcode.
+    setBusy(true);
+    const location = await resolveLocation(draft, initial?.location);
+    setBusy(false);
+    if (typeof location === "string") return setSaveError(location);
+    onSubmit({ ...todo, ...(location ? { location } : {}) });
   }
 
   return (
@@ -278,6 +289,17 @@ function TodoForm({
 
           <RepeatField draft={draft} set={set} error={touched.repeat ? errors.repeat : undefined} onTouch={() => touch("repeat")} />
 
+          <Section label="Where?" hint="Optional">
+            <LocationPicker
+              value={draft}
+              onChange={(patch) => {
+                set(patch);
+                setSaveError(null);
+              }}
+            />
+            <FieldError>{(touched.location && errors.location) || saveError}</FieldError>
+          </Section>
+
           <div className="flex items-center gap-2">
             {onDelete && (
               <DeleteButton
@@ -290,8 +312,8 @@ function TodoForm({
             <button type="button" onClick={onCancel} className={`ml-auto ${secondaryButton}`}>
               Cancel
             </button>
-            <button type="submit" disabled={!!errors.title} className={primaryButton}>
-              {editing ? "Save" : "Add"}
+            <button type="submit" disabled={!!errors.title || busy} className={primaryButton}>
+              {busy ? "Saving…" : editing ? "Save" : "Add"}
             </button>
           </div>
         </div>
@@ -634,12 +656,13 @@ function Badges({ todo: t, today, done }: { todo: Todo; today: DateKey; done: bo
   const badge = "rounded-full px-2 py-0.5 text-xs font-medium";
   const plain = `${badge} bg-zinc-100 text-zinc-700 dark:bg-zinc-800 dark:text-zinc-300`;
   const back = done && t.repeat && t.doneOn ? nextOccurrence(t.repeat, t.doneOn) : null;
-  if (!t.estMinutes && !t.doBefore && !t.repeat) return null;
+  if (!t.estMinutes && !t.doBefore && !t.repeat && !t.location) return null;
   return (
     <span className="mt-1 flex flex-wrap gap-1.5">
       {t.estMinutes && <span className={plain}>⏱ {formatDurationShort(t.estMinutes)}</span>}
       {t.doBefore && !done && <DoBeforeBadge doBefore={t.doBefore} today={today} className={badge} />}
       {t.repeat && <span className={plain}>{repeatLabel(t.repeat)}</span>}
+      {t.location && <span className={plain}>📍 {locationLabel(t.location)}</span>}
       {back && <span className={plain}>Back {relativeDayLabel(back, today).replace(/^Tomorrow$/, "tomorrow")}</span>}
     </span>
   );

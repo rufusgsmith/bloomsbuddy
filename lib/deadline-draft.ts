@@ -4,10 +4,14 @@
 
 import { londonDateKey } from "./gaps";
 import { addDays, isDateKey, isWallTime, londonIso, londonTodayKey } from "./london-time";
-import type { Deadline } from "./types";
+import { locationDraftFrom, locationDraftProblem, type LocationDraft } from "./location";
+import type { Deadline, EventLocation } from "./types";
 
-/** A deadline while it's being edited: date and time apart, weight as typed. */
-export interface DraftDeadline {
+/**
+ * A deadline while it's being edited: date and time apart, weight as typed. The picker edits the
+ * LocationDraft fields; `location` is the saved place, kept as-is by forms without a picker (setup).
+ */
+export interface DraftDeadline extends LocationDraft {
   id: string;
   moduleCode: string;
   title: string;
@@ -15,6 +19,7 @@ export interface DraftDeadline {
   time: string;
   weight: string;
   source: Deadline["source"];
+  location?: EventLocation;
 }
 
 const londonTime = new Intl.DateTimeFormat("en-GB", {
@@ -37,6 +42,7 @@ export function blankDraft(): DraftDeadline {
     time: "23:59",
     weight: "",
     source: "manual",
+    ...locationDraftFrom(),
   };
 }
 
@@ -49,6 +55,8 @@ export function toDraft(d: Deadline): DraftDeadline {
     time: londonTime.format(new Date(d.due)),
     weight: d.weight === undefined ? "" : String(d.weight),
     source: d.source,
+    ...locationDraftFrom(d.location),
+    ...(d.location ? { location: d.location } : {}),
   };
 }
 
@@ -63,11 +71,12 @@ export function fromDraft(d: DraftDeadline, extra?: Pick<Deadline, "estimatedHou
     ...(Number.isFinite(weight) ? { weight } : {}),
     source: d.source,
     ...(extra?.estimatedHours !== undefined ? { estimatedHours: extra.estimatedHours } : {}),
+    ...(d.location ? { location: d.location } : {}),
   };
 }
 
 export function deadlineProblem(d: DraftDeadline): string | null {
   if (!d.title.trim()) return "Give it a name";
   if (!isDateKey(d.date) || !isWallTime(d.time)) return "Needs a due date and time";
-  return null;
+  return locationDraftProblem(d);
 }

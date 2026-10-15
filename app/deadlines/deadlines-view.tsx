@@ -5,11 +5,14 @@ import { useMemo, useRef, useState, useSyncExternalStore, type ReactNode } from 
 import { DeleteButton, Field, inputClass, PageHeader } from "../form-ui";
 import { blankDraft, deadlineProblem, fromDraft, toDraft, type DraftDeadline } from "@/lib/deadline-draft";
 import { londonDateKey } from "@/lib/gaps";
+import { locationLabel } from "@/lib/location";
 import { addDays, formatTime, londonTodayKey, mondayOf } from "@/lib/london-time";
 import { mockDeadlines } from "@/lib/mock";
 import { prepareImage } from "@/lib/prepare-image";
 import { parseUserData, readRawUserData, saveUserData, subscribeUserData } from "@/lib/storage";
 import type { DateKey, Deadline, UserData } from "@/lib/types";
+import { LocationPicker } from "../location-picker";
+import { resolveLocation } from "../postcode-lookup";
 
 // The Deadlines tab. With a saved timetable the student can add, edit and delete deadlines
 // (saved straight to localStorage). Without one it shows the demo deadlines read-only:
@@ -114,10 +117,14 @@ function Editor({ user }: { user: UserData }) {
     return ok;
   }
 
-  function save(d: DraftDeadline) {
+  /** Returns an error message to show, or null once saved. */
+  async function save(d: DraftDeadline): Promise<string | null> {
     const original = user.deadlines.find((x) => x.id === d.id);
-    const saved = fromDraft(d, original);
+    const location = await resolveLocation(d, original?.location);
+    if (typeof location === "string") return location;
+    const saved = fromDraft({ ...d, location }, original);
     if (persist([...user.deadlines.filter((x) => x.id !== d.id), saved])) setDraft(null);
+    return null;
   }
 
   function remove(id: string) {
@@ -324,6 +331,11 @@ function DeadlineRow({ deadline: d, today, past }: { deadline: Deadline; today: 
           {dueLabel(d.due)}
           {d.weight !== undefined && ` · ${d.weight}%`}
         </p>
+        {d.location && (
+          <span className="mt-1.5 inline-block rounded-full bg-zinc-100 px-2 py-0.5 text-xs font-medium text-zinc-700 dark:bg-zinc-800 dark:text-zinc-300">
+            📍 {locationLabel(d.location)}
+          </span>
+        )}
       </div>
       <DaysLeft days={daysBetween(today, londonDateKey(d.due))} past={past} />
     </div>
@@ -352,16 +364,21 @@ function DeadlineForm({
   isNew: boolean;
   onChange: (patch: Partial<DraftDeadline>) => void;
   onCancel: () => void;
-  onSave: () => void;
+  onSave: () => Promise<string | null>;
   onDelete: () => void;
 }) {
   const problem = deadlineProblem(d);
+  const [busy, setBusy] = useState(false);
+  const [saveError, setSaveError] = useState<string | null>(null);
 
   return (
     <form
-      onSubmit={(e) => {
+      onSubmit={async (e) => {
         e.preventDefault();
-        if (!problem) onSave();
+        if (problem || busy) return;
+        setBusy(true);
+        setSaveError(await onSave());
+        setBusy(false);
       }}
       className="rounded-2xl border border-emerald-400 bg-white p-3 dark:border-emerald-700 dark:bg-zinc-950"
     >
@@ -404,7 +421,21 @@ function DeadlineForm({
           />
         </Field>
       </div>
-      {problem && <p className="mt-2 text-sm text-red-600 dark:text-red-400">{problem}</p>}
+      <fieldset className="mt-2 flex min-w-0 flex-col gap-1">
+        <legend className="mb-1 text-xs font-medium text-zinc-500">Where (optional, e.g. a lab)</legend>
+        <LocationPicker
+          value={d}
+          onChange={(patch) => {
+            onChange(patch);
+            setSaveError(null);
+          }}
+        />
+      </fieldset>
+      {(problem || saveError) && (
+        <p role="alert" className="mt-2 text-sm text-red-600 dark:text-red-400">
+          {problem ?? saveError}
+        </p>
+      )}
       <div className="mt-3 flex gap-2">
         {!isNew && (
           <DeleteButton
@@ -423,10 +454,10 @@ function DeadlineForm({
         </button>
         <button
           type="submit"
-          disabled={!!problem}
+          disabled={!!problem || busy}
           className="min-h-11 rounded-full bg-emerald-600 px-5 text-sm font-medium text-white hover:bg-emerald-700 disabled:cursor-not-allowed disabled:opacity-40 dark:bg-emerald-500 dark:text-emerald-950 dark:hover:bg-emerald-400"
         >
-          {isNew ? "Add" : "Save"}
+          {busy ? "Saving…" : isNew ? "Add" : "Save"}
         </button>
       </div>
     </form>

@@ -5,11 +5,17 @@
 // A change to one class (moved, renamed, cancelled) never touches the weekly pattern: that day's
 // class is hidden, and an edited copy is saved as a one-off ManualEvent.
 
-import { BUILDINGS, type BuildingId } from "./buildings";
 import { eventsOnDay, londonDateKey } from "./gaps";
 import { dayOfWeek, isDateKey, isWallTime, londonIso, londonWeekdayAndMinutes } from "./london-time";
-import { isPostcodeShape } from "./postcode";
-import type { DateKey, EventKind, EventLocation, ManualEvent, SocietyEvent, TimetableEvent, WallTime } from "./types";
+import {
+  isLocation,
+  locationDraftFrom,
+  locationDraftProblem,
+  locationFromDraft,
+  type LocationDraft,
+  type PostcodePlace,
+} from "./location";
+import type { DateKey, EventKind, ManualEvent, SocietyEvent, TimetableEvent, WallTime } from "./types";
 
 const KEY = "bloomsbuddy:events";
 /** Fired on this tab after we write. The "storage" event only reaches other tabs. */
@@ -46,14 +52,6 @@ export function readRawEvents(): string | null {
 }
 
 const isKind = (k: unknown): k is EventKind => EVENT_KINDS.some((x) => x.value === k);
-
-function isLocation(x: unknown): x is EventLocation {
-  const l = x as Partial<Record<string, unknown>> | null;
-  if (l?.kind === "building") return typeof l.buildingId === "string" && l.buildingId in BUILDINGS;
-  return (
-    l?.kind === "postcode" && typeof l.postcode === "string" && Number.isFinite(l.lat) && Number.isFinite(l.lng)
-  );
-}
 
 export function isManualEvent(x: unknown): x is ManualEvent {
   const m = x as Partial<ManualEvent> | null;
@@ -198,10 +196,8 @@ export function manualFromSociety(e: SocietyEvent, id: string): ManualEvent {
 
 // ---------- The form ----------
 
-export type LocationChoice = "none" | "building" | "postcode";
-
 /** What the event form edits. Every field is a plain string or flag, like the inputs. */
-export interface EventDraft {
+export interface EventDraft extends LocationDraft {
   title: string;
   moduleCode?: string;
   fromClass?: true;
@@ -211,9 +207,6 @@ export interface EventDraft {
   startTime: WallTime;
   endTime: WallTime;
   room: string;
-  locationChoice: LocationChoice;
-  buildingId: BuildingId;
-  postcode: string;
   weekly: boolean;
 }
 
@@ -232,9 +225,7 @@ export function blankDraft(date: DateKey, startMin: number): EventDraft {
     startTime: wallTimeOf(startMin),
     endTime: wallTimeOf(startMin + 60),
     room: "",
-    locationChoice: "none",
-    buildingId: "main-building",
-    postcode: "",
+    ...locationDraftFrom(),
     weekly: false,
   };
 }
@@ -250,9 +241,7 @@ export function draftFromManual(m: ManualEvent): EventDraft {
     startTime: m.startTime,
     endTime: m.endTime,
     room: m.room ?? "",
-    locationChoice: m.location?.kind ?? "none",
-    buildingId: m.location?.kind === "building" ? m.location.buildingId : "main-building",
-    postcode: m.location?.kind === "postcode" ? m.location.postcode : "",
+    ...locationDraftFrom(m.location),
     weekly: m.weekly,
   };
 }
@@ -269,9 +258,7 @@ export function draftFromClass(e: TimetableEvent, dateKey: DateKey): EventDraft 
     startTime: wallTimeOf(mins(e.start)),
     endTime: wallTimeOf(mins(e.end)),
     room: e.room,
-    locationChoice: e.buildingId ? "building" : "none",
-    buildingId: e.buildingId ?? "main-building",
-    postcode: "",
+    ...locationDraftFrom(e.buildingId ? { kind: "building", buildingId: e.buildingId } : undefined),
     weekly: false,
   };
 }
@@ -283,24 +270,16 @@ export function validateEventDraft(d: EventDraft): string | null {
   if (!isDateKey(d.date)) return "Pick a date";
   if (!isWallTime(d.startTime) || !isWallTime(d.endTime)) return "Pick a start and end time";
   if (d.endTime <= d.startTime) return "End has to be after start";
-  if (d.locationChoice === "postcode" && !isPostcodeShape(d.postcode)) {
-    return "That doesn't look like a UK postcode (e.g. WC1E 6BT)";
-  }
-  return null;
+  return locationDraftProblem(d);
 }
 
 /** A valid draft as a ManualEvent. The postcode's coordinates come from /api/postcode. */
 export function eventFromDraft(
   id: string,
   d: EventDraft,
-  postcodeLookup?: { postcode: string; lat: number; lng: number },
+  postcodeLookup?: PostcodePlace,
 ): ManualEvent {
-  const location: EventLocation | undefined =
-    d.locationChoice === "building"
-      ? { kind: "building", buildingId: d.buildingId }
-      : d.locationChoice === "postcode" && postcodeLookup
-        ? { kind: "postcode", ...postcodeLookup }
-        : undefined;
+  const location = locationFromDraft(d, postcodeLookup);
   return {
     id,
     title: d.title.trim(),

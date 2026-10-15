@@ -5,6 +5,7 @@
 // home ({ label, lat, lng }) is where the student lives, so Claude can suggest popping back.
 // todos are the To-do tab's open and repeating items; recommendForGap keeps the ones that fit the gap.
 // addedEventIds are society event ids already on the student's calendar: fixed plans, never suggested again.
+import { isLocation } from "@/lib/location";
 import { recommendForGap } from "@/lib/recommend/recommend";
 import { isSlug } from "@/lib/societies/su-site";
 import { isTodo, migrateTodo } from "@/lib/todos";
@@ -80,7 +81,12 @@ export async function POST(request: Request) {
   try {
     // Malformed dayGaps are dropped rather than rejected: they're only extra context.
     const dayGaps = Array.isArray(body.dayGaps) ? body.dayGaps.filter(isGap) : [];
-    const deadlines = Array.isArray(body.deadlines) ? body.deadlines.filter(isDeadline) : undefined;
+    // A malformed location is dropped, not the whole deadline.
+    const deadlines = Array.isArray(body.deadlines)
+      ? body.deadlines
+          .filter(isDeadline)
+          .map(({ location, ...d }) => (isLocation(location) ? { ...d, location } : d))
+      : undefined;
     const societies = Array.isArray(body.societies)
       ? body.societies.filter(isSociety).slice(0, MAX_SOCIETIES)
       : undefined;

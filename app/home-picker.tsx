@@ -1,10 +1,11 @@
 "use client";
 
 import { useMemo, useState, type FormEvent, type ReactNode } from "react";
-import { BUILDINGS, getBuilding, HALL_IDS, travelLabel, travelTime, type Area, type BuildingId } from "@/lib/buildings";
-import { isPostcodeShape, normalisePostcode } from "@/lib/postcode";
+import { BUILDINGS, getBuilding, HALL_IDS, searchBuildings, travelLabel, travelTime, type Area, type BuildingId } from "@/lib/buildings";
+import { isPostcodeShape } from "@/lib/postcode";
 import type { Home } from "@/lib/types";
 import { inputClass } from "./form-ui";
+import { lookupPostcode } from "./postcode-lookup";
 
 // Picks where the student lives: a UCL hall, private accommodation (a postcode), or no home.
 // Used by the Today page's Home sheet and the Home step in onboarding. Plain form controls checked
@@ -53,10 +54,7 @@ export function HomePicker({
       : null;
 
   const groups = useMemo(() => {
-    const q = query.trim().toLowerCase();
-    const matches = HALL_IDS.filter(
-      (id) => !q || BUILDINGS[id].name.toLowerCase().includes(q) || BUILDINGS[id].shortName.toLowerCase().includes(q),
-    );
+    const matches = searchBuildings(HALL_IDS, query);
     return AREA_GROUPS.map((g) => ({
       label: g.label,
       ids: matches.filter((id) => (g.areas as string[]).includes(BUILDINGS[id].area)),
@@ -81,20 +79,10 @@ export function HomePicker({
     if (postcodeError) return;
 
     setBusy(true);
-    try {
-      const pc = normalisePostcode(postcode);
-      const res = await fetch(`/api/postcode?pc=${encodeURIComponent(pc)}`);
-      const body = (await res.json()) as { postcode?: string; lat?: number; lng?: number; error?: string };
-      if (!res.ok || typeof body.lat !== "number" || typeof body.lng !== "number") {
-        setError(body.error ?? "Couldn't find that postcode");
-        return;
-      }
-      onDone({ kind: "private", postcode: body.postcode ?? pc, lat: body.lat, lng: body.lng });
-    } catch {
-      setError("Couldn't look that postcode up. Check your connection?");
-    } finally {
-      setBusy(false);
-    }
+    const place = await lookupPostcode(postcode);
+    setBusy(false);
+    if (typeof place === "string") setError(place);
+    else onDone({ kind: "private", ...place });
   }
 
   return (
@@ -127,9 +115,9 @@ export function HomePicker({
                 <ul className="flex flex-col gap-1">
                   {g.ids.map((id) => (
                     <li key={id}>
-                      <HallRow selected={hallId === id} onPick={() => setHallId(id)} name={BUILDINGS[id].name}>
+                      <PickRow selected={hallId === id} onPick={() => setHallId(id)} name={BUILDINGS[id].name}>
                         {hallSubline(id)}
-                      </HallRow>
+                      </PickRow>
                     </li>
                   ))}
                 </ul>
@@ -246,7 +234,8 @@ function OptionCard({
   );
 }
 
-function HallRow({
+/** One tappable row with a tick: a hall here, a building or place in the location picker. */
+export function PickRow({
   selected,
   onPick,
   name,
