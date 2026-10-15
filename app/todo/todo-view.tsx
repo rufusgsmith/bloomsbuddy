@@ -1,7 +1,7 @@
 "use client";
 
 import { useMemo, useState, useSyncExternalStore, type FormEvent, type ReactNode } from "react";
-import { DeleteButton, inputClass } from "../form-ui";
+import { DeleteButton, inputClass, PageHeader } from "../form-ui";
 import { formatDurationShort } from "@/lib/duration";
 import { londonTodayKey, relativeDayLabel } from "@/lib/london-time";
 import {
@@ -45,7 +45,7 @@ const daysBetween = (from: DateKey, to: DateKey) =>
   Math.round((Date.parse(`${to}T12:00:00Z`) - Date.parse(`${from}T12:00:00Z`)) / MS_PER_DAY);
 
 const chipClass = (on: boolean) =>
-  `min-h-9 rounded-full px-3 text-sm font-medium transition-colors ${
+  `min-h-11 rounded-full px-3 text-sm font-medium transition-colors ${
     on
       ? "bg-emerald-600 text-white dark:bg-emerald-500 dark:text-emerald-950"
       : "bg-zinc-100 text-zinc-700 hover:bg-zinc-200 dark:bg-zinc-800 dark:text-zinc-200 dark:hover:bg-zinc-700"
@@ -68,13 +68,7 @@ export function TodoView() {
 
   return (
     <main className="mx-auto w-full max-w-md px-4 pb-28 pt-8">
-      <header className="mb-5">
-        <p className="text-sm font-medium text-emerald-600 dark:text-emerald-400">Bloomsbuddy</p>
-        <h1 className="text-3xl font-semibold tracking-tight">To-do</h1>
-        <p className="mt-1 text-sm text-zinc-600 dark:text-zinc-400">
-          Add a time estimate and I&apos;ll squeeze these into your gaps.
-        </p>
-      </header>
+      <PageHeader title="To-do" subtitle="Add a time estimate and I'll squeeze these into your gaps." />
       {raw === null ? (
         <Skeleton />
       ) : (
@@ -157,7 +151,7 @@ export function TodoEditor({
       )}
       {done.length > 0 && (
         <details className="group">
-          <summary className="flex min-h-11 cursor-pointer list-none items-center gap-2 text-sm font-semibold uppercase tracking-wide text-zinc-500">
+          <summary className="flex min-h-11 cursor-pointer list-none items-center gap-2 text-sm font-semibold text-zinc-600 dark:text-zinc-400">
             <span aria-hidden className="transition-transform group-open:rotate-90">
               ›
             </span>

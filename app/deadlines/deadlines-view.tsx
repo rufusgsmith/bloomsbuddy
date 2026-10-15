@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useMemo, useRef, useState, useSyncExternalStore, type ReactNode } from "react";
-import { DeleteButton, Field, inputClass } from "../form-ui";
+import { DeleteButton, Field, inputClass, PageHeader } from "../form-ui";
 import { blankDraft, deadlineProblem, fromDraft, toDraft, type DraftDeadline } from "@/lib/deadline-draft";
 import { londonDateKey } from "@/lib/gaps";
 import { addDays, formatTime, londonTodayKey, mondayOf } from "@/lib/london-time";
@@ -76,10 +76,7 @@ export function DeadlinesView() {
 
   return (
     <main className="mx-auto w-full max-w-md px-4 pb-28 pt-8">
-      <header className="mb-5">
-        <p className="text-sm font-medium text-emerald-600 dark:text-emerald-400">Bloomsbuddy</p>
-        <h1 className="text-3xl font-semibold tracking-tight">Deadlines</h1>
-      </header>
+      <PageHeader title="Deadlines" />
       {raw === null ? (
         <Skeleton />
       ) : user ? (
@@ -301,7 +298,7 @@ function Groups({
         .filter((g) => g.items.length > 0)
         .map((g) => (
           <section key={g.title}>
-            <h2 className="mb-2 text-sm font-semibold uppercase tracking-wide text-zinc-500">{g.title}</h2>
+            <h2 className="mb-2 text-sm font-semibold text-zinc-600 dark:text-zinc-400">{g.title}</h2>
             <ul className="flex flex-col gap-2">
               {g.items.map((d) => (
                 <li key={d.id}>{renderRow(d, <DeadlineRow deadline={d} today={today} past={g.title === "Past"} />)}</li>

@@ -3,6 +3,9 @@
 :root {
   --background: #ffffff;
   --foreground: #171717;
+  --focus: #059669; /* emerald-600 */
+  /* Native controls (time/date inputs, selects, scrollbars) follow light/dark mode. */
+  color-scheme: light dark;
 }
 
 @theme inline {
@@ -16,11 +19,29 @@
   :root {
     --background: #0a0a0a;
     --foreground: #ededed;
+    --focus: #34d399; /* emerald-400 */
   }
 }
 
 body {
   background: var(--background);
   color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+  font-family: var(--font-geist-sans), system-ui, sans-serif;
+  -webkit-tap-highlight-color: transparent;
+}
+
+/* A visible ring for keyboard users only (mouse and touch taps don't show it). */
+:focus-visible {
+  outline: 2px solid var(--focus);
+  outline-offset: 2px;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
 }
