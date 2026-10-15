@@ -6,6 +6,20 @@ import type { WallTime } from "@/lib/types";
 export const inputClass =
   "min-h-11 w-full rounded-lg border border-zinc-300 bg-white px-2.5 text-base text-zinc-900 dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-100 sm:text-sm";
 
+/**
+ * The frame of every tab: exactly the screen above the tab bar (min-h-16 + its 1px border + the
+ * safe area; dvh, so mobile browser bars don't change it). `top` stays put like the tab bar and
+ * only the body scrolls, so the page itself never does.
+ */
+export function TabPage({ top, bodyClassName = "pb-6 pt-4", children }: { top: ReactNode; bodyClassName?: string; children: ReactNode }) {
+  return (
+    <main className="mx-auto flex h-dvh w-full max-w-md flex-col overflow-hidden pb-[calc(4rem+1px+env(safe-area-inset-bottom))]">
+      <div className="shrink-0 border-b border-zinc-200 px-4 pt-8 dark:border-zinc-800">{top}</div>
+      <div className={`min-h-0 flex-1 overflow-y-auto px-4 ${bodyClassName}`}>{children}</div>
+    </main>
+  );
+}
+
 /** The top of every page: the small "Bloomsbuddy" line (with an optional action on the right), then the title. */
 export function PageHeader({
   title,

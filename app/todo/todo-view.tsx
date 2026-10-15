@@ -1,7 +1,7 @@
 "use client";
 
 import { useMemo, useState, useSyncExternalStore, type FormEvent, type ReactNode } from "react";
-import { DeleteButton, inputClass, PageHeader, Switch, TimeField } from "../form-ui";
+import { DeleteButton, inputClass, PageHeader, Switch, TabPage, TimeField } from "../form-ui";
 import { TODO_DEFAULT_MINS } from "@/lib/calendar-items";
 import { formatDurationShort } from "@/lib/duration";
 import { locationLabel } from "@/lib/location";
@@ -72,8 +72,7 @@ export function TodoView() {
   }
 
   return (
-    <main className="mx-auto w-full max-w-md px-4 pb-28 pt-8">
-      <PageHeader title="To-do" subtitle="Add a time estimate and I'll squeeze these into your gaps." />
+    <TabPage top={<PageHeader title="To-do" subtitle="Add a time estimate and I'll squeeze these into your gaps." />}>
       {raw === null ? (
         <Skeleton />
       ) : (
@@ -86,7 +85,7 @@ export function TodoView() {
           <TodoEditor todos={todos} onChange={persist} />
         </>
       )}
-    </main>
+    </TabPage>
   );
 }
 

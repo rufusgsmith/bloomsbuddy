@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useMemo, useRef, useState, useSyncExternalStore, type ReactNode } from "react";
-import { CalendarButton, DeleteButton, Field, inputClass, PageHeader } from "../form-ui";
+import { CalendarButton, DeleteButton, Field, inputClass, PageHeader, TabPage } from "../form-ui";
 import {
   parseDeadlineIds,
   readRawCalendarDeadlines,
@@ -84,8 +84,7 @@ export function DeadlinesView() {
   const demo = useMemo(() => (raw !== null && !user ? mockDeadlines() : null), [raw, user]);
 
   return (
-    <main className="mx-auto w-full max-w-md px-4 pb-28 pt-8">
-      <PageHeader title="Deadlines" />
+    <TabPage top={<PageHeader title="Deadlines" />}>
       {raw === null ? (
         <Skeleton />
       ) : user ? (
@@ -107,7 +106,7 @@ export function DeadlinesView() {
           <Groups deadlines={demo ?? []} />
         </>
       )}
-    </main>
+    </TabPage>
   );
 }
 

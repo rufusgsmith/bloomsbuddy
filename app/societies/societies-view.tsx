@@ -17,7 +17,7 @@ import {
   subscribeEvents,
   type EventStore,
 } from "@/lib/manual-events";
-import { CalendarButton, PageHeader } from "../form-ui";
+import { CalendarButton, PageHeader, TabPage } from "../form-ui";
 import { mockSocietyEvents, mockTimetable } from "@/lib/mock";
 import { parseUserData, readRawUserData, saveUserData, subscribeUserData } from "@/lib/storage";
 import { termEndKey } from "@/lib/term";
@@ -61,10 +61,9 @@ export function SocietiesView() {
   const calendar = useMemo(() => ({ store, timetable }), [store, timetable]);
 
   return (
-    <main className="mx-auto w-full max-w-md px-4 pb-28 pt-8">
-      <PageHeader title="Societies" />
+    <TabPage top={<PageHeader title="Societies" />}>
       {raw === null ? <Skeleton /> : user ? <Mine user={user} calendar={calendar} /> : <Demo calendar={calendar} />}
-    </main>
+    </TabPage>
   );
 }
 
