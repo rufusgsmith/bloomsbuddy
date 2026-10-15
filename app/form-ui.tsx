@@ -1,4 +1,5 @@
 import { useEffect, useState, type ReactNode } from "react";
+import type { WallTime } from "@/lib/types";
 
 // UI pieces shared across the tabs, setup and the pickers.
 
@@ -80,6 +81,76 @@ export function DeleteButton({
       }
     >
       {armed ? armedText : children}
+    </button>
+  );
+}
+
+const HOURS = Array.from({ length: 24 }, (_, h) => String(h).padStart(2, "0"));
+const FIVE_MINS = Array.from({ length: 12 }, (_, i) => String(i * 5).padStart(2, "0"));
+
+/**
+ * A 24-hour time as two selects (hour, minute). <input type="time"> shows AM/PM in some
+ * browser locales, and times must always be 24-hour (UI rules in CLAUDE.md).
+ */
+export function TimeField({ label, value, onChange }: { label: string; value: WallTime; onChange: (v: WallTime) => void }) {
+  const [hh, mm] = value.split(":");
+  // A class at an odd minute (10:13) keeps its own minute as an option.
+  const minutes = FIVE_MINS.includes(mm) ? FIVE_MINS : [...FIVE_MINS, mm].sort();
+  return (
+    <fieldset className="flex min-w-0 flex-col gap-1">
+      <legend className="mb-1 text-xs font-medium text-zinc-500">{label}</legend>
+      <div className="flex items-center gap-1">
+        <select aria-label={`${label} hour`} value={hh} onChange={(e) => onChange(`${e.target.value}:${mm}`)} className={inputClass}>
+          {HOURS.map((h) => (
+            <option key={h} value={h}>
+              {h}
+            </option>
+          ))}
+        </select>
+        <span aria-hidden>:</span>
+        <select aria-label={`${label} minute`} value={mm} onChange={(e) => onChange(`${hh}:${e.target.value}`)} className={inputClass}>
+          {minutes.map((m) => (
+            <option key={m} value={m}>
+              {m}
+            </option>
+          ))}
+        </select>
+      </div>
+    </fieldset>
+  );
+}
+
+/** An on/off switch with its label, e.g. "Show on Today". */
+export function Switch({
+  checked,
+  onChange,
+  label,
+  className = "",
+}: {
+  checked: boolean;
+  onChange: (on: boolean) => void;
+  label: string;
+  className?: string;
+}) {
+  return (
+    <button
+      type="button"
+      role="switch"
+      aria-checked={checked}
+      onClick={() => onChange(!checked)}
+      className={`flex min-h-11 items-center gap-2 text-sm font-medium text-zinc-700 dark:text-zinc-300 ${className}`}
+    >
+      <span
+        aria-hidden
+        className={`relative h-6 w-10 shrink-0 rounded-full transition-colors ${
+          checked ? "bg-emerald-600 dark:bg-emerald-500" : "bg-zinc-300 dark:bg-zinc-700"
+        }`}
+      >
+        <span
+          className={`absolute top-0.5 size-5 rounded-full bg-white shadow transition-transform ${checked ? "translate-x-[1.125rem]" : "translate-x-0.5"}`}
+        />
+      </span>
+      {label}
     </button>
   );
 }

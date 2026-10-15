@@ -32,6 +32,14 @@ export interface CalendarGap {
   label: string;
 }
 
+/** A thin flag at one moment, e.g. a deadline. Not a block and not busy time. */
+export interface CalendarMarker {
+  id: string;
+  min: number;
+  /** E.g. "17:00 ECON0013 problem set". */
+  label: string;
+}
+
 const PX_PER_HOUR = 64;
 const PX_PER_MIN = PX_PER_HOUR / 60;
 const DEFAULT_START = 8 * 60;
@@ -42,14 +50,16 @@ const TWO_LINE_MINS = 45;
 
 /**
  * Colour by where an event came from, not its type: the timetable (classes, and one-day edits of
- * them), the student's own events, and society events. Emerald is kept for gaps, so none is green.
+ * them), the student's own events, society events and to-dos. Emerald is kept for gaps, so none
+ * is green; amber is kept for deadline flags.
  */
-export type EventTone = "timetable" | "mine" | "society";
+export type EventTone = "timetable" | "mine" | "society" | "todo";
 
 const TONE_CLASS: Record<EventTone, string> = {
   timetable: "bg-indigo-600 text-white hover:bg-indigo-700 dark:bg-indigo-500 dark:hover:bg-indigo-600",
   mine: "bg-fuchsia-600 text-white hover:bg-fuchsia-700 dark:bg-fuchsia-500 dark:hover:bg-fuchsia-600",
   society: "bg-orange-500 text-orange-950 hover:bg-orange-600",
+  todo: "bg-sky-600 text-white hover:bg-sky-700 dark:bg-sky-500 dark:text-sky-950 dark:hover:bg-sky-600",
 };
 
 // The legend's dots: the same colour as each block's fill.
@@ -57,6 +67,7 @@ const TONES: { tone: EventTone; label: string; dot: string }[] = [
   { tone: "timetable", label: "Timetable", dot: "bg-indigo-600 dark:bg-indigo-500" },
   { tone: "mine", label: "Your events", dot: "bg-fuchsia-600 dark:bg-fuchsia-500" },
   { tone: "society", label: "Society", dot: "bg-orange-500" },
+  { tone: "todo", label: "To-do", dot: "bg-sky-600 dark:bg-sky-500" },
 ];
 
 const KIND_LABEL = Object.fromEntries(EVENT_KINDS.map((k) => [k.value, k.label])) as Record<EventKind, string>;
@@ -74,6 +85,10 @@ export function KindLegend() {
       <li className="flex items-center gap-1.5">
         <span aria-hidden className="size-2.5 rounded-full border border-dashed border-emerald-500 bg-emerald-50 dark:bg-emerald-950" />
         Free gap
+      </li>
+      <li className="flex items-center gap-1.5">
+        <span aria-hidden className="h-0.5 w-3 bg-amber-500" />
+        Deadline
       </li>
     </ul>
   );
@@ -114,15 +129,18 @@ function layoutColumns(events: CalendarEvent[]): Map<string, { col: number; cols
 export function DayCalendar({
   events,
   gaps = [],
+  markers = [],
   nowMin,
   openId,
   panel,
   onEventTap,
   onGapTap,
+  onMarkerTap,
   onSlotTap,
 }: {
   events: CalendarEvent[];
   gaps?: CalendarGap[];
+  markers?: CalendarMarker[];
   /** Minutes since midnight now. Only pass it when the calendar shows today. */
   nowMin?: number | null;
   /** The event or gap whose panel is open. The panel opens right under it. */
@@ -130,17 +148,18 @@ export function DayCalendar({
   panel?: ReactNode;
   onEventTap?: (id: string) => void;
   onGapTap?: (id: string) => void;
+  onMarkerTap?: (id: string) => void;
   /** Tap on empty space: the half hour that was tapped, in minutes since midnight. */
   onSlotTap?: (min: number) => void;
 }) {
   const hasNow = nowMin != null;
   // 08:00–22:00, widened to whole hours around anything outside it (and the now line).
-  const mins = [...events.flatMap((e) => [e.startMin, e.endMin]), ...(hasNow ? [nowMin] : [])];
+  const mins = [...events.flatMap((e) => [e.startMin, e.endMin]), ...markers.map((m) => m.min), ...(hasNow ? [nowMin] : [])];
   const start = Math.min(DEFAULT_START, ...mins.map((m) => Math.floor(m / 60) * 60));
   const end = Math.max(DEFAULT_END, ...mins.map((m) => Math.min(24 * 60, Math.ceil(m / 60) * 60)));
 
   const columns = layoutColumns(events);
-  const open = [...events, ...gaps].find((x) => x.id === openId);
+  const open = [...events, ...gaps, ...markers.map((m) => ({ id: m.id, endMin: m.min }))].find((x) => x.id === openId);
   // The grid is split under the open item, and its panel sits in the page flow between the halves.
   const split = open && panel ? Math.min(end, Math.max(start, open.endMin)) : null;
 
@@ -161,12 +180,14 @@ export function DayCalendar({
       isLast={isLast}
       events={events}
       gaps={gaps}
+      markers={markers}
       columns={columns}
       nowMin={nowMin}
       nowRef={nowRef}
       openId={openId}
       onEventTap={onEventTap}
       onGapTap={onGapTap}
+      onMarkerTap={onMarkerTap}
       onSlotTap={onSlotTap}
     />
   );
@@ -196,12 +217,14 @@ function Segment({
   isLast,
   events,
   gaps,
+  markers,
   columns,
   nowMin,
   nowRef,
   openId,
   onEventTap,
   onGapTap,
+  onMarkerTap,
   onSlotTap,
 }: {
   from: number;
@@ -209,12 +232,14 @@ function Segment({
   isLast: boolean;
   events: CalendarEvent[];
   gaps: CalendarGap[];
+  markers: CalendarMarker[];
   columns: Map<string, { col: number; cols: number }>;
   nowMin?: number | null;
   nowRef: RefObject<HTMLDivElement | null>;
   openId?: string | null;
   onEventTap?: (id: string) => void;
   onGapTap?: (id: string) => void;
+  onMarkerTap?: (id: string) => void;
   onSlotTap?: (min: number) => void;
 }) {
   const y = (min: number) => (min - from) * PX_PER_MIN;
@@ -340,6 +365,30 @@ function Segment({
             ) : (
               <div key={e.id} role="group" aria-label={label} className={className} style={style}>
                 {body}
+              </div>
+            );
+          })}
+
+        {markers
+          .filter((m) => m.min >= from && (m.min < to || (isLast && m.min === to)))
+          .map((m) => {
+            const isOpen = m.id === openId;
+            return (
+              // Above the blocks: a deadline can fall inside a class. Only the pill takes taps.
+              <div key={m.id} className="pointer-events-none absolute inset-x-0 z-[5]" style={{ top: y(m.min) }}>
+                <span aria-hidden className="absolute inset-x-0 h-0.5 -translate-y-1/2 bg-amber-500" />
+                <button
+                  type="button"
+                  onClick={() => onMarkerTap?.(m.id)}
+                  aria-expanded={isOpen}
+                  aria-label={`Deadline, ${m.label}`}
+                  className={`pointer-events-auto absolute right-1 max-w-[85%] -translate-y-1/2 truncate rounded-full bg-amber-400 px-2 py-0.5 text-xs font-semibold text-amber-950 shadow-sm hover:bg-amber-300 ${
+                    isOpen ? "ring-2 ring-zinc-900 dark:ring-zinc-100" : ""
+                  }`}
+                >
+                  <span aria-hidden>⚑ </span>
+                  <span className="tabular-nums">{m.label}</span>
+                </button>
               </div>
             );
           })}

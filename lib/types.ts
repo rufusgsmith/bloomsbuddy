@@ -32,6 +32,8 @@ export interface TimetableEvent {
   manualId?: string;
   /** A one-day edit of a timetable class: still part of the timetable, so it keeps the timetable colour. */
   fromClass?: true;
+  /** A to-do shown on the calendar as a block: its Todo.id. */
+  todoId?: string;
 }
 
 /**
@@ -187,6 +189,17 @@ export interface Todo {
   doneOn?: DateKey;
   /** Where it has to be done (a shop, an office), if anywhere in particular. */
   location?: EventLocation;
+  /**
+   * Showing on the Today calendar. A to-do with a repeat time is shown on each occurrence unless
+   * this is false. One without a time is shown only when given a slot (one day, one start time).
+   */
+  onToday?: false | TodoSlot;
+}
+
+/** Where an untimed to-do sits on the calendar. */
+export interface TodoSlot {
+  date: DateKey;
+  time: WallTime;
 }
 
 /** "YYYY-MM-DD", a Europe/London calendar day. */

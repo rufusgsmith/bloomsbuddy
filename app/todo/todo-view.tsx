@@ -1,7 +1,8 @@
 "use client";
 
 import { useMemo, useState, useSyncExternalStore, type FormEvent, type ReactNode } from "react";
-import { DeleteButton, inputClass, PageHeader } from "../form-ui";
+import { DeleteButton, inputClass, PageHeader, Switch, TimeField } from "../form-ui";
+import { TODO_DEFAULT_MINS } from "@/lib/calendar-items";
 import { formatDurationShort } from "@/lib/duration";
 import { locationLabel } from "@/lib/location";
 import { londonTodayKey, relativeDayLabel } from "@/lib/london-time";
@@ -9,6 +10,7 @@ import {
   byDueThenEstimate,
   draftMinutes,
   EST_STEP,
+  isTimedDraft,
   isDoneNow,
   MAX_EST_HOURS,
   MAX_EST_MINS,
@@ -216,9 +218,9 @@ function TodoForm({
   onDelete?: () => void;
 }) {
   const editing = !!initial;
-  const [draft, setDraft] = useState<TodoDraft>(() => toDraft(initial));
+  const [draft, setDraft] = useState<TodoDraft>(() => toDraft(initial, today));
   // Errors only show once a field has been touched (or on submit), so a fresh form isn't red.
-  const [touched, setTouched] = useState({ duration: false, doBefore: false, repeat: false, location: false });
+  const [touched, setTouched] = useState({ duration: false, doBefore: false, repeat: false, location: false, onToday: false });
   const [busy, setBusy] = useState(false);
   const [saveError, setSaveError] = useState<string | null>(null);
   const set = (patch: Partial<TodoDraft>) => setDraft((d) => ({ ...d, ...patch }));
@@ -229,7 +231,7 @@ function TodoForm({
 
   async function submit(e: FormEvent) {
     e.preventDefault();
-    setTouched({ duration: true, doBefore: true, repeat: true, location: true });
+    setTouched({ duration: true, doBefore: true, repeat: true, location: true, onToday: true });
     if (!todo || busy) return;
     // A postcode's coordinates: reused when it hasn't changed, else looked up via /api/postcode.
     setBusy(true);
@@ -289,6 +291,8 @@ function TodoForm({
 
           <RepeatField draft={draft} set={set} error={touched.repeat ? errors.repeat : undefined} onTouch={() => touch("repeat")} />
 
+          <OnTodayField draft={draft} set={set} today={today} error={touched.onToday ? errors.onToday : undefined} onTouch={() => touch("onToday")} />
+
           <Section label="Where?" hint="Optional">
             <LocationPicker
               value={draft}
@@ -319,6 +323,59 @@ function TodoForm({
         </div>
       )}
     </form>
+  );
+}
+
+/**
+ * "Show on Today": a to-do with a repeat time sits at that time on each day it comes up.
+ * One without a time needs a day and start time.
+ */
+function OnTodayField({
+  draft,
+  set,
+  today,
+  error,
+  onTouch,
+}: {
+  draft: TodoDraft;
+  set: (patch: Partial<TodoDraft>) => void;
+  today: DateKey;
+  error?: string;
+  onTouch: () => void;
+}) {
+  const est = draftMinutes(draft);
+  const length = formatDurationShort(typeof est === "number" ? est : TODO_DEFAULT_MINS);
+  const timed = isTimedDraft(draft);
+  const on = timed ? draft.showTimed : draft.placeOnToday;
+  return (
+    <Section label="Calendar" hint={timed ? `At ${draft.time}, ${length} block` : `A ${length} block`}>
+      <Switch
+        checked={on}
+        onChange={(v) => {
+          set(timed ? { showTimed: v } : { placeOnToday: v });
+          onTouch();
+        }}
+        label="Show on Today"
+      />
+      {on && !timed && (
+        <div className="mt-2 grid grid-cols-2 gap-2">
+          <fieldset className="flex min-w-0 flex-col gap-1">
+            <legend className="mb-1 text-xs font-medium text-zinc-500">Day</legend>
+            <input
+              type="date"
+              value={draft.placeDate}
+              min={today}
+              onChange={(e) => set({ placeDate: e.target.value })}
+              aria-label="Day"
+              aria-invalid={!!error}
+              className={inputClass}
+            />
+          </fieldset>
+          <TimeField label="Start" value={draft.placeTime} onChange={(placeTime) => set({ placeTime })} />
+        </div>
+      )}
+      <FieldError>{error}</FieldError>
+    </Section>
   );
 }
 
@@ -656,13 +713,19 @@ function Badges({ todo: t, today, done }: { todo: Todo; today: DateKey; done: bo
   const badge = "rounded-full px-2 py-0.5 text-xs font-medium";
   const plain = `${badge} bg-zinc-100 text-zinc-700 dark:bg-zinc-800 dark:text-zinc-300`;
   const back = done && t.repeat && t.doneOn ? nextOccurrence(t.repeat, t.doneOn) : null;
-  if (!t.estMinutes && !t.doBefore && !t.repeat && !t.location) return null;
+  const slot = t.onToday || undefined;
+  if (!t.estMinutes && !t.doBefore && !t.repeat && !t.location && !slot) return null;
   return (
     <span className="mt-1 flex flex-wrap gap-1.5">
       {t.estMinutes && <span className={plain}>⏱ {formatDurationShort(t.estMinutes)}</span>}
       {t.doBefore && !done && <DoBeforeBadge doBefore={t.doBefore} today={today} className={badge} />}
       {t.repeat && <span className={plain}>{repeatLabel(t.repeat)}</span>}
       {t.location && <span className={plain}>📍 {locationLabel(t.location)}</span>}
+      {slot && !done && (
+        <span className={plain}>
+          📅 {londonDay.format(new Date(`${slot.date}T12:00:00Z`))} {slot.time}
+        </span>
+      )}
       {back && <span className={plain}>Back {relativeDayLabel(back, today).replace(/^Tomorrow$/, "tomorrow")}</span>}
     </span>
   );
