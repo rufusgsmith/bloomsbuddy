@@ -1,7 +1,6 @@
 "use client";
 
 import { useEffect, useRef, useState, type FormEvent, type ReactNode } from "react";
-import { starterPrompts } from "@/lib/chat-starters";
 import { clashMessage, findClashes } from "@/lib/clashes";
 import { newId } from "@/lib/deadline-draft";
 import { formatDurationShort } from "@/lib/duration";
@@ -113,8 +112,6 @@ export function ChatAssistant({
     );
   }
 
-  const today = days.find((d) => d.dateKey === todayKey);
-
   return (
     <>
       <button
@@ -124,13 +121,16 @@ export function ChatAssistant({
         aria-haspopup="dialog"
         className="fixed bottom-[calc(9.5rem+env(safe-area-inset-bottom))] right-[max(1rem,calc(50%-14rem+1rem))] z-30 flex size-14 items-center justify-center rounded-full bg-emerald-600 text-2xl text-white shadow-lg hover:bg-emerald-700 dark:bg-emerald-500 dark:text-emerald-950 dark:hover:bg-emerald-400"
       >
-        <span aria-hidden>💬</span>
+        {/* Sparkle: the assistant. Not a speech bubble. */}
+        <svg aria-hidden viewBox="0 0 24 24" fill="currentColor" className="size-7">
+          <path d="M12 2.5l1.9 5.6 5.6 1.9-5.6 1.9L12 17.5l-1.9-5.6L4.5 10l5.6-1.9L12 2.5z" />
+          <path d="M18.5 14.5l.9 2.6 2.6.9-2.6.9-.9 2.6-.9-2.6-2.6-.9 2.6-.9.9-2.6z" />
+        </svg>
       </button>
       {open && (
         <ChatSheet
           messages={messages}
           status={status}
-          starters={starterPrompts(todayKey, nowIso, today)}
           todayKey={todayKey}
           eventsOn={eventsOn}
           onSend={send}
@@ -154,7 +154,6 @@ export function ChatAssistant({
 function ChatSheet({
   messages,
   status,
-  starters,
   todayKey,
   eventsOn,
   onSend,
@@ -165,7 +164,6 @@ function ChatSheet({
 }: {
   messages: ChatMessage[];
   status: "idle" | "loading" | "error";
-  starters: string[];
   todayKey: DateKey;
   eventsOn: (dateKey: DateKey) => TimetableEvent[];
   onSend: (text: string) => void;
@@ -244,24 +242,10 @@ function ChatSheet({
 
         <div ref={scrollRef} aria-live="polite" className="flex min-h-0 flex-1 flex-col gap-3 overflow-y-auto px-5 py-4">
           {messages.length === 0 && (
-            <>
-              <Bubble role="assistant">
-                Hiya! Ask me about any bit of your week: a gap, an evening, your Saturday afternoon. I can add things
-                to your calendar or to-do list too.
-              </Bubble>
-              <div className="flex flex-wrap gap-2">
-                {starters.map((s) => (
-                  <button
-                    key={s}
-                    type="button"
-                    onClick={() => onSend(s)}
-                    className="min-h-11 rounded-full border border-emerald-300 px-3 py-2 text-left text-sm text-emerald-800 hover:bg-emerald-50 dark:border-emerald-800 dark:text-emerald-200 dark:hover:bg-emerald-950/40"
-                  >
-                    {s}
-                  </button>
-                ))}
-              </div>
-            </>
+            <Bubble role="assistant">
+              Hiya! Ask me about any bit of your week: a gap, an evening, your Saturday afternoon. I can add things to
+              your calendar or to-do list too.
+            </Bubble>
           )}
 
           {messages.map((m, i) => (

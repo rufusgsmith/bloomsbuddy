@@ -35,7 +35,7 @@ import {
   USD_PER_MTOK_IN,
   USD_PER_MTOK_OUT,
   type ToolWindow,
-} from "./recommend";
+} from "./tools";
 import type { StudentContext } from "./request";
 import { CHAT_SECTION, SYSTEM_PROMPT } from "./system-prompt";
 
