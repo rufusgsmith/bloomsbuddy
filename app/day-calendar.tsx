@@ -84,7 +84,10 @@ export function minutesLabel(min: number): string {
   return formatWallTime(`${String(Math.floor(min / 60)).padStart(2, "0")}:${String(min % 60).padStart(2, "0")}`);
 }
 
-/** Side-by-side columns for overlapping events: each gets a column and the column count of its cluster. */
+/**
+ * Side-by-side columns for overlapping events: each gets a column and the column count of its cluster.
+ * Every event in a cluster of 2+ columns overlaps at least one other, so cols > 1 means a clash.
+ */
 function layoutColumns(events: CalendarEvent[]): Map<string, { col: number; cols: number }> {
   const sorted = [...events].sort((a, b) => a.startMin - b.startMin || b.endMin - a.endMin);
   const out = new Map<string, { col: number; cols: number }>();
@@ -299,6 +302,7 @@ function Segment({
             const top = y(Math.max(from, e.startMin));
             const height = Math.max(MIN_EVENT_PX, y(Math.min(to, e.endMin)) - top);
             const { col, cols } = columns.get(e.id) ?? { col: 0, cols: 1 };
+            const clashes = cols > 1;
             const time = `${minutesLabel(e.startMin)}–${minutesLabel(e.endMin)}`;
             const second = [time, e.detail].filter(Boolean).join(" · ");
             const className = `absolute flex flex-col overflow-hidden rounded-lg px-2 py-1 text-left text-sm leading-tight transition-colors ${TONE_CLASS[e.tone ?? "timetable"]} ${
@@ -312,11 +316,14 @@ function Segment({
             };
             const body = (
               <>
-                <span className="truncate font-semibold">{e.title}</span>
+                <span className="truncate font-semibold">
+                  {clashes && <span aria-hidden>⚠️ </span>}
+                  {e.title}
+                </span>
                 {e.endMin - e.startMin >= TWO_LINE_MINS && <span className="truncate text-xs opacity-90 tabular-nums">{second}</span>}
               </>
             );
-            const label = `${KIND_LABEL[e.kind]}, ${e.title}, ${time}${e.detail ? `, ${e.detail}` : ""}`;
+            const label = `${KIND_LABEL[e.kind]}, ${e.title}, ${time}${e.detail ? `, ${e.detail}` : ""}${clashes ? ", clashes with another event" : ""}`;
             return onEventTap ? (
               <button
                 key={e.id}

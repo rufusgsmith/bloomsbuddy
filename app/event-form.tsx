@@ -2,7 +2,9 @@
 
 import { useEffect, useRef, useState } from "react";
 import type { BuildingId } from "@/lib/buildings";
+import { clashMessage, findClashes } from "@/lib/clashes";
 import { newId } from "@/lib/deadline-draft";
+import { londonIso } from "@/lib/london-time";
 import {
   deleteManualEvent,
   EVENT_KINDS,
@@ -30,12 +32,23 @@ export type EventFormTarget =
  * A native <dialog> opened with showModal() gives Esc to close, a focus trap and the top layer
  * (above the tab bar), like HomeSheet. Validation is plain code (validateEventDraft), no Claude.
  */
-export function EventSheet({ target, onClose }: { target: EventFormTarget; onClose: () => void }) {
+export function EventSheet({
+  target,
+  eventsOn,
+  onClose,
+}: {
+  target: EventFormTarget;
+  /** A day's events (timetable and manual), to warn about clashes. Empty for days we don't show. */
+  eventsOn: (dateKey: DateKey) => TimetableEvent[];
+  onClose: () => void;
+}) {
   const ref = useRef<HTMLDialogElement>(null);
   const [draft, setDraft] = useState(target.draft);
   const [tried, setTried] = useState(false);
   const [busy, setBusy] = useState(false);
   const [saveError, setSaveError] = useState<string | null>(null);
+  /** Set when saving would overlap other events: the footer asks "Add anyway" / "Cancel". */
+  const [clash, setClash] = useState<string | null>(null);
 
   useEffect(() => {
     const dialog = ref.current;
@@ -44,7 +57,10 @@ export function EventSheet({ target, onClose }: { target: EventFormTarget; onClo
   }, []);
 
   const problem = validateEventDraft(draft);
-  const set = (patch: Partial<EventDraft>) => setDraft((d) => ({ ...d, ...patch }));
+  const set = (patch: Partial<EventDraft>) => {
+    setDraft((d) => ({ ...d, ...patch }));
+    setClash(null);
+  };
   const isClass = target.kind === "class";
   const title = target.kind === "new" ? "Add event" : "Edit event";
 
@@ -65,10 +81,30 @@ export function EventSheet({ target, onClose }: { target: EventFormTarget; onClo
     }
   }
 
-  async function save() {
+  /** Events the draft would overlap on its date (the first one, if weekly), leaving out the one being edited. */
+  function clashes() {
+    const skip = (e: TimetableEvent) =>
+      target.kind === "manual" ? e.manualId === target.event.id : target.kind === "class" && e.id === target.event.id;
+    return findClashes(
+      eventsOn(draft.date),
+      londonIso(draft.date, draft.startTime),
+      londonIso(draft.date, draft.endTime),
+      skip,
+    );
+  }
+
+  async function save(anyway = false) {
     setTried(true);
     setSaveError(null);
     if (problem) return;
+    if (!anyway) {
+      const found = clashes();
+      if (found.length) {
+        setClash(clashMessage(found));
+        return;
+      }
+    }
+    setClash(null);
     setBusy(true);
     let place: { postcode: string; lat: number; lng: number } | undefined;
     if (draft.locationChoice === "postcode") {
@@ -242,24 +278,50 @@ export function EventSheet({ target, onClose }: { target: EventFormTarget; onClo
           )}
         </div>
 
-        <div className="flex items-center gap-2 border-t border-zinc-200 px-5 pb-[calc(1rem+env(safe-area-inset-bottom))] pt-3 dark:border-zinc-800">
-          {target.kind !== "new" && (
-            <DeleteButton
-              onDelete={remove}
-              label={isClass ? "Remove this class on this day" : "Delete event"}
-              className="min-h-11 shrink-0 rounded-full px-4 text-sm font-medium text-red-600 hover:bg-red-50 dark:text-red-400 dark:hover:bg-red-950/40"
-            >
-              Delete
-            </DeleteButton>
-          )}
-          <button
-            type="submit"
-            disabled={busy}
-            className="ml-auto min-h-11 rounded-full bg-zinc-900 px-6 text-sm font-medium text-white hover:bg-zinc-700 disabled:opacity-50 dark:bg-zinc-100 dark:text-zinc-900 dark:hover:bg-zinc-300"
+        {clash ? (
+          <div
+            role="alert"
+            className="border-t border-amber-300 bg-amber-50 px-5 pb-[calc(1rem+env(safe-area-inset-bottom))] pt-3 dark:border-amber-800 dark:bg-amber-950/40"
           >
-            {busy ? "Saving…" : "Save"}
-          </button>
-        </div>
+            <p className="mb-3 text-sm font-medium text-amber-900 dark:text-amber-100">⚠️ {clash}</p>
+            <div className="flex items-center justify-end gap-2">
+              <button
+                type="button"
+                onClick={() => setClash(null)}
+                className="min-h-11 rounded-full px-4 text-sm font-medium text-zinc-700 hover:bg-amber-100 dark:text-zinc-300 dark:hover:bg-amber-900/40"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                disabled={busy}
+                onClick={() => void save(true)}
+                className="min-h-11 rounded-full bg-zinc-900 px-6 text-sm font-medium text-white hover:bg-zinc-700 disabled:opacity-50 dark:bg-zinc-100 dark:text-zinc-900 dark:hover:bg-zinc-300"
+              >
+                {busy ? "Saving…" : target.kind === "new" ? "Add anyway" : "Save anyway"}
+              </button>
+            </div>
+          </div>
+        ) : (
+          <div className="flex items-center gap-2 border-t border-zinc-200 px-5 pb-[calc(1rem+env(safe-area-inset-bottom))] pt-3 dark:border-zinc-800">
+            {target.kind !== "new" && (
+              <DeleteButton
+                onDelete={remove}
+                label={isClass ? "Remove this class on this day" : "Delete event"}
+                className="min-h-11 shrink-0 rounded-full px-4 text-sm font-medium text-red-600 hover:bg-red-50 dark:text-red-400 dark:hover:bg-red-950/40"
+              >
+                Delete
+              </DeleteButton>
+            )}
+            <button
+              type="submit"
+              disabled={busy}
+              className="ml-auto min-h-11 rounded-full bg-zinc-900 px-6 text-sm font-medium text-white hover:bg-zinc-700 disabled:opacity-50 dark:bg-zinc-100 dark:text-zinc-900 dark:hover:bg-zinc-300"
+            >
+              {busy ? "Saving…" : "Save"}
+            </button>
+          </div>
+        )}
       </form>
     </dialog>
   );

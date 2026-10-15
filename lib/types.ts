@@ -239,6 +239,8 @@ export interface ManualEvent {
   moduleCode?: string;
   /** An edited copy of one day of a timetable class (not something the student added). */
   fromClass?: true;
+  /** Added from the Societies tab: the SocietyEvent.id it was copied from. */
+  societyEventId?: string;
   kind: EventKind;
   /** The day it happens. When weekly, the first one: it repeats on that weekday from then on. */
   date: DateKey;

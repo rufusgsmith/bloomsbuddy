@@ -101,6 +101,7 @@ function makeTools(
   societies?: Society[],
   home?: HomeLocation,
   todos?: Todo[],
+  addedEventIds: ReadonlySet<string> = new Set(),
 ) {
   const providers = getProviders();
   // The student's own Moodle deadlines (from onboarding) replace the mock ones when present.
@@ -158,7 +159,8 @@ function makeTools(
       if (Number.isNaN(Date.parse(start)) || Number.isNaN(Date.parse(end))) {
         return "Error: start and end must be ISO 8601 timestamps with an offset.";
       }
-      const events = await eventsProvider.getEvents(start, end);
+      // Ones the student already added to their calendar are fixed plans, not suggestions.
+      const events = (await eventsProvider.getEvents(start, end)).filter((e) => !addedEventIds.has(e.id));
       for (const e of events) seen.eventIds.add(e.id);
       const rows = events.map((e) => ({
         id: e.id,
@@ -361,6 +363,9 @@ const OUTPUT_SCHEMA = {
 /** "ECON0013 Econometrics (lecture)". Manual events usually have no module code. */
 const eventLabel = (e: TimetableEvent) => `${[e.moduleCode, e.title].filter(Boolean).join(" ")} (${e.kind})`;
 
+/** Something the student added themselves (a society event, office hours, plans), not a timetable class. */
+const isOwnPlan = (e: TimetableEvent) => Boolean(e.manualId && !e.fromClass);
+
 function describeGap(gap: Gap, dayGaps: Gap[], home?: HomeLocation, todos?: Todo[]): string {
   const where = (id: BuildingId) => BUILDINGS[id].name;
   // Other gaps today, so Claude can save deep work for a longer gap. Kept compact: ~30 tokens each.
@@ -384,8 +389,10 @@ function describeGap(gap: Gap, dayGaps: Gap[], home?: HomeLocation, todos?: Todo
       usableTime: formatDuration(gap.usableMins),
       studentIsAt: { buildingId: gap.locationId, name: where(gap.locationId), source: gap.locationSource },
       justFinished: `${eventLabel(gap.prevEvent)}${gap.prevEvent.room ? ` in ${gap.prevEvent.room}` : ""}`,
+      ...(isOwnPlan(gap.prevEvent) ? { justFinishedIsOwnPlan: true } : {}),
       nextUp: {
         what: eventLabel(gap.nextEvent),
+        ...(isOwnPlan(gap.nextEvent) ? { ownPlan: true } : {}),
         starts: fmtTime(gap.nextEvent.start),
         room: gap.nextEvent.room || undefined,
         buildingId: gap.nextLocationId,
@@ -439,7 +446,14 @@ function toOption(raw: unknown, seen: Seen): RecommendationOption {
 export async function recommendForGap(
   gap: Gap,
   dayGaps: Gap[] = [],
-  opts: { deadlines?: Deadline[]; societies?: Society[]; home?: HomeLocation; todos?: Todo[] } = {},
+  opts: {
+    deadlines?: Deadline[];
+    societies?: Society[];
+    home?: HomeLocation;
+    todos?: Todo[];
+    /** Society event ids the student added to their calendar. */
+    addedEventIds?: string[];
+  } = {},
 ): Promise<Recommendation> {
   const client = new Anthropic(); // reads ANTHROPIC_API_KEY
   // Done one-offs out, repeating ones only when they come up in this gap.
@@ -451,7 +465,7 @@ export async function recommendForGap(
     max_tokens: 8000,
     max_iterations: 8,
     system: SYSTEM_PROMPT,
-    tools: makeTools(gap, seen, dayGaps, opts.deadlines, opts.societies, opts.home, todos),
+    tools: makeTools(gap, seen, dayGaps, opts.deadlines, opts.societies, opts.home, todos, new Set(opts.addedEventIds)),
     // "low" effort keeps thinking (billed as output) short: picking 3 options doesn't need deep reasoning.
     output_config: { effort: "low", format: { type: "json_schema", schema: OUTPUT_SCHEMA } },
     messages: [

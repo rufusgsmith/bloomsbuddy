@@ -52,10 +52,13 @@ export function DeleteButton({
   label,
   className,
   children,
+  armedText = "Tap again to delete",
 }: {
   onDelete: () => void;
   /** Accessible name when idle, e.g. "Remove ECON0019". */
   label?: string;
+  /** What the red armed button says. */
+  armedText?: string;
   className: string;
   children: ReactNode;
 }) {
@@ -76,7 +79,7 @@ export function DeleteButton({
           : className
       }
     >
-      {armed ? "Tap again to delete" : children}
+      {armed ? armedText : children}
     </button>
   );
 }

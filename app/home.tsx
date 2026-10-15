@@ -2,10 +2,10 @@
 
 import { useRouter } from "next/navigation";
 import { useEffect, useMemo, useSyncExternalStore } from "react";
-import { eventsOnDay, findGaps } from "@/lib/gaps";
+import { findGaps } from "@/lib/gaps";
 import { parseHome, readRawHome, subscribeHome } from "@/lib/home";
 import { addDays, londonTodayKey } from "@/lib/london-time";
-import { eventsForDay, parseEvents, readRawEvents, subscribeEvents, type EventStore } from "@/lib/manual-events";
+import { dayEventsFor, parseEvents, readRawEvents, subscribeEvents, type EventStore } from "@/lib/manual-events";
 import { demoMonday, mockTimetable } from "@/lib/mock";
 import { onboardingSkipped, parseUserData, readRawUserData, subscribeUserData } from "@/lib/storage";
 import { parseTodos, readRawTodos, subscribeTodos } from "@/lib/todos";
@@ -83,7 +83,7 @@ function buildDemo(store: EventStore): { days: Day[]; initialDateKey: string } {
   const monday = demoMonday(today);
   const dateKeys = Array.from({ length: 7 }, (_, i) => addDays(monday, i));
   const days = dateKeys.map((dateKey) => {
-    const events = eventsForDay(eventsOnDay(timetable, dateKey), store, dateKey);
+    const events = dayEventsFor(timetable, store, dateKey);
     return { dateKey, events, gaps: findGaps(events) };
   });
   return { days, initialDateKey: dateKeys.includes(today) ? today : monday };
@@ -95,7 +95,7 @@ function buildDays(user: UserData, store: EventStore): Day[] {
   const days: Day[] = [];
   for (let i = 0; i < user.weeks * 7; i++) {
     const dateKey = addDays(user.termStart, i);
-    const dayEvents = eventsForDay(eventsOnDay(events, dateKey), store, dateKey);
+    const dayEvents = dayEventsFor(events, store, dateKey);
     days.push({ dateKey, events: dayEvents, gaps: findGaps(dayEvents) });
   }
   return days;

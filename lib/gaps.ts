@@ -5,7 +5,7 @@
 import { BUILDINGS, nearestBuilding, travelTimeBetween, type BuildingId, type LatLng, type TravelMode } from "./buildings";
 import type { Gap, IsoDateTime, TimetableEvent } from "./types";
 
-/** Gaps shorter than this aren't worth recommending anything for. */
+/** Gaps with less usable time than this (after the trip to the next event) aren't worth recommending anything for. */
 export const MIN_GAP_MINS = 30;
 
 const MS_PER_MIN = 60_000;
@@ -65,8 +65,10 @@ function tripBetween(a: EventSpot, b: EventSpot): { mins: number; mode: TravelMo
 }
 
 /**
- * Returns every gap of MIN_GAP_MINS or more between consecutive events.
- * Pass one day's events (timetable and manual). They can be in any order and may overlap.
+ * Returns every gap between consecutive events with MIN_GAP_MINS or more usable time after travel.
+ * Pass one day's events (timetable and manual). They can be in any order and may overlap: time
+ * covered by any event is never part of a gap, so an event inside free time splits it in two,
+ * and each leftover piece is kept only if it's still long enough on its own.
  */
 export function findGaps(
   events: TimetableEvent[],
@@ -83,19 +85,21 @@ export function findGaps(
     if (latest) {
       const durationMins = (Date.parse(next.start) - Date.parse(latest.end)) / MS_PER_MIN;
 
-      if (durationMins >= MIN_GAP_MINS) {
-        const prevSpot = spots.get(latest.id)!;
-        const nextSpot = spots.get(next.id)!;
-        const here: EventSpot = opts.locationOverride
-          ? { buildingId: opts.locationOverride, point: BUILDINGS[opts.locationOverride] }
-          : prevSpot;
-        const travel = tripBetween(here, nextSpot);
+      const prevSpot = spots.get(latest.id)!;
+      const nextSpot = spots.get(next.id)!;
+      const here: EventSpot = opts.locationOverride
+        ? { buildingId: opts.locationOverride, point: BUILDINGS[opts.locationOverride] }
+        : prevSpot;
+      // Only worth working out the trip when the gap could be long enough.
+      const travel = durationMins >= MIN_GAP_MINS ? tripBetween(here, nextSpot) : null;
+
+      if (travel && durationMins - travel.mins >= MIN_GAP_MINS) {
         gaps.push({
           id: `gap-${latest.id}-${next.id}`,
           start: latest.end,
           end: next.start,
           durationMins,
-          usableMins: Math.max(0, durationMins - travel.mins),
+          usableMins: durationMins - travel.mins,
           travelMins: travel.mins,
           travelMode: travel.mode,
           prevEvent: latest,
