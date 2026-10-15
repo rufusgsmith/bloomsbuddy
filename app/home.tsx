@@ -5,6 +5,7 @@ import { useEffect, useMemo, useSyncExternalStore } from "react";
 import { eventsOnDay, findGaps } from "@/lib/gaps";
 import { parseHome, readRawHome, subscribeHome } from "@/lib/home";
 import { addDays, londonTodayKey } from "@/lib/london-time";
+import { eventsForDay, parseEvents, readRawEvents, subscribeEvents, type EventStore } from "@/lib/manual-events";
 import { demoMonday, mockTimetable } from "@/lib/mock";
 import { onboardingSkipped, parseUserData, readRawUserData, subscribeUserData } from "@/lib/storage";
 import { parseTodos, readRawTodos, subscribeTodos } from "@/lib/todos";
@@ -27,11 +28,17 @@ export function Home() {
   // Not part of the remount keys below: ticking off a to-do shouldn't throw away cached picks.
   const rawTodos = useSyncExternalStore(subscribeTodos, () => readRawTodos() ?? "", () => null);
   const todos = useMemo(() => parseTodos(rawTodos), [rawTodos]);
-  const userDays = useMemo(() => (user ? buildDays(user) : null), [user]);
+  // Hand-added events and one-off class changes. They change the gaps, so they're in the remount keys.
+  const rawEvents = useSyncExternalStore(subscribeEvents, () => readRawEvents() ?? "", () => null);
+  const store = useMemo(() => parseEvents(rawEvents), [rawEvents]);
+  const userDays = useMemo(() => (user ? buildDays(user, store) : null), [user, store]);
   // Only built in the browser, once we know there's no usable saved timetable, so the server
   // never renders a week from its own clock.
   const firstVisit = raw === "" && !onboardingSkipped();
-  const demo = useMemo(() => (raw !== null && !user && !firstVisit ? buildDemo() : null), [raw, user, firstVisit]);
+  const demo = useMemo(
+    () => (raw !== null && !user && !firstVisit ? buildDemo(store) : null),
+    [raw, user, firstVisit, store],
+  );
   const router = useRouter();
   useEffect(() => {
     if (firstVisit) router.replace("/setup");
@@ -42,20 +49,21 @@ export function Home() {
     if (!demo) return <Skeleton />;
     return (
       <TodayTimeline
-        // Remount when home changes, so cached recommendations that assumed the old home are dropped.
-        key={rawHome ?? ""}
+        // Remount when home or events change, so cached recommendations for old gaps are dropped.
+        key={`${rawHome ?? ""}|${rawEvents ?? ""}`}
         days={demo.days}
         initialDateKey={demo.initialDateKey}
         mode="demo"
         home={home}
         todos={todos}
+        manualEvents={store.events}
       />
     );
   }
   return (
     <TodayTimeline
-      // Remount when the data or home changes, so cached recommendations for old gaps are dropped.
-      key={`${user.savedAt}|${rawHome ?? ""}`}
+      // Remount when the data, home or events change, so cached recommendations for old gaps are dropped.
+      key={`${user.savedAt}|${rawHome ?? ""}|${rawEvents ?? ""}`}
       days={userDays}
       initialDateKey={pickInitialDay(userDays)}
       mode="user"
@@ -63,30 +71,31 @@ export function Home() {
       societies={user.societies}
       home={home}
       todos={todos}
+      manualEvents={store.events}
     />
   );
 }
 
 /** The mock week, Monday–Sunday (always the current one). Opens on today, or on Monday at the weekend. */
-function buildDemo(): { days: Day[]; initialDateKey: string } {
+function buildDemo(store: EventStore): { days: Day[]; initialDateKey: string } {
   const timetable = mockTimetable();
   const today = londonTodayKey();
   const monday = demoMonday(today);
   const dateKeys = Array.from({ length: 7 }, (_, i) => addDays(monday, i));
   const days = dateKeys.map((dateKey) => {
-    const events = eventsOnDay(timetable, dateKey);
+    const events = eventsForDay(eventsOnDay(timetable, dateKey), store, dateKey);
     return { dateKey, events, gaps: findGaps(events) };
   });
   return { days, initialDateKey: dateKeys.includes(today) ? today : monday };
 }
 
 /** Every day of term, Monday–Sunday, weekends included. */
-function buildDays(user: UserData): Day[] {
+function buildDays(user: UserData, store: EventStore): Day[] {
   const events = expandWeekly(user.classes, user.termStart, user.weeks);
   const days: Day[] = [];
   for (let i = 0; i < user.weeks * 7; i++) {
     const dateKey = addDays(user.termStart, i);
-    const dayEvents = eventsOnDay(events, dateKey);
+    const dayEvents = eventsForDay(eventsOnDay(events, dateKey), store, dateKey);
     days.push({ dateKey, events: dayEvents, gaps: findGaps(dayEvents) });
   }
   return days;

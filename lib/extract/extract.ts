@@ -8,10 +8,10 @@
 import { BUILDINGS, type BuildingId } from "../buildings";
 import { askClaudeJson } from "../claude-json";
 import { isDateKey, isWallTime, londonIso } from "../london-time";
-import type { DateKey, Deadline, TimetableEvent, WeeklyClass } from "../types";
+import type { ClassKind, DateKey, Deadline, WeeklyClass } from "../types";
 
 const BUILDING_IDS = Object.keys(BUILDINGS) as BuildingId[];
-const KINDS: TimetableEvent["kind"][] = ["lecture", "seminar", "lab", "tutorial"];
+const KINDS: ClassKind[] = ["lecture", "seminar", "lab", "tutorial"];
 /** Used when Claude can't match a room to a known building. The UI flags it for the student to fix. */
 const FALLBACK_BUILDING: BuildingId = "main-building";
 /** Moodle often shows a date with no time. Treat it as end of day. */
@@ -117,7 +117,7 @@ export async function extractTimetable(input: ExtractInput): Promise<WeeklyClass
       id: `cls-${Date.now().toString(36)}-${i}`,
       moduleCode: str(c.moduleCode).toUpperCase(),
       title: str(c.title) || str(c.moduleCode) || "Class",
-      kind: KINDS.includes(c.kind as TimetableEvent["kind"]) ? (c.kind as TimetableEvent["kind"]) : "lecture",
+      kind: KINDS.includes(c.kind as ClassKind) ? (c.kind as ClassKind) : "lecture",
       dayOfWeek: day,
       startTime,
       endTime,

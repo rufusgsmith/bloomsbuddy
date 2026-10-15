@@ -2,7 +2,7 @@
 // All maths is on absolute instants (Date.parse respects the ISO offset), so the
 // server's timezone never matters. See "Time rules" in CLAUDE.md.
 
-import { travelTime, type BuildingId } from "./buildings";
+import { BUILDINGS, nearestBuilding, travelTimeBetween, type BuildingId, type LatLng, type TravelMode } from "./buildings";
 import type { Gap, IsoDateTime, TimetableEvent } from "./types";
 
 /** Gaps shorter than this aren't worth recommending anything for. */
@@ -28,15 +28,52 @@ export function eventsOnDay(events: TimetableEvent[], dateKey: string): Timetabl
   return events.filter((e) => londonDateKey(e.start) === dateKey);
 }
 
+/** Where an event is, for gaps: a building id for the recommend tools, plus real coordinates for travel. */
+interface EventSpot {
+  buildingId: BuildingId;
+  point: LatLng;
+}
+
+/**
+ * Manual events can sit at a postcode or have no location. A postcode stands in as its nearest
+ * UCL building (travel still uses its real coordinates). No location means the student is
+ * probably still near the event before it (else the one after, else the Wilkins Building).
+ */
+function eventSpots(sorted: TimetableEvent[]): Map<string, EventSpot> {
+  const own = sorted.map((e): EventSpot | null =>
+    e.buildingId
+      ? { buildingId: e.buildingId, point: BUILDINGS[e.buildingId] }
+      : e.place
+        ? { buildingId: nearestBuilding(e.place), point: e.place }
+        : null,
+  );
+  const fallback: BuildingId = "main-building";
+  const spots = new Map<string, EventSpot>();
+  sorted.forEach((e, i) => {
+    const found =
+      own[i] ??
+      own.slice(0, i).reverse().find((x) => x !== null) ??
+      own.slice(i + 1).find((x) => x !== null) ?? { buildingId: fallback, point: BUILDINGS[fallback] };
+    spots.set(e.id, found);
+  });
+  return spots;
+}
+
+function tripBetween(a: EventSpot, b: EventSpot): { mins: number; mode: TravelMode } {
+  if (a.point.lat === b.point.lat && a.point.lng === b.point.lng) return { mins: 0, mode: "walk" };
+  return travelTimeBetween(a.point, b.point);
+}
+
 /**
  * Returns every gap of MIN_GAP_MINS or more between consecutive events.
- * Pass one day's events. They can be in any order and may overlap.
+ * Pass one day's events (timetable and manual). They can be in any order and may overlap.
  */
 export function findGaps(
   events: TimetableEvent[],
   opts: { locationOverride?: BuildingId } = {},
 ): Gap[] {
   const sorted = [...events].sort((a, b) => Date.parse(a.start) - Date.parse(b.start));
+  const spots = eventSpots(sorted);
   const gaps: Gap[] = [];
 
   // Track the event that finishes latest so far, so overlapping events don't create fake gaps.
@@ -47,8 +84,12 @@ export function findGaps(
       const durationMins = (Date.parse(next.start) - Date.parse(latest.end)) / MS_PER_MIN;
 
       if (durationMins >= MIN_GAP_MINS) {
-        const locationId = opts.locationOverride ?? latest.buildingId;
-        const travel = travelTime(locationId, next.buildingId);
+        const prevSpot = spots.get(latest.id)!;
+        const nextSpot = spots.get(next.id)!;
+        const here: EventSpot = opts.locationOverride
+          ? { buildingId: opts.locationOverride, point: BUILDINGS[opts.locationOverride] }
+          : prevSpot;
+        const travel = tripBetween(here, nextSpot);
         gaps.push({
           id: `gap-${latest.id}-${next.id}`,
           start: latest.end,
@@ -59,9 +100,9 @@ export function findGaps(
           travelMode: travel.mode,
           prevEvent: latest,
           nextEvent: next,
-          prevLocationId: latest.buildingId,
-          nextLocationId: next.buildingId,
-          locationId,
+          prevLocationId: prevSpot.buildingId,
+          nextLocationId: nextSpot.buildingId,
+          locationId: here.buildingId,
           locationSource: opts.locationOverride ? "manual" : "inferred",
         });
       }

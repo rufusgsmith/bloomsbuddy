@@ -11,15 +11,25 @@ export type { BuildingId };
 /** ISO 8601 timestamp with offset, e.g. "2026-10-16T10:00:00+01:00". */
 export type IsoDateTime = string;
 
+/** The kinds a timetable class can be (screenshots and the timetable editor). */
+export type ClassKind = "lecture" | "seminar" | "lab" | "tutorial";
+/** Every kind of event on the calendar: classes plus ones the student adds by hand. */
+export type EventKind = ClassKind | "office-hours" | "society" | "personal";
+
 export interface TimetableEvent {
   id: string;
-  moduleCode: string; // e.g. "ECON0013"
+  moduleCode: string; // e.g. "ECON0013". Empty for most manual events.
   title: string;
-  kind: "lecture" | "seminar" | "lab" | "tutorial";
+  kind: EventKind;
   start: IsoDateTime;
   end: IsoDateTime;
-  buildingId: BuildingId;
-  room: string; // e.g. "Roberts G06 Sir Ambrose Fleming LT"
+  /** Missing for manual events at a postcode or with no location. */
+  buildingId?: BuildingId;
+  /** A manual event somewhere that isn't a UCL building (from a postcode). */
+  place?: { label: string; lat: number; lng: number };
+  room: string; // e.g. "Roberts G06 Sir Ambrose Fleming LT". Can be empty.
+  /** Set on events made from a ManualEvent: its id, so tapping opens it in the form. */
+  manualId?: string;
 }
 
 /**
@@ -186,7 +196,7 @@ export interface WeeklyClass {
   id: string;
   moduleCode: string;
   title: string;
-  kind: TimetableEvent["kind"];
+  kind: ClassKind;
   /** 1 = Monday … 7 = Sunday. */
   dayOfWeek: number;
   startTime: WallTime;
@@ -208,4 +218,29 @@ export interface UserData {
   /** Optional so data saved before societies existed still loads. */
   societies?: Society[];
   savedAt: IsoDateTime;
+}
+
+/** Where a manual event happens: a UCL building, or anywhere else by postcode. */
+export type EventLocation =
+  | { kind: "building"; buildingId: BuildingId }
+  | { kind: "postcode"; postcode: string; lat: number; lng: number };
+
+/**
+ * An event the student added by hand on Today (office hours, a society meet-up, plans), or a
+ * one-off change to a single timetable class. Saved in localStorage on its own key, so it works
+ * in the demo week too. Times are London wall-clock, like WeeklyClass.
+ */
+export interface ManualEvent {
+  id: string;
+  title: string;
+  /** Kept when the event is an edited copy of a timetable class. */
+  moduleCode?: string;
+  kind: EventKind;
+  /** The day it happens. When weekly, the first one: it repeats on that weekday from then on. */
+  date: DateKey;
+  startTime: WallTime;
+  endTime: WallTime;
+  room?: string;
+  location?: EventLocation;
+  weekly: boolean;
 }

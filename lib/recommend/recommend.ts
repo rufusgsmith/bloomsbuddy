@@ -23,6 +23,7 @@ import type {
   Recommendation,
   RecommendationOption,
   Society,
+  TimetableEvent,
   Todo,
 } from "../types";
 import { SYSTEM_PROMPT } from "./system-prompt";
@@ -357,6 +358,9 @@ const OUTPUT_SCHEMA = {
   additionalProperties: false,
 };
 
+/** "ECON0013 Econometrics (lecture)". Manual events usually have no module code. */
+const eventLabel = (e: TimetableEvent) => `${[e.moduleCode, e.title].filter(Boolean).join(" ")} (${e.kind})`;
+
 function describeGap(gap: Gap, dayGaps: Gap[], home?: HomeLocation, todos?: Todo[]): string {
   const where = (id: BuildingId) => BUILDINGS[id].name;
   // Other gaps today, so Claude can save deep work for a longer gap. Kept compact: ~30 tokens each.
@@ -379,11 +383,11 @@ function describeGap(gap: Gap, dayGaps: Gap[], home?: HomeLocation, todos?: Todo
       length: formatDuration(gap.durationMins),
       usableTime: formatDuration(gap.usableMins),
       studentIsAt: { buildingId: gap.locationId, name: where(gap.locationId), source: gap.locationSource },
-      justFinished: `${gap.prevEvent.moduleCode} ${gap.prevEvent.title} (${gap.prevEvent.kind}) in ${gap.prevEvent.room}`,
+      justFinished: `${eventLabel(gap.prevEvent)}${gap.prevEvent.room ? ` in ${gap.prevEvent.room}` : ""}`,
       nextUp: {
-        what: `${gap.nextEvent.moduleCode} ${gap.nextEvent.title} (${gap.nextEvent.kind})`,
+        what: eventLabel(gap.nextEvent),
         starts: fmtTime(gap.nextEvent.start),
-        room: gap.nextEvent.room,
+        room: gap.nextEvent.room || undefined,
         buildingId: gap.nextLocationId,
         travelMinsFromCurrentLocation: gap.travelMins,
         travelMode: gap.travelMode,
