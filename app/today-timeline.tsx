@@ -303,7 +303,7 @@ export function TodayTimeline({
           }}
           panel={
             openGap && (
-              <GapPanel gap={openGap} rec={recs[openGap.id]} onRetry={() => loadRec(openGap, day.gaps)} />
+              <GapPanel gap={openGap} rec={recs[openGap.id]} onReload={() => loadRec(openGap, day.gaps)} />
             )
           }
         />
@@ -350,7 +350,7 @@ function WeekButton({
 }
 
 /** Opens inline under a tapped gap: the trip, what's either side, then Claude's picks. */
-function GapPanel({ gap, rec, onRetry }: { gap: Gap; rec: RecState | undefined; onRetry: () => void }) {
+function GapPanel({ gap, rec, onReload }: { gap: Gap; rec: RecState | undefined; onReload: () => void }) {
   const from = place(gap.locationId);
   const to = place(gap.nextLocationId);
   const sameBuilding = gap.locationId === gap.nextLocationId;
@@ -380,7 +380,7 @@ function GapPanel({ gap, rec, onRetry }: { gap: Gap; rec: RecState | undefined; 
           {gap.nextEvent.room && ` (${gap.nextEvent.room})`}
         </p>
       </div>
-      <RecommendationPanel state={rec ?? { status: "loading" }} onRetry={onRetry} />
+      <RecommendationPanel state={rec ?? { status: "loading" }} onReload={onReload} />
     </div>
   );
 }

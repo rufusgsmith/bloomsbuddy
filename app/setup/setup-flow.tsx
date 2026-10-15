@@ -16,11 +16,11 @@
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useEffect, useRef, useState, useSyncExternalStore, type ReactNode } from "react";
-import { BUILDINGS, type BuildingId } from "@/lib/buildings";
-import { BuildingOptions } from "../building-options";
+import { BUILDINGS } from "@/lib/buildings";
 import { DayCalendar, DayPills } from "../day-calendar";
 import { DeleteButton, Field, inputClass, PageHeader } from "../form-ui";
 import { HomePicker } from "../home-picker";
+import { LocationPicker } from "../location-picker";
 import { SocietyPicker } from "../society-picker";
 import { TodoEditor } from "../todo/todo-view";
 import { blankDraft, deadlineProblem, fromDraft, newId, toDraft, type DraftDeadline } from "@/lib/deadline-draft";
@@ -557,15 +557,18 @@ function ClassRow({
       </div>
       <div className="mt-2 flex items-end gap-2">
         <div className="flex-1">
-          <Field label={c.buildingGuessed ? "Building: please check, I couldn't tell" : "Building (for travel times)"}>
-            <select
-              value={c.buildingId}
-              onChange={(e) => onChange({ buildingId: e.target.value as BuildingId, buildingGuessed: false })}
-              className={`${inputClass} ${c.buildingGuessed ? "ring-2 ring-amber-400" : ""}`}
-            >
-              <BuildingOptions />
-            </select>
-          </Field>
+          <fieldset className="flex min-w-0 flex-col gap-1">
+            <legend className="mb-1 text-xs font-medium text-zinc-500">
+              {c.buildingGuessed ? "Building: please check, I couldn't tell" : "Building (for travel times)"}
+            </legend>
+            <LocationPicker
+              buildingOnly
+              invalid={c.buildingGuessed}
+              label="Search UCL buildings"
+              value={{ locationChoice: "building", buildingId: c.buildingId, postcode: "" }}
+              onChange={(p) => p.buildingId && onChange({ buildingId: p.buildingId, buildingGuessed: false })}
+            />
+          </fieldset>
         </div>
         <RemoveButton label={`Remove ${c.moduleCode || c.title || "class"}`} onClick={onRemove} />
       </div>

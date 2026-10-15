@@ -16,13 +16,24 @@ const LOADING_LINES = [
 
 const TYPE_EMOJI: Record<RecommendationType, string> = { study: "📚", event: "🎉", rest: "☕", home: "🏠", food: "🍜" };
 
-export function RecommendationPanel({ state, onRetry }: { state: RecState; onRetry: () => void }) {
+/** onReload asks Claude again, skipping the cached picks: "Try again" after an error, "↻ Redo" after picks. */
+export function RecommendationPanel({ state, onReload }: { state: RecState; onReload: () => void }) {
   if (state.status === "loading") return <Loading />;
-  if (state.status === "error") return <Fallback onRetry={onRetry} />;
+  if (state.status === "error") return <Fallback onRetry={onReload} />;
 
   const { top, alternatives } = state.rec;
   return (
     <div className="flex flex-col gap-3">
+      <div className="-mb-1 flex justify-end">
+        <button
+          type="button"
+          onClick={onReload}
+          aria-label="Redo: get fresh picks for this gap"
+          className="min-h-9 rounded-full px-3 text-sm font-medium text-emerald-800 hover:bg-emerald-100 dark:text-emerald-200 dark:hover:bg-emerald-900/50"
+        >
+          ↻ Redo
+        </button>
+      </div>
       <TopPick option={top} />
       <p className="text-sm font-semibold text-emerald-800 dark:text-emerald-200">Or…</p>
       {alternatives.map((option) => (
