@@ -122,7 +122,7 @@ export default async function DebugPage() {
 
       <Section title={`Library busyness (estimated for ${londonTodayKey()})`} count={LIBRARY_SNAPSHOT.length}>
         <Table
-          headers={["Library", "Tue 11:40am snapshot", ...BUSYNESS_TIMES.map(formatWallTime)]}
+          headers={["Library", "Tue 11:40 snapshot", ...BUSYNESS_TIMES.map(formatWallTime)]}
           rows={LIBRARY_SNAPSHOT.map((s) => [
             s.name,
             `${s.free} / ${s.total} free`,

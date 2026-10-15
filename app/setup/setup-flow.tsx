@@ -561,7 +561,7 @@ function DeadlinesStep({
       <Uploader
         kind="deadlines"
         nouns={["deadline", "deadlines"]}
-        placeholder="Paste your Moodle timeline, or type e.g. ECON0019 essay due Fri 30 Oct, 5pm"
+        placeholder="Paste your Moodle timeline, or type e.g. ECON0019 essay due Fri 30 Oct, 17:00"
         existingCount={deadlines.length}
         onResult={(rows, mode) => {
           const drafts = rows.map(toDraft);
