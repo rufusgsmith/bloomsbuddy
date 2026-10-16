@@ -54,6 +54,10 @@ export function Field({ label, children }: { label: string; children: ReactNode 
   );
 }
 
+/** A form sheet's <dialog>: a bottom sheet on phones, a panel down the right on laptops (EventSheet, ClassSheet). */
+export const sheetDialogClass =
+  "mb-0 mt-auto h-[min(92dvh,760px)] max-h-none w-full max-w-full overflow-hidden rounded-t-3xl bg-white p-0 text-zinc-900 shadow-xl backdrop:bg-black/50 backdrop:backdrop-blur-[2px] md:my-0 md:ml-auto md:mr-0 md:h-dvh md:max-w-sm md:rounded-none md:rounded-l-3xl dark:bg-zinc-950 dark:text-zinc-100";
+
 /** How long an armed delete button waits for the second tap. */
 const ARM_MS = 3000;
 
@@ -133,37 +137,59 @@ export function TimeField({ label, value, onChange }: { label: string; value: Wa
   );
 }
 
-/** An on/off switch with its label, e.g. "Show on Today". */
+/**
+ * An on/off switch with its label, e.g. "Show on Today". With `hint`, the label and hint sit on
+ * the left and the switch on the right (EventSheet's "Repeats weekly").
+ */
 export function Switch({
   checked,
   onChange,
   label,
+  hint,
   className = "",
 }: {
   checked: boolean;
   onChange: (on: boolean) => void;
   label: string;
+  hint?: string;
   className?: string;
 }) {
+  // The knob sits in a flex track with even padding, not absolutely positioned, so it can never
+  // land outside the track: 2px padding + 20px knob + 20px travel + 2px padding = the 44px track.
+  const track = (
+    <span
+      aria-hidden
+      className={`flex h-6 w-11 shrink-0 items-center rounded-full p-0.5 transition-colors ${
+        checked ? "bg-emerald-600 dark:bg-emerald-500" : "bg-zinc-300 dark:bg-zinc-700"
+      }`}
+    >
+      <span className={`size-5 rounded-full bg-white shadow transition-transform ${checked ? "translate-x-5" : "translate-x-0"}`} />
+    </span>
+  );
   return (
     <button
       type="button"
       role="switch"
       aria-checked={checked}
       onClick={() => onChange(!checked)}
-      className={`flex min-h-11 items-center gap-2 text-sm font-medium text-zinc-700 dark:text-zinc-300 ${className}`}
+      className={`flex min-h-11 items-center gap-2 text-sm font-medium text-zinc-700 dark:text-zinc-300 ${
+        hint ? "w-full justify-between gap-3 text-left" : ""
+      } ${className}`}
     >
-      <span
-        aria-hidden
-        className={`relative h-6 w-10 shrink-0 rounded-full transition-colors ${
-          checked ? "bg-emerald-600 dark:bg-emerald-500" : "bg-zinc-300 dark:bg-zinc-700"
-        }`}
-      >
-        <span
-          className={`absolute top-0.5 size-5 rounded-full bg-white shadow transition-transform ${checked ? "translate-x-[1.125rem]" : "translate-x-0.5"}`}
-        />
-      </span>
-      {label}
+      {hint ? (
+        <>
+          <span>
+            <span className="block text-sm font-medium text-zinc-900 dark:text-zinc-100">{label}</span>
+            <span className="block text-xs font-normal text-zinc-500">{hint}</span>
+          </span>
+          {track}
+        </>
+      ) : (
+        <>
+          {track}
+          {label}
+        </>
+      )}
     </button>
   );
 }

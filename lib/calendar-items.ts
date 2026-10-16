@@ -4,7 +4,8 @@
 // Deadlines the student adds to the calendar ("Add to calendar" on the Deadlines tab) show as thin
 // flags at their due time: not blocks, not busy time. Their ids are kept on their own localStorage
 // key, so it works in the demo week too.
-// Exams always show as blocks at their time: busy time, like a lecture.
+// Exams show as blocks at their time (busy time, like a lecture) unless the student took one off
+// ("Added ✓" on the Deadlines tab, two taps). Those ids are on their own key too.
 
 import { londonDateKey } from "./gaps";
 import { londonIso, londonWeekdayAndMinutes } from "./london-time";
@@ -18,6 +19,7 @@ export const TODO_DEFAULT_MINS = 30;
 export const EXAM_DEFAULT_MINS = 60;
 
 const KEY = "bloomsbuddy:calendar-deadlines";
+const HIDDEN_EXAMS_KEY = "bloomsbuddy:hidden-exams";
 /** Fired on this tab after we write. The "storage" event only reaches other tabs. */
 const CHANGE_EVENT = "bloomsbuddy:calendar-deadlines";
 
@@ -87,10 +89,10 @@ export function calendarKey(todos: Todo[], today: DateKey): string {
 export const deadlinesOn = (deadlines: Deadline[], added: string[], dateKey: DateKey) =>
   deadlines.filter((d) => !d.exam && londonDateKey(d.due) === dateKey && added.includes(d.id));
 
-/** The day's exams, as events (busy time, like a lecture). */
-export function examBlocksOn(deadlines: Deadline[], dateKey: DateKey): TimetableEvent[] {
+/** The day's exams, as events (busy time, like a lecture). `hidden`: exams taken off the calendar. */
+export function examBlocksOn(deadlines: Deadline[], dateKey: DateKey, hidden: string[] = []): TimetableEvent[] {
   return deadlines.flatMap((d) => {
-    if (!d.exam || londonDateKey(d.due) !== dateKey) return [];
+    if (!d.exam || londonDateKey(d.due) !== dateKey || hidden.includes(d.id)) return [];
     const startMin = londonWeekdayAndMinutes(d.due).minutes;
     const endMin =
       d.end && londonDateKey(d.end) === dateKey ? londonWeekdayAndMinutes(d.end).minutes : startMin + EXAM_DEFAULT_MINS;
@@ -110,13 +112,17 @@ export function examBlocksOn(deadlines: Deadline[], dateKey: DateKey): Timetable
   });
 }
 
-export function readRawCalendarDeadlines(): string | null {
+function readKey(key: string): string | null {
   try {
-    return localStorage.getItem(KEY);
+    return localStorage.getItem(key);
   } catch {
     return null;
   }
 }
+
+export const readRawCalendarDeadlines = () => readKey(KEY);
+/** Exams taken off the calendar (parse with parseDeadlineIds). */
+export const readRawHiddenExams = () => readKey(HIDDEN_EXAMS_KEY);
 
 export function parseDeadlineIds(raw: string | null): string[] {
   if (!raw) return [];
@@ -128,17 +134,23 @@ export function parseDeadlineIds(raw: string | null): string[] {
   }
 }
 
-/** Adds a deadline's flag to the calendar, or takes it off. Returns false if the browser refused to save. */
-export function setDeadlineOnCalendar(id: string, on: boolean): boolean {
-  const rest = parseDeadlineIds(readRawCalendarDeadlines()).filter((x) => x !== id);
+/** Adds `id` to the list on `key`, or takes it out. Returns false if the browser refused to save. */
+function setInList(key: string, id: string, add: boolean): boolean {
+  const rest = parseDeadlineIds(readKey(key)).filter((x) => x !== id);
   try {
-    localStorage.setItem(KEY, JSON.stringify(on ? [...rest, id] : rest));
+    localStorage.setItem(key, JSON.stringify(add ? [...rest, id] : rest));
     window.dispatchEvent(new Event(CHANGE_EVENT));
     return true;
   } catch {
     return false;
   }
 }
+
+/** Adds a deadline's flag to the calendar, or takes it off. Returns false if the browser refused to save. */
+export const setDeadlineOnCalendar = (id: string, on: boolean) => setInList(KEY, id, on);
+
+/** Puts an exam's block back on the calendar, or takes it off. Exams start on. */
+export const setExamOnCalendar = (id: string, on: boolean) => setInList(HIDDEN_EXAMS_KEY, id, !on);
 
 export function subscribeCalendarDeadlines(onChange: () => void): () => void {
   window.addEventListener("storage", onChange);

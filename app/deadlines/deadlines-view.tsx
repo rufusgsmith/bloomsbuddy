@@ -6,7 +6,9 @@ import { CalendarButton, DeleteButton, Field, inputClass, PageHeader, TabPage } 
 import {
   parseDeadlineIds,
   readRawCalendarDeadlines,
+  readRawHiddenExams,
   setDeadlineOnCalendar,
+  setExamOnCalendar,
   subscribeCalendarDeadlines,
 } from "@/lib/calendar-items";
 import { blankDraft, deadlineProblem, fromDraft, toDraft, type DraftDeadline } from "@/lib/deadline-draft";
@@ -43,6 +45,33 @@ const KIND_OPTIONS = [
   { exam: false, label: "Coursework" },
   { exam: true, label: "Exam" },
 ];
+
+/**
+ * Coursework or Exam, shared with the setup Deadlines step. An exam is a fixed time: it shows on
+ * Today as a block, and gets revision picks. Switching back to coursework drops the end time.
+ */
+export function DeadlineKindToggle({ value: d, onChange }: { value: DraftDeadline; onChange: (patch: Partial<DraftDeadline>) => void }) {
+  return (
+    <div role="radiogroup" aria-label="Type" className="mb-2 grid grid-cols-2 gap-1 rounded-full bg-zinc-100 p-1 dark:bg-zinc-900">
+      {KIND_OPTIONS.map((o) => (
+        <button
+          key={o.label}
+          type="button"
+          role="radio"
+          aria-checked={d.exam === o.exam}
+          onClick={() => onChange({ exam: o.exam, ...(o.exam ? {} : { endTime: "" }) })}
+          className={`min-h-9 rounded-full text-sm font-medium ${
+            d.exam === o.exam
+              ? "bg-white text-zinc-900 shadow-sm dark:bg-zinc-700 dark:text-zinc-50"
+              : "text-zinc-600 hover:text-zinc-900 dark:text-zinc-400 dark:hover:text-zinc-100"
+          }`}
+        >
+          {o.label}
+        </button>
+      ))}
+    </div>
+  );
+}
 
 
 /** Whole London calendar days from one day key to another. */
@@ -294,6 +323,9 @@ function Groups({
   // Kept on its own key (not in UserData), so the demo deadlines can be added too.
   const rawIds = useSyncExternalStore(subscribeCalendarDeadlines, () => readRawCalendarDeadlines() ?? "", () => null);
   const onCalendar = useMemo(() => parseDeadlineIds(rawIds), [rawIds]);
+  // Exams start on the calendar; these are the ones taken off.
+  const rawHidden = useSyncExternalStore(subscribeCalendarDeadlines, () => readRawHiddenExams() ?? "", () => null);
+  const hiddenExams = useMemo(() => parseDeadlineIds(rawHidden), [rawHidden]);
   // Read the clock once on mount. Switching tabs remounts, which is fresh enough for days-left.
   const [{ now, today }] = useState(() => ({ now: Date.now(), today: londonTodayKey() }));
   const sunday = addDays(mondayOf(today), 6);
@@ -321,7 +353,7 @@ function Groups({
                       today={today}
                       past={g.title === "Past"}
                       onEdit={onEdit && (() => onEdit(d))}
-                      added={onCalendar.includes(d.id)}
+                      added={d.exam ? !hiddenExams.includes(d.id) : onCalendar.includes(d.id)}
                     />
                   )}
                 </li>
@@ -364,16 +396,10 @@ function DeadlineRow({
         />
       )}
       <div className="pointer-events-none relative min-w-0 flex-1">
-        {(d.moduleCode || d.exam) && (
-          <p className="flex items-center gap-1.5 text-xs font-semibold text-emerald-700 dark:text-emerald-400">
-            {d.moduleCode}
-            {d.exam && (
-              <span className="rounded-full bg-rose-100 px-2 py-0.5 text-rose-700 dark:bg-rose-950 dark:text-rose-300">
-                Exam
-              </span>
-            )}
-          </p>
-        )}
+        <p className="mb-1 flex items-center gap-2 text-xs font-semibold leading-5">
+          <KindBadge exam={!!d.exam} />
+          {d.moduleCode && <span className="text-emerald-700 dark:text-emerald-400">{d.moduleCode}</span>}
+        </p>
         <p className="font-medium">{d.title}</p>
         <p className="mt-0.5 text-sm text-zinc-600 dark:text-zinc-400">
           {dueLabel(d)}
@@ -389,17 +415,32 @@ function DeadlineRow({
         <span className="pointer-events-none">
           <DaysLeft days={daysBetween(today, londonDateKey(d.due))} past={past} />
         </span>
-        {/* Puts a flag on Today at the due time. Not for ones already past, nor exams (always on Today). */}
-        {!past && !d.exam && (
+        {/* Coursework: a flag on Today at the due time. Exams: their block, on until taken off. Not for past ones. */}
+        {!past && (
           <CalendarButton
             added={added}
-            onAdd={() => setDeadlineOnCalendar(d.id, true)}
-            onRemove={() => setDeadlineOnCalendar(d.id, false)}
+            onAdd={() => (d.exam ? setExamOnCalendar : setDeadlineOnCalendar)(d.id, true)}
+            onRemove={() => (d.exam ? setExamOnCalendar : setDeadlineOnCalendar)(d.id, false)}
             title={title}
           />
         )}
       </div>
     </div>
+  );
+}
+
+/** "Exam" (rose, like its block on Today) or "Coursework" (amber, like its flag). */
+function KindBadge({ exam }: { exam: boolean }) {
+  return (
+    <span
+      className={`inline-flex h-5 items-center rounded-full px-2 text-[11px] font-semibold leading-none ${
+        exam
+          ? "bg-rose-100 text-rose-700 dark:bg-rose-950 dark:text-rose-300"
+          : "bg-amber-100 text-amber-800 dark:bg-amber-950 dark:text-amber-300"
+      }`}
+    >
+      {exam ? "Exam" : "Coursework"}
+    </span>
   );
 }
 
@@ -443,25 +484,7 @@ function DeadlineForm({
       }}
       className="rounded-2xl border border-emerald-400 bg-white p-3 dark:border-emerald-700 dark:bg-zinc-950"
     >
-      {/* An exam is a fixed time: it shows on Today as a block, and gets revision picks. */}
-      <div role="radiogroup" aria-label="Type" className="mb-2 grid grid-cols-2 gap-1 rounded-full bg-zinc-100 p-1 dark:bg-zinc-900">
-        {KIND_OPTIONS.map((o) => (
-          <button
-            key={o.label}
-            type="button"
-            role="radio"
-            aria-checked={d.exam === o.exam}
-            onClick={() => onChange({ exam: o.exam, ...(o.exam ? {} : { endTime: "" }) })}
-            className={`min-h-9 rounded-full text-sm font-medium ${
-              d.exam === o.exam
-                ? "bg-white text-zinc-900 shadow-sm dark:bg-zinc-700 dark:text-zinc-50"
-                : "text-zinc-600 hover:text-zinc-900 dark:text-zinc-400 dark:hover:text-zinc-100"
-            }`}
-          >
-            {o.label}
-          </button>
-        ))}
-      </div>
+      <DeadlineKindToggle value={d} onChange={onChange} />
       <div className="grid grid-cols-[7rem_1fr] gap-2">
         <Field label="Module">
           <input
