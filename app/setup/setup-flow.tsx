@@ -770,6 +770,7 @@ function HomeStep({
         initial={home}
         onDone={onPick}
         submitLabel="Next"
+        onSkip={onSkip}
         footer={
           <button
             type="button"
@@ -780,13 +781,6 @@ function HomeStep({
           </button>
         }
       />
-      <button
-        type="button"
-        onClick={onSkip}
-        className="min-h-11 self-center rounded-full px-4 text-sm font-medium text-zinc-600 hover:bg-zinc-100 dark:text-zinc-400 dark:hover:bg-zinc-900"
-      >
-        Skip for now
-      </button>
     </section>
   );
 }
