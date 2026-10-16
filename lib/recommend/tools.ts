@@ -156,19 +156,19 @@ export async function eventRows(
 
 // ---------- Coursework vs revision ----------
 
-/** Rough hours of work when the student hasn't given an estimate: revision for a test or exam counts as work. */
-const DEFAULT_EFFORT_HOURS = { coursework: 2, test: 3, exam: 6 } as const;
-/** Tests this close get revision suggestions. */
+/** Rough hours of work when the student hasn't given an estimate. Revision for an exam counts as work. */
+const DEFAULT_COURSEWORK_HOURS = 2;
+const DEFAULT_EXAM_HOURS = 4;
+/** Exams this close get revision suggestions. */
 export const REVISE_WITHIN_DAYS = 7;
 
-export const deadlineKind = (d: Deadline) => d.kind ?? "coursework";
-
-/** Hours of work left for it: the student's estimate, else a default by kind. */
-export const effortHours = (d: Deadline) => d.estimatedHours ?? DEFAULT_EFFORT_HOURS[deadlineKind(d)];
+/** Hours of work left for it: the student's estimate, else a default. */
+export const effortHours = (d: Deadline) =>
+  d.estimatedHours ?? (d.exam ? DEFAULT_EXAM_HOURS : DEFAULT_COURSEWORK_HOURS);
 
 /**
- * Most urgent first: by slack, the hours until it's due minus the hours of work it needs. So a test
- * in 2 days beats coursework due in 5, coursework due tomorrow beats a test next week, and a big
+ * Most urgent first: by slack, the hours until it's due minus the hours of work it needs. So an exam
+ * in 2 days beats coursework due in 5, coursework due tomorrow beats an exam next week, and a big
  * essay can beat a small quiz due a little sooner. Done in code so Claude doesn't have to weigh it.
  */
 export function byUrgency(from: IsoDateTime): (a: Deadline, b: Deadline) => number {
@@ -200,29 +200,26 @@ export async function deadlineRows(
           Math.round((Math.min(due, Date.parse(g.end)) - Date.parse(g.start)) / 60_000),
         ),
       }));
-    const kind = deadlineKind(d);
     const daysUntil = Math.round(
       (Date.parse(`${londonDateKey(d.due)}T12:00:00Z`) - Date.parse(`${gapDay}T12:00:00Z`)) / MS_PER_DAY,
     );
     return {
       id: d.id,
       urgencyRank: i + 1,
-      kind,
+      kind: d.exam ? "exam" : "coursework",
       module: d.moduleCode,
       title: d.title,
-      ...(kind === "coursework"
-        ? { due: fmt(d.due) }
-        : { starts: fmt(d.due), ends: d.end ? fmtTime(d.end) : "not stated" }),
+      ...(d.exam ? { starts: fmt(d.due), ends: d.end ? fmtTime(d.end) : "not stated" } : { due: fmt(d.due) }),
       daysUntil,
       hoursUntilDueFromGapStart: Math.round((due - gapStart) / 3_600_000),
       weightPercent: d.weight ?? null,
       effortHours: effortHours(d),
       ...(d.estimatedHours === undefined ? { effortIsGuess: true } : {}),
-      ...(kind !== "coursework" && daysUntil <= REVISE_WITHIN_DAYS ? { reviseNow: true } : {}),
+      ...(d.exam && daysUntil <= REVISE_WITHIN_DAYS ? { reviseNow: true } : {}),
       laterGapsTodayBeforeDue,
       totalLaterMinsBeforeDue: laterGapsTodayBeforeDue.reduce((sum, g) => sum + g.usableMinsBeforeDue, 0),
-      // Revision can happen anywhere: a test's place is only where they sit it, not a trip for this gap.
-      ...(kind === "coursework" ? { location: placeTrip(win, d.location) } : { sitsItAt: d.location ? locationName(d.location) : null }),
+      // Revision can happen anywhere: an exam's place is only where they sit it, not a trip for this gap.
+      ...(d.exam ? { sitsItAt: d.location ? locationName(d.location) : null } : { location: placeTrip(win, d.location) }),
     };
   });
   return rows.length ? JSON.stringify(rows) : `No deadlines in the next ${days} days.`;
@@ -300,7 +297,7 @@ export function homeRow(win: ToolWindow, home: HomeLocation, fromId: unknown, se
 
 /** "ECON0013 Econometrics (lecture)". Manual events usually have no module code. To-do blocks say "(to-do)". */
 export const eventLabel = (e: TimetableEvent) =>
-  `${[e.moduleCode, e.title].filter(Boolean).join(" ")} (${e.deadlineId ? "test or exam" : e.todoId ? "to-do" : e.kind})`;
+  `${[e.moduleCode, e.title].filter(Boolean).join(" ")} (${e.deadlineId ? "exam" : e.todoId ? "to-do" : e.kind})`;
 
-/** Something the student added themselves (a society event, office hours, plans, a placed to-do, a test), not a timetable class. */
+/** Something the student added themselves (a society event, office hours, plans, a placed to-do, an exam), not a timetable class. */
 export const isOwnPlan = (e: TimetableEvent) => Boolean((e.manualId && !e.fromClass) || e.todoId || e.deadlineId);

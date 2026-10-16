@@ -24,11 +24,11 @@ const DEADLINES: Deadline[] = [
     estimatedHours: 4,
   },
   {
-    // A test: a block on Today at its time, and revision picks in the days before.
+    // An exam: a block on Today at its time, and revision picks in the days before.
     id: "dl-stat0002-midterm",
     moduleCode: "STAT0002",
-    title: "Midterm test: probability",
-    kind: "test",
+    title: "Midterm: probability",
+    exam: true,
     due: "2026-10-16T15:00:00+01:00",
     end: "2026-10-16T16:00:00+01:00",
     weight: 20,

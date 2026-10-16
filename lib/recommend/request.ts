@@ -23,13 +23,13 @@ function isDeadline(x: unknown): x is Deadline {
   );
 }
 
-function cleanDeadline({ location, kind, end, ...d }: Deadline): Deadline {
-  const test = kind === "test" || kind === "exam";
-  const goodEnd = test && typeof end === "string" && Date.parse(end) > Date.parse(d.due);
+function cleanDeadline({ location, exam, end, ...d }: Deadline): Deadline {
+  const isExam = exam === true;
+  const goodEnd = isExam && typeof end === "string" && Date.parse(end) > Date.parse(d.due);
   return {
     ...d,
     ...(isLocation(location) ? { location } : {}),
-    ...(test ? { kind } : {}),
+    ...(isExam ? { exam } : {}),
     ...(goodEnd ? { end } : {}),
   };
 }
@@ -79,7 +79,7 @@ export interface StudentContext {
 
 export function parseStudentContext(body: Record<string, unknown>): StudentContext {
   return {
-    // A malformed location, kind or end is dropped, not the whole deadline.
+    // A malformed location, exam flag or end is dropped, not the whole deadline.
     deadlines: Array.isArray(body.deadlines) ? body.deadlines.filter(isDeadline).map(cleanDeadline) : undefined,
     societies: Array.isArray(body.societies) ? body.societies.filter(isSociety).slice(0, MAX_SOCIETIES) : undefined,
     // A home outside the commuter belt is ignored (no home picks) rather than rejected.

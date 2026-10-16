@@ -134,8 +134,8 @@ function studentContext(ctx: ChatContext, today: DateKey, nowIso: string, deadli
       d.estimatedHours ? `~${formatDuration(d.estimatedHours * 60)}` : "",
       d.location ? `at ${locationLabel(d.location)}` : "",
     ].filter(Boolean);
-    const when = d.kind
-      ? `${d.kind.toUpperCase()} ${fmt(d.due)}${d.end ? `–${fmtTime(d.end)}` : ""}`
+    const when = d.exam
+      ? `EXAM ${fmt(d.due)}${d.end ? `–${fmtTime(d.end)}` : ""}`
       : `due ${fmt(d.due)}`;
     return `- ${d.moduleCode} ${d.title}: ${when} (${inDays === 0 ? "today" : `in ${inDays} days`})${extra.length ? `. ${extra.join(", ")}` : ""}`;
   });
@@ -158,7 +158,7 @@ function studentContext(ctx: ChatContext, today: DateKey, nowIso: string, deadli
     ctx.societies?.length ? `Societies: ${ctx.societies.map((s) => s.name).join(", ")}.` : "",
     `## Their days (date = YYYY-MM-DD, ISO offset; @ = building id)`,
     ...days,
-    `## Deadlines, tests and exams (next ${DEADLINE_DAYS} days, most urgent first)`,
+    `## Deadlines and exams (next ${DEADLINE_DAYS} days, most urgent first)`,
     ...(deadlineLines.length ? deadlineLines : ["None."]),
     `## To-dos (open)`,
     ...(todos.length ? todos.map(todoLine) : ["None."]),

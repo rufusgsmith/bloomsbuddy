@@ -65,9 +65,9 @@ function toCalendarEvent(e: TimetableEvent): CalendarEvent {
     startMin,
     endMin,
     kind: e.kind,
-    tone: e.deadlineId ? "test" : e.todoId ? "todo" : !e.manualId || e.fromClass ? "timetable" : e.kind === "society" ? "society" : "mine",
+    tone: e.deadlineId ? "exam" : e.todoId ? "todo" : !e.manualId || e.fromClass ? "timetable" : e.kind === "society" ? "society" : "mine",
     title: [e.moduleCode, e.title].filter(Boolean).join(" "),
-    // A test has no room, so it shows its building.
+    // An exam has no room, so it shows its building.
     detail: e.room || (e.deadlineId && e.buildingId ? place(e.buildingId) : undefined),
   };
 }
@@ -172,7 +172,7 @@ export function TodayTimeline({
   const todayKey = londonDateKey(nowIso);
   const openGap = day?.gaps.find((g) => g.id === openId);
   const openTodo = day?.events.find((e) => e.id === openId && e.todoId);
-  const openTest = day?.events.find((e) => e.id === openId && e.deadlineId);
+  const openExam = day?.events.find((e) => e.id === openId && e.deadlineId);
   const openDeadline = day?.deadlines.find((d) => `deadline-${d.id}` === openId);
   const openAllDay = day?.allDay.find((a) => a.id === openId);
 
@@ -194,7 +194,7 @@ export function TodayTimeline({
   function editEvent(id: string) {
     const e = day?.events.find((x) => x.id === id);
     if (!day || !e) return;
-    // A to-do or test block opens a small panel under it instead of the event form.
+    // A to-do or exam block opens a small panel under it instead of the event form.
     if (e.todoId || e.deadlineId) return setOpenId(openId === id ? null : id);
     const manual = e.manualId ? manualEvents.find((m) => m.id === e.manualId) : undefined;
     setEventForm(
@@ -349,13 +349,13 @@ export function TodayTimeline({
                   tab="To-do"
                   onRemove={removeFromToday}
                 />
-              ) : openTest ? (
+              ) : openExam ? (
                 <ItemPanel
-                  title={[openTest.moduleCode, openTest.title].filter(Boolean).join(" ")}
+                  title={[openExam.moduleCode, openExam.title].filter(Boolean).join(" ")}
                   when={[
-                    `${time(openTest.start)}–${time(openTest.end)}`,
-                    testKindLabel(deadlines, openTest.deadlineId),
-                    openTest.buildingId ? `📍 ${place(openTest.buildingId)}` : openTest.place && `📍 ${openTest.place.label}`,
+                    `${time(openExam.start)}–${time(openExam.end)}`,
+                    "Exam",
+                    openExam.buildingId ? `📍 ${place(openExam.buildingId)}` : openExam.place && `📍 ${openExam.place.label}`,
                   ]
                     .filter(Boolean)
                     .join(" · ")}
@@ -460,14 +460,9 @@ function GapPanel({ gap, rec, onReload }: { gap: Gap; rec: RecState | undefined;
   );
 }
 
-/** "Test" or "Exam", from the deadline behind a test block. */
-function testKindLabel(deadlines: Deadline[] | undefined, id: string | undefined): string {
-  return deadlines?.find((d) => d.id === id)?.kind === "exam" ? "Exam" : "Test";
-}
-
 /**
- * Opens under a tapped to-do block, test block or deadline flag: what it is, and a way to take it
- * off Today. A test is fixed, so it has no onRemove: it's edited in the Deadlines tab instead.
+ * Opens under a tapped to-do block, exam block or deadline flag: what it is, and a way to take it
+ * off Today. An exam is fixed, so it has no onRemove: it's edited in the Deadlines tab instead.
  */
 function ItemPanel({
   title,
