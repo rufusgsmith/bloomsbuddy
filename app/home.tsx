@@ -13,7 +13,7 @@ import {
   todoBlocksOn,
 } from "@/lib/calendar-items";
 import { allDayOn } from "@/lib/all-day";
-import { findGaps } from "@/lib/gaps";
+import { findGaps, findShortGaps } from "@/lib/gaps";
 import { parseHome, readRawHome, subscribeHome } from "@/lib/home";
 import { addDays, londonTodayKey } from "@/lib/london-time";
 import { dayEventsFor, parseEvents, readRawEvents, subscribeEvents, type EventStore } from "@/lib/manual-events";
@@ -163,6 +163,7 @@ function buildDay(
     dateKey,
     events: all,
     gaps: findGaps(all),
+    shortGaps: findShortGaps(all),
     deadlines: deadlinesOn(deadlines, shown, dateKey),
     allDay: allDayOn(store.events, dateKey),
   };

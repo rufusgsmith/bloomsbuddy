@@ -28,8 +28,10 @@ export interface CalendarGap {
   id: string;
   startMin: number;
   endMin: number;
-  /** E.g. "1h 30m free". */
+  /** E.g. "1h 30m free", or the tip itself for a short gap. */
   label: string;
+  /** "ai" (default): tappable, opens Claude picks. "tip" / "move": a short gap's one-line note, not tappable. */
+  kind?: "ai" | "tip" | "move";
 }
 
 /** A thin flag at one moment, e.g. a deadline. Not a block and not busy time. */
@@ -359,6 +361,24 @@ function Segment({
           .map((g) => {
             const top = y(Math.max(from, g.startMin));
             const height = y(Math.min(to, g.endMin)) - top;
+            if (g.kind === "tip" || g.kind === "move") {
+              // Too short for Claude: one plain line, not tappable. A back-to-back "move" gap has no
+              // height of its own, so it sits as a thin strip over the boundary.
+              const boxHeight = Math.max(MIN_EVENT_PX, height - 4);
+              return (
+                <div
+                  key={g.id}
+                  className={`absolute inset-x-1 flex items-center overflow-hidden rounded-lg border px-2 text-xs ${
+                    g.kind === "tip"
+                      ? "border-dashed border-emerald-300 bg-emerald-50/60 text-zinc-600 dark:border-emerald-800 dark:bg-emerald-950/20 dark:text-zinc-400"
+                      : "border-amber-300 bg-amber-50 font-medium text-amber-800 dark:border-amber-700 dark:bg-amber-950/40 dark:text-amber-200"
+                  }`}
+                  style={{ top: height - 4 < MIN_EVENT_PX ? top + height / 2 - boxHeight / 2 : top + 2, height: boxHeight, zIndex: 1 }}
+                >
+                  <span className="truncate">{g.label}</span>
+                </div>
+              );
+            }
             const isOpen = g.id === openId;
             const time = `${minutesLabel(g.startMin)}–${minutesLabel(g.endMin)}`;
             return (
