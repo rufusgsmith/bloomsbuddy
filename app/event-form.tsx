@@ -15,7 +15,7 @@ import {
   type EventDraft,
 } from "@/lib/manual-events";
 import type { DateKey, EventKind, ManualEvent, TimetableEvent } from "@/lib/types";
-import { DeleteButton, Field, inputClass, TimeField } from "./form-ui";
+import { DeleteButton, Field, inputClass, sheetDialogClass, Switch, TimeField } from "./form-ui";
 import { LocationPicker } from "./location-picker";
 import { resolveLocation } from "./postcode-lookup";
 
@@ -129,7 +129,7 @@ export function EventSheet({
         onClose();
       }}
       onClick={(e) => e.target === e.currentTarget && onClose()}
-      className="mb-0 mt-auto h-[min(92dvh,760px)] max-h-none w-full max-w-full overflow-hidden rounded-t-3xl bg-white p-0 text-zinc-900 shadow-xl backdrop:bg-black/50 backdrop:backdrop-blur-[2px] md:my-0 md:ml-auto md:mr-0 md:h-dvh md:max-w-sm md:rounded-none md:rounded-l-3xl dark:bg-zinc-950 dark:text-zinc-100"
+      className={sheetDialogClass}
     >
       <form
         className="flex h-full flex-col"
@@ -205,25 +205,12 @@ export function EventSheet({
           </fieldset>
 
           {!isClass && (
-            <label className="flex min-h-11 items-center justify-between gap-3">
-              <span>
-                <span className="block text-sm font-medium">Repeats weekly</span>
-                <span className="block text-xs text-zinc-500">
-                  {draft.weekly ? "Every week on this day, like a class" : "Just this once"}
-                </span>
-              </span>
-              <input
-                type="checkbox"
-                role="switch"
-                checked={draft.weekly}
-                onChange={(e) => set({ weekly: e.target.checked })}
-                className="peer sr-only"
-              />
-              <span
-                aria-hidden
-                className="relative h-7 w-12 shrink-0 rounded-full bg-zinc-300 transition-colors after:absolute after:left-0.5 after:top-0.5 after:size-6 after:rounded-full after:bg-white after:transition-transform peer-checked:bg-emerald-600 peer-checked:after:translate-x-5 peer-focus-visible:ring-2 peer-focus-visible:ring-emerald-500 dark:bg-zinc-700 dark:peer-checked:bg-emerald-500"
-              />
-            </label>
+            <Switch
+              checked={draft.weekly}
+              onChange={(weekly) => set({ weekly })}
+              label="Repeats weekly"
+              hint={draft.weekly ? "Every week on this day, like a class" : "Just this once"}
+            />
           )}
 
           {((tried && problem) || saveError) && (

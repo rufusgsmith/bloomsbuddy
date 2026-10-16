@@ -136,12 +136,14 @@ const DEADLINE_SCHEMA = {
   type: "object",
   properties: {
     moduleCode: { type: "string", description: "e.g. ECON0019. Empty string if not shown." },
-    title: { type: "string", description: "Assignment or quiz name" },
+    title: { type: "string", description: "Assignment, quiz or exam name" },
+    exam: { type: "boolean", description: "true for an exam or test sat at a set time, false for coursework" },
     dueDate: { type: "string", description: "YYYY-MM-DD" },
-    dueTime: { anyOf: [{ type: "string", description: "24-hour HH:MM" }, { type: "null" }] },
+    dueTime: { anyOf: [{ type: "string", description: "24-hour HH:MM. For an exam, when it starts." }, { type: "null" }] },
+    endTime: { anyOf: [{ type: "string", description: "An exam's end, 24-hour HH:MM, same day" }, { type: "null" }] },
     weightPercent: { anyOf: [{ type: "number" }, { type: "null" }] },
   },
-  required: ["moduleCode", "title", "dueDate", "dueTime", "weightPercent"],
+  required: ["moduleCode", "title", "exam", "dueDate", "dueTime", "endTime", "weightPercent"],
   additionalProperties: false,
 } as const;
 
@@ -156,13 +158,17 @@ function deadlinesPrompt(input: ExtractInput, todayKey: DateKey): string {
   const intro = isText(input)
     ? `Above is text a UCL student pasted or typed about their deadlines. It may be copied from Moodle, or written casually (e.g. "econ essay due next fri 5pm").`
     : "This is a screenshot of a UCL student's Moodle timeline (or calendar / upcoming events).";
+  // Typed text can mention exams and tests; a Moodle timeline lists coursework, so scans stay coursework.
   const textRules = isText(input)
     ? `
-- Resolve relative dates ("next Friday", "tomorrow") against today.`
-    : "";
+- Resolve relative dates ("next Friday", "tomorrow") against today.
+- exam: true for an exam, test, midterm, in-class test or timed assessment sat at a set time ("stats midterm thu 10-12", "econ test fri 2pm"). false for coursework handed in by a deadline: essays, problem sets, reports, online quizzes open for days.
+- For an exam, dueTime is when it starts and endTime when it ends (null if not given). For coursework, endTime is null.`
+    : `
+- exam: always false. endTime: always null.`;
   return `${intro}
 
-Today is ${todayKey} (London). List every assignment, quiz or other deadline in it.
+Today is ${todayKey} (London). List every assignment, quiz, exam, test or other deadline in it.
 
 Rules:
 - dueDate as YYYY-MM-DD. If the year isn't shown, pick the first date on or after today.
@@ -185,11 +191,16 @@ export async function extractDeadlines(input: ExtractInput, todayKey: DateKey): 
     const dueTime = normaliseTime(d.dueTime);
     if (!isDateKey(dueDate)) return;
     const weight = typeof d.weightPercent === "number" ? d.weightPercent : undefined;
+    const exam = isText(input) && d.exam === true;
+    const start = isWallTime(dueTime) ? dueTime : DEFAULT_DUE_TIME;
+    const endTime = normaliseTime(d.endTime);
     deadlines.push({
       id: `dl-${Date.now().toString(36)}-${i}`,
       moduleCode: str(d.moduleCode).toUpperCase(),
-      title: str(d.title) || "Deadline",
-      due: londonIso(dueDate, isWallTime(dueTime) ? dueTime : DEFAULT_DUE_TIME),
+      title: str(d.title) || (exam ? "Exam" : "Deadline"),
+      due: londonIso(dueDate, start),
+      ...(exam ? { exam: true as const } : {}),
+      ...(exam && isWallTime(endTime) && endTime > start ? { end: londonIso(dueDate, endTime) } : {}),
       ...(weight !== undefined ? { weight } : {}),
       source: "moodle",
     });

@@ -4,7 +4,7 @@ import Link from "next/link";
 import { useEffect, useMemo, useRef, useState, useSyncExternalStore } from "react";
 import { isAllDaySociety } from "@/lib/all-day";
 import { clashMessage, findClashes } from "@/lib/clashes";
-import { examBlocksOn } from "@/lib/calendar-items";
+import { examBlocksOn, parseDeadlineIds, readRawHiddenExams, subscribeCalendarDeadlines } from "@/lib/calendar-items";
 import { newId } from "@/lib/deadline-draft";
 import { londonDateKey } from "@/lib/gaps";
 import { addDays, formatTime, londonIso, londonTodayKey } from "@/lib/london-time";
@@ -56,15 +56,17 @@ export function SocietiesView() {
   const user = useMemo(() => parseUserData(raw), [raw]);
   const rawEvents = useSyncExternalStore(subscribeEvents, () => readRawEvents() ?? "", () => null);
   const store = useMemo(() => parseEvents(rawEvents), [rawEvents]);
+  const rawHiddenExams = useSyncExternalStore(subscribeCalendarDeadlines, () => readRawHiddenExams() ?? "", () => null);
   // Browser only (raw is null on the server), so the demo week never moves with the server's clock.
-  // Exams are busy time too, so adding an event over one warns.
+  // Exams on the calendar are busy time too, so adding an event over one warns.
   const timetable = useMemo(() => {
     if (raw === null) return [];
     const classes = user ? expandWeekly(user.classes, user.termStart, user.weeks) : mockTimetable();
     const deadlines = user ? user.deadlines : mockDeadlines();
     const examDays = [...new Set(deadlines.filter((d) => d.exam).map((d) => londonDateKey(d.due)))];
-    return [...classes, ...examDays.flatMap((k) => examBlocksOn(deadlines, k))];
-  }, [raw, user]);
+    const hidden = parseDeadlineIds(rawHiddenExams);
+    return [...classes, ...examDays.flatMap((k) => examBlocksOn(deadlines, k, hidden))];
+  }, [raw, user, rawHiddenExams]);
   const calendar = useMemo(() => ({ store, timetable }), [store, timetable]);
 
   return (

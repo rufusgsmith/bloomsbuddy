@@ -19,10 +19,11 @@ import { useRouter } from "next/navigation";
 import { useEffect, useRef, useState, useSyncExternalStore, type ReactNode } from "react";
 import { BUILDINGS } from "@/lib/buildings";
 import { DayCalendar, DayPills } from "../day-calendar";
-import { DeleteButton, Field, inputClass, PageHeader } from "../form-ui";
+import { DeleteButton, Field, inputClass, PageHeader, sheetDialogClass } from "../form-ui";
 import { HomePicker } from "../home-picker";
 import { LocationPicker } from "../location-picker";
 import { SocietyPicker } from "../society-picker";
+import { DeadlineKindToggle } from "../deadlines/deadlines-view";
 import { TodoEditor } from "../todo/todo-view";
 import { blankDraft, deadlineProblem, fromDraft, newId, toDraft, type DraftDeadline } from "@/lib/deadline-draft";
 import { homeLabel, parseHome, readRawHome, saveHome } from "@/lib/home";
@@ -318,6 +319,8 @@ function TimetableStep({
   // 1 = Monday … 7 = Sunday. Opens on the first day with classes.
   const [selectedDay, setSelectedDay] = useState(() => (classes.length ? Math.min(...classes.map((c) => c.dayOfWeek)) : 1));
   const [editingId, setEditingId] = useState<string | null>(null);
+  /** The class "+ Add a class" just made, so its sheet says "Add class". */
+  const [addedId, setAddedId] = useState<string | null>(null);
 
   const update = (id: string, patch: Partial<WeeklyClass>) => {
     setClasses(classes.map((c) => (c.id === id ? { ...c, ...patch } : c)));
@@ -345,6 +348,7 @@ function TimetableStep({
       },
     ]);
     setEditingId(id);
+    setAddedId(id);
   };
 
   // Classes without a usable start and end can't go on the calendar, so they're listed above it to fix.
@@ -425,20 +429,6 @@ function TimetableStep({
           }))}
           openId={editing?.id ?? null}
           onEventTap={(id) => setEditingId(editingId === id ? null : id)}
-          panel={
-            editing && (
-              <div className="flex flex-col gap-2">
-                <ClassRow value={editing} onChange={(patch) => update(editing.id, patch)} onRemove={() => remove(editing.id)} />
-                <button
-                  type="button"
-                  onClick={() => setEditingId(null)}
-                  className="min-h-11 self-end rounded-full bg-zinc-900 px-5 text-sm font-medium text-white hover:bg-zinc-700 dark:bg-zinc-100 dark:text-zinc-900 dark:hover:bg-zinc-300"
-                >
-                  Done
-                </button>
-              </div>
-            )
-          }
         />
       </div>
 
@@ -449,6 +439,17 @@ function TimetableStep({
       >
         + Add a class on {DAYS[selectedDay - 1]}
       </button>
+
+      {editing && (
+        <ClassSheet
+          key={editing.id}
+          value={editing}
+          isNew={editing.id === addedId}
+          onChange={(patch) => update(editing.id, patch)}
+          onRemove={() => remove(editing.id)}
+          onClose={() => setEditingId(null)}
+        />
+      )}
 
       <fieldset className="rounded-2xl bg-zinc-100 p-4 dark:bg-zinc-900">
         <legend className="sr-only">How long the timetable repeats</legend>
@@ -488,6 +489,23 @@ function TimetableStep({
   );
 }
 
+// One width for both states ("Delete", "Tap again to delete"), so the first tap never resizes it.
+const DELETE_PILL = "min-h-11 w-44 shrink-0 whitespace-nowrap rounded-full px-3 text-center text-sm font-medium";
+
+function DeletePill({ label, onRemove }: { label: string; onRemove: () => void }) {
+  return (
+    <DeleteButton
+      onDelete={onRemove}
+      label={label}
+      className={`${DELETE_PILL} text-red-600 hover:bg-red-50 dark:text-red-400 dark:hover:bg-red-950/40`}
+      armedClassName={`${DELETE_PILL} bg-red-600 text-white hover:bg-red-700 dark:bg-red-500 dark:hover:bg-red-600`}
+    >
+      Delete
+    </DeleteButton>
+  );
+}
+
+/** A class that can't go on the calendar yet, as a card in the "Needs fixing" list. */
 function ClassRow({
   value: c,
   onChange,
@@ -497,13 +515,99 @@ function ClassRow({
   onChange: (patch: Partial<WeeklyClass>) => void;
   onRemove: () => void;
 }) {
-  const problem = classProblem(c);
   return (
     <div
       className={`rounded-2xl border bg-white p-3 dark:bg-zinc-950 ${
-        problem ? "border-red-400 dark:border-red-700" : "border-zinc-200 dark:border-zinc-800"
+        classProblem(c) ? "border-red-400 dark:border-red-700" : "border-zinc-200 dark:border-zinc-800"
       }`}
     >
+      <ClassFields value={c} onChange={onChange} />
+      <div className="mt-2 flex justify-end">
+        <DeletePill label={`Delete ${c.moduleCode || c.title || "class"}`} onRemove={onRemove} />
+      </div>
+    </div>
+  );
+}
+
+/**
+ * Edit one class, opened by tapping it on the calendar or "+ Add a class". A bottom sheet on
+ * phones, a panel down the right on laptops, like EventSheet. Edits apply as you type, so there's
+ * no Save: "Done" just closes it.
+ */
+function ClassSheet({
+  value: c,
+  isNew,
+  onChange,
+  onRemove,
+  onClose,
+}: {
+  value: WeeklyClass;
+  isNew: boolean;
+  onChange: (patch: Partial<WeeklyClass>) => void;
+  onRemove: () => void;
+  onClose: () => void;
+}) {
+  const ref = useRef<HTMLDialogElement>(null);
+  useEffect(() => {
+    const dialog = ref.current;
+    dialog?.showModal();
+    return () => dialog?.close();
+  }, []);
+
+  return (
+    <dialog
+      ref={ref}
+      aria-labelledby="class-sheet-title"
+      // Closed via React state, not the "close" event: see HomeSheet for why.
+      onCancel={(e) => {
+        e.preventDefault();
+        onClose();
+      }}
+      onClick={(e) => e.target === e.currentTarget && onClose()}
+      className={sheetDialogClass}
+    >
+      <div className="flex h-full flex-col">
+        <div className="px-5 pt-3">
+          <div aria-hidden className="mx-auto mb-3 h-1.5 w-10 rounded-full bg-zinc-300 md:hidden dark:bg-zinc-700" />
+          <div className="mb-3 flex items-start justify-between gap-3 md:mt-4">
+            <h2 id="class-sheet-title" className="text-xl font-semibold tracking-tight">
+              {isNew ? "Add class" : "Edit class"}
+            </h2>
+            <button
+              type="button"
+              onClick={onClose}
+              aria-label="Close"
+              className="-mr-2 flex size-11 shrink-0 items-center justify-center rounded-full text-2xl leading-none text-zinc-500 hover:bg-zinc-100 dark:hover:bg-zinc-900"
+            >
+              ×
+            </button>
+          </div>
+        </div>
+
+        <div className="min-h-0 flex-1 overflow-y-auto px-5 pb-4">
+          <ClassFields value={c} onChange={onChange} />
+        </div>
+
+        <div className="flex items-center gap-2 border-t border-zinc-200 px-5 pb-[calc(1rem+env(safe-area-inset-bottom))] pt-3 dark:border-zinc-800">
+          <DeletePill label={`Delete ${c.moduleCode || c.title || "class"}`} onRemove={onRemove} />
+          <button
+            type="button"
+            onClick={onClose}
+            className="ml-auto min-h-11 rounded-full bg-zinc-900 px-6 text-sm font-medium text-white hover:bg-zinc-700 dark:bg-zinc-100 dark:text-zinc-900 dark:hover:bg-zinc-300"
+          >
+            Done
+          </button>
+        </div>
+      </div>
+    </dialog>
+  );
+}
+
+/** The class form's inputs, shared by the sheet and the "Needs fixing" cards. */
+function ClassFields({ value: c, onChange }: { value: WeeklyClass; onChange: (patch: Partial<WeeklyClass>) => void }) {
+  const problem = classProblem(c);
+  return (
+    <>
       <div className="grid grid-cols-[7rem_1fr] gap-2">
         <Field label="Module">
           <input
@@ -562,25 +666,20 @@ function ClassRow({
           />
         </Field>
       </div>
-      <div className="mt-2 flex items-end gap-2">
-        <div className="flex-1">
-          <fieldset className="flex min-w-0 flex-col gap-1">
-            <legend className="mb-1 text-xs font-medium text-zinc-500">
-              {c.buildingGuessed ? "Building: please check, I couldn't tell" : "Building (for travel times)"}
-            </legend>
-            <LocationPicker
-              buildingOnly
-              invalid={c.buildingGuessed}
-              label="Search UCL buildings"
-              value={{ locationChoice: "building", buildingId: c.buildingId, postcode: "" }}
-              onChange={(p) => p.buildingId && onChange({ buildingId: p.buildingId, buildingGuessed: false })}
-            />
-          </fieldset>
-        </div>
-        <RemoveButton label={`Remove ${c.moduleCode || c.title || "class"}`} onClick={onRemove} />
-      </div>
+      <fieldset className="mt-2 flex min-w-0 flex-col gap-1">
+        <legend className="mb-1 text-xs font-medium text-zinc-500">
+          {c.buildingGuessed ? "Building: please check, I couldn't tell" : "Building (for travel times)"}
+        </legend>
+        <LocationPicker
+          buildingOnly
+          invalid={c.buildingGuessed}
+          label="Search UCL buildings"
+          value={{ locationChoice: "building", buildingId: c.buildingId, postcode: "" }}
+          onChange={(p) => p.buildingId && onChange({ buildingId: p.buildingId, buildingGuessed: false })}
+        />
+      </fieldset>
       {problem && <p className="mt-2 text-sm text-red-600 dark:text-red-400">{problem}</p>}
-    </div>
+    </>
   );
 }
 
@@ -608,17 +707,17 @@ function DeadlinesStep({
   return (
     <section className="flex flex-col gap-5">
       <div>
-        <h2 className="text-lg font-semibold">Your Moodle deadlines</h2>
+        <h2 className="text-lg font-semibold">Your deadlines and exams</h2>
         <p className="mt-1 text-sm text-zinc-600 dark:text-zinc-400">
-          Screenshot the Timeline block on your Moodle dashboard, or paste/type them below. I&apos;ll use these to decide when you should
-          actually be studying. You can skip this.
+          Screenshot the Timeline block on your Moodle dashboard, or paste/type them below, tests and exams too. I&apos;ll use these to
+          decide when you should actually be studying. You can skip this.
         </p>
       </div>
 
       <Uploader
         kind="deadlines"
         nouns={["deadline", "deadlines"]}
-        placeholder="Paste your Moodle timeline, or type e.g. ECON0019 essay due Fri 30 Oct, 17:00"
+        placeholder="Paste your Moodle timeline, or type e.g. ECON0019 essay due Fri 30 Oct, 17:00; STAT0002 midterm Thu 5 Nov 10:00–12:00"
         existingCount={deadlines.length}
         onResult={(rows, mode) => {
           const drafts = rows.map(toDraft);
@@ -641,7 +740,7 @@ function DeadlinesStep({
         onClick={add}
         className="min-h-11 rounded-xl border-2 border-dashed border-zinc-300 text-sm font-medium text-zinc-600 hover:border-zinc-400 hover:bg-zinc-50 dark:border-zinc-700 dark:text-zinc-400 dark:hover:bg-zinc-900"
       >
-        + Add a deadline by hand
+        + Add a deadline or exam by hand
       </button>
 
       <StepNav
@@ -671,6 +770,7 @@ function DeadlineRow({
         problem ? "border-red-400 dark:border-red-700" : "border-zinc-200 dark:border-zinc-800"
       }`}
     >
+      <DeadlineKindToggle value={d} onChange={onChange} />
       <div className="grid grid-cols-[7rem_1fr] gap-2">
         <Field label="Module">
           <input
@@ -680,37 +780,45 @@ function DeadlineRow({
             className={inputClass}
           />
         </Field>
-        <Field label="What's due">
+        <Field label={d.exam ? "What's the exam" : "What's due"}>
           <input
             value={d.title}
             onChange={(e) => onChange({ title: e.target.value })}
-            placeholder="Problem Set 2"
+            placeholder={d.exam ? "Midterm" : "Problem Set 2"}
             className={inputClass}
           />
         </Field>
       </div>
-      <div className="mt-2 flex items-end gap-2">
-        <div className="grid flex-1 grid-cols-[1fr_1fr_4.5rem] gap-2">
-          <Field label="Due date">
+      {/* An exam has a date on its own row, then start, end and weight: four across is too tight on a phone. */}
+      <div className="mt-2 grid grid-cols-[1fr_1fr_4.5rem] gap-2">
+        <div className={d.exam ? "col-span-3" : "contents"}>
+          <Field label={d.exam ? "Date" : "Due date"}>
             <input type="date" value={d.date} onChange={(e) => onChange({ date: e.target.value })} className={inputClass} />
           </Field>
-          <Field label="Time">
-            <input type="time" value={d.time} onChange={(e) => onChange({ time: e.target.value })} className={inputClass} />
-          </Field>
-          <Field label="Weight %">
-            <input
-              type="number"
-              inputMode="decimal"
-              min={0}
-              max={100}
-              value={d.weight}
-              onChange={(e) => onChange({ weight: e.target.value })}
-              placeholder="–"
-              className={inputClass}
-            />
-          </Field>
         </div>
-        <RemoveButton label={`Remove ${d.title || "deadline"}`} onClick={onRemove} />
+        <Field label={d.exam ? "Starts" : "Time"}>
+          <input type="time" value={d.time} onChange={(e) => onChange({ time: e.target.value })} className={inputClass} />
+        </Field>
+        {d.exam && (
+          <Field label="Ends (optional)">
+            <input type="time" value={d.endTime} onChange={(e) => onChange({ endTime: e.target.value })} className={inputClass} />
+          </Field>
+        )}
+        <Field label="Weight %">
+          <input
+            type="number"
+            inputMode="decimal"
+            min={0}
+            max={100}
+            value={d.weight}
+            onChange={(e) => onChange({ weight: e.target.value })}
+            placeholder="–"
+            className={inputClass}
+          />
+        </Field>
+      </div>
+      <div className="mt-2 flex justify-end">
+        <DeletePill label={`Delete ${d.title || (d.exam ? "exam" : "deadline")}`} onRemove={onRemove} />
       </div>
       {problem && <p className="mt-2 text-sm text-red-600 dark:text-red-400">{problem}</p>}
     </div>
@@ -942,6 +1050,7 @@ function ReviewStep({
                 </span>{" "}
                 {d.moduleCode && <span className="text-zinc-500">{d.moduleCode} </span>}
                 {d.title}
+                {d.exam && <span className="text-zinc-500"> (exam)</span>}
               </li>
             ))}
           </ul>

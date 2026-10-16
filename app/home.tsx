@@ -8,6 +8,7 @@ import {
   examBlocksOn,
   parseDeadlineIds,
   readRawCalendarDeadlines,
+  readRawHiddenExams,
   subscribeCalendarDeadlines,
   todoBlocksOn,
 } from "@/lib/calendar-items";
@@ -45,7 +46,12 @@ export function Home() {
   const todoKey = useMemo(() => (rawTodos === null ? "" : calendarKey(todos, londonTodayKey())), [rawTodos, todos]);
   // Deadlines added to the calendar. Flags aren't busy time, so they don't change the gaps.
   const rawDeadlineIds = useSyncExternalStore(subscribeCalendarDeadlines, () => readRawCalendarDeadlines() ?? "", () => null);
-  const shownDeadlines = useMemo(() => parseDeadlineIds(rawDeadlineIds), [rawDeadlineIds]);
+  // Exams taken off the calendar. Exams are busy time, so these are in the remount keys.
+  const rawHiddenExams = useSyncExternalStore(subscribeCalendarDeadlines, () => readRawHiddenExams() ?? "", () => null);
+  const shownDeadlines = useMemo(
+    () => ({ shown: parseDeadlineIds(rawDeadlineIds), hiddenExams: parseDeadlineIds(rawHiddenExams) }),
+    [rawDeadlineIds, rawHiddenExams],
+  );
   // Hand-added events and one-off class changes. They change the gaps, so they're in the remount keys.
   const rawEvents = useSyncExternalStore(subscribeEvents, () => readRawEvents() ?? "", () => null);
   const store = useMemo(() => parseEvents(rawEvents), [rawEvents]);
@@ -64,7 +70,7 @@ export function Home() {
 
   if (raw === null || firstVisit) return <Skeleton />;
   // Everything besides the timetable that changes the gaps or the picks. Also keys the saved picks.
-  const inputsKey = `${rawHome ?? ""}|${rawEvents ?? ""}|${todoKey}`;
+  const inputsKey = `${rawHome ?? ""}|${rawEvents ?? ""}|${todoKey}|${rawHiddenExams ?? ""}`;
   if (!user || !userDays) {
     if (!demo) return <Skeleton />;
     return (
@@ -113,7 +119,13 @@ export function Home() {
 }
 
 /** The mock week, Monday–Sunday (always the current one). Opens on today, or on Monday at the weekend. */
-function buildDemo(store: EventStore, todos: Todo[], shown: string[]): { days: Day[]; initialDateKey: string } {
+/** Which deadlines are flagged on the calendar, and which exams were taken off it. */
+interface CalendarDeadlines {
+  shown: string[];
+  hiddenExams: string[];
+}
+
+function buildDemo(store: EventStore, todos: Todo[], shown: CalendarDeadlines): { days: Day[]; initialDateKey: string } {
   const timetable = mockTimetable();
   const deadlines = mockDeadlines();
   const today = londonTodayKey();
@@ -124,7 +136,7 @@ function buildDemo(store: EventStore, todos: Todo[], shown: string[]): { days: D
 }
 
 /** Every day of term, Monday–Sunday, weekends included. */
-function buildDays(user: UserData, store: EventStore, todos: Todo[], shown: string[]): Day[] {
+function buildDays(user: UserData, store: EventStore, todos: Todo[], shown: CalendarDeadlines): Day[] {
   const events = expandWeekly(user.classes, user.termStart, user.weeks);
   const days: Day[] = [];
   for (let i = 0; i < user.weeks * 7; i++) {
@@ -143,10 +155,10 @@ function buildDay(
   events: Day["events"],
   todos: Todo[],
   deadlines: Deadline[],
-  shown: string[],
+  { shown, hiddenExams }: CalendarDeadlines,
   store: EventStore,
 ): Day {
-  const all = [...events, ...todoBlocksOn(todos, dateKey), ...examBlocksOn(deadlines, dateKey)];
+  const all = [...events, ...todoBlocksOn(todos, dateKey), ...examBlocksOn(deadlines, dateKey, hiddenExams)];
   return {
     dateKey,
     events: all,
