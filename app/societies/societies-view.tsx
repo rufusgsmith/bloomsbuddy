@@ -368,7 +368,7 @@ function EventCard({ event: e, calendar }: { event: SocietyEvent; calendar: Cale
       </div>
       {cal.clash && (
         <div role="alert" className="mt-3 rounded-xl border border-amber-300 bg-amber-50 p-3 dark:border-amber-800 dark:bg-amber-950/40">
-          <p className="mb-2 text-sm font-medium text-amber-900 dark:text-amber-100">⚠️ {cal.clash}</p>
+          <p className="mb-2 text-sm font-medium text-amber-900 dark:text-amber-100">{cal.clash}</p>
           <div className="flex justify-end gap-2">
             <button
               type="button"

@@ -21,6 +21,7 @@ import { BUILDINGS } from "@/lib/buildings";
 import { DayCalendar, DayPills } from "../day-calendar";
 import { DeleteButton, Field, inputClass, PageHeader, sheetDialogClass } from "../form-ui";
 import { HomePicker } from "../home-picker";
+import { CameraIcon } from "../icons";
 import { LocationPicker } from "../location-picker";
 import { SocietyPicker } from "../society-picker";
 import { DeadlineKindToggle } from "../deadlines/deadlines-view";
@@ -1203,9 +1204,7 @@ function Uploader<K extends "timetable" | "deadlines">({
           </span>
         ) : (
           <>
-            <span aria-hidden className="text-2xl">
-              📸
-            </span>
+            <CameraIcon className="size-7 text-emerald-700 dark:text-emerald-300" />
             <span className="font-medium text-emerald-900 dark:text-emerald-100">
               {existingCount > 0 ? "Upload another screenshot" : "Upload a screenshot"}
             </span>

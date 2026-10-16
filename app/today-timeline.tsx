@@ -18,6 +18,7 @@ import { allDayText, type AllDayItem } from "@/lib/all-day";
 import { DayCalendar, DayPills, KindLegend, type CalendarEvent, type CalendarGap, type CalendarMarker } from "./day-calendar";
 import { EventSheet, type EventFormTarget } from "./event-form";
 import { PageHeader } from "./form-ui";
+import { HomeIcon } from "./icons";
 import { HomeSheet } from "./home-sheet";
 import { RecommendationPanel, type RecState } from "./recommendation-card";
 
@@ -365,7 +366,7 @@ export function TodayTimeline({
                   when={[
                     `${time(openExam.start)}–${time(openExam.end)}`,
                     "Exam",
-                    openExam.buildingId ? `📍 ${place(openExam.buildingId)}` : openExam.place && `📍 ${openExam.place.label}`,
+                    openExam.buildingId ? `${place(openExam.buildingId)}` : openExam.place && `${openExam.place.label}`,
                   ]
                     .filter(Boolean)
                     .join(" · ")}
@@ -523,7 +524,7 @@ function HomeButton({ home, onClick }: { home: Home | null; onClick: () => void 
         className="mt-4 flex min-h-14 w-full items-center gap-3 rounded-2xl border-2 border-dashed border-emerald-400 px-4 py-2.5 text-left transition-colors hover:bg-emerald-50 dark:border-emerald-700 dark:hover:bg-emerald-950/40"
       >
         <span className="min-w-0 flex-1">
-          <span className="block font-semibold text-emerald-700 dark:text-emerald-300">🏠 Add your home</span>
+          <span className="block font-semibold text-emerald-700 dark:text-emerald-300">Add your home</span>
           <span className="block text-sm text-zinc-600 dark:text-zinc-400">So I know when a gap&apos;s long enough to pop back</span>
         </span>
         <span aria-hidden className="text-xl text-emerald-600 dark:text-emerald-400">
@@ -542,9 +543,9 @@ function HomeButton({ home, onClick }: { home: Home | null; onClick: () => void 
     >
       <span
         aria-hidden
-        className="flex size-10 shrink-0 items-center justify-center rounded-full bg-emerald-100 text-lg dark:bg-emerald-950"
+        className="flex size-10 shrink-0 items-center justify-center rounded-full bg-emerald-100 text-emerald-700 dark:bg-emerald-950 dark:text-emerald-300"
       >
-        🏠
+        <HomeIcon />
       </span>
       <span className="min-w-0 flex-1">
         <span className="block text-xs font-medium text-zinc-500">Home</span>

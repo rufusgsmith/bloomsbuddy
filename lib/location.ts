@@ -57,7 +57,7 @@ export function samePostcode(d: LocationDraft, old?: EventLocation): PostcodePla
   return old?.kind === "postcode" && normalisePostcode(old.postcode) === normalisePostcode(d.postcode) ? old : undefined;
 }
 
-/** Short text for a 📍 badge: "Cruciform", "NW1 2HE". */
+/** Short text for a badge: "Cruciform", "NW1 2HE". */
 export function locationLabel(loc: EventLocation): string {
   return loc.kind === "building" ? BUILDINGS[loc.buildingId].shortName : loc.postcode;
 }
