@@ -5,9 +5,10 @@
 // home ({ label, lat, lng }) is where the student lives, so Claude can suggest popping back.
 // todos are the To-do tab's open and repeating items; recommendForGap keeps the ones that fit the gap.
 // addedEventIds are society event ids already on the student's calendar: fixed plans, never suggested again.
+// allDay is the gap's day's all-day society strips as text ("Seven Sisters hike (Time TBC)"): not busy time, only context.
 // The student fields are checked by parseStudentContext (lib/recommend/request.ts), shared with /api/chat.
 import { recommendForGap } from "@/lib/recommend/recommend";
-import { parseStudentContext } from "@/lib/recommend/request";
+import { parseAllDay, parseStudentContext } from "@/lib/recommend/request";
 import type { Gap } from "@/lib/types";
 
 function isGap(x: unknown): x is Gap {
@@ -43,7 +44,7 @@ export async function POST(request: Request) {
   try {
     // Malformed dayGaps are dropped rather than rejected: they're only extra context.
     const dayGaps = Array.isArray(body.dayGaps) ? body.dayGaps.filter(isGap) : [];
-    return Response.json(await recommendForGap(body.gap, dayGaps, parseStudentContext(body)));
+    return Response.json(await recommendForGap(body.gap, dayGaps, { ...parseStudentContext(body), allDay: parseAllDay(body.allDay) }));
   } catch (err) {
     console.error("[recommend] failed:", err);
     return Response.json({ error: "Couldn't get a recommendation, try again" }, { status: 502 });

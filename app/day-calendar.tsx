@@ -40,6 +40,14 @@ export interface CalendarMarker {
   label: string;
 }
 
+/** A strip at the top of the day, e.g. a society hike with no time yet. Not a block and not busy time. */
+export interface CalendarAllDay {
+  id: string;
+  title: string;
+  /** E.g. "Time TBC", "From 07:00", "All day", "Until 18:00". */
+  label: string;
+}
+
 const PX_PER_HOUR = 64;
 const PX_PER_MIN = PX_PER_HOUR / 60;
 const DEFAULT_START = 8 * 60;
@@ -130,17 +138,21 @@ export function DayCalendar({
   events,
   gaps = [],
   markers = [],
+  allDay = [],
   nowMin,
   openId,
   panel,
   onEventTap,
   onGapTap,
   onMarkerTap,
+  onAllDayTap,
   onSlotTap,
 }: {
   events: CalendarEvent[];
   gaps?: CalendarGap[];
   markers?: CalendarMarker[];
+  /** Strips above the hour grid: society events with no time, or over several days. */
+  allDay?: CalendarAllDay[];
   /** Minutes since midnight now. Only pass it when the calendar shows today. */
   nowMin?: number | null;
   /** The event or gap whose panel is open. The panel opens right under it. */
@@ -149,6 +161,7 @@ export function DayCalendar({
   onEventTap?: (id: string) => void;
   onGapTap?: (id: string) => void;
   onMarkerTap?: (id: string) => void;
+  onAllDayTap?: (id: string) => void;
   /** Tap on empty space: the half hour that was tapped, in minutes since midnight. */
   onSlotTap?: (min: number) => void;
 }) {
@@ -162,6 +175,8 @@ export function DayCalendar({
   const open = [...events, ...gaps, ...markers.map((m) => ({ id: m.id, endMin: m.min }))].find((x) => x.id === openId);
   // The grid is split under the open item, and its panel sits in the page flow between the halves.
   const split = open && panel ? Math.min(end, Math.max(start, open.endMin)) : null;
+  // A tapped strip opens its panel right under the strips, above the grid.
+  const allDayOpen = !!panel && allDay.some((a) => a.id === openId);
 
   const nowRef = useRef<HTMLDivElement>(null);
   useEffect(() => {
@@ -196,6 +211,28 @@ export function DayCalendar({
     // Padding so the first and last hour labels (centred on their lines) aren't cut off. A little
     // more on top, so the first hour (usually 08:00) doesn't sit tight under the day pills.
     <div className="pb-2 pt-5">
+      {allDay.length > 0 && (
+        <ul aria-label="All day" className="mb-3 ml-[calc(3rem+0.25rem)] mr-1 flex flex-col gap-1">
+          {allDay.map((a) => (
+            <li key={a.id}>
+              <button
+                type="button"
+                onClick={() => onAllDayTap?.(a.id)}
+                aria-expanded={openId === a.id}
+                className={`${TONE_CLASS.society} flex min-h-8 w-full items-center gap-1.5 rounded-lg px-2 py-1 text-left text-xs font-medium`}
+              >
+                <span className="min-w-0 flex-1 truncate">{a.title}</span>
+                <span className="shrink-0 tabular-nums opacity-80">{a.label}</span>
+              </button>
+            </li>
+          ))}
+        </ul>
+      )}
+      {allDayOpen && (
+        <div ref={panelRef} className="mb-3 ml-[calc(3rem+0.25rem)] mr-1 scroll-mt-4 scroll-mb-28">
+          {panel}
+        </div>
+      )}
       {split === null ? (
         segment(start, end, true)
       ) : (

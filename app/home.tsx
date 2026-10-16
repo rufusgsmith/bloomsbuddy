@@ -10,6 +10,7 @@ import {
   subscribeCalendarDeadlines,
   todoBlocksOn,
 } from "@/lib/calendar-items";
+import { allDayOn } from "@/lib/all-day";
 import { findGaps } from "@/lib/gaps";
 import { parseHome, readRawHome, subscribeHome } from "@/lib/home";
 import { addDays, londonTodayKey } from "@/lib/london-time";
@@ -113,7 +114,7 @@ function buildDemo(store: EventStore, todos: Todo[], shown: string[]): { days: D
   const today = londonTodayKey();
   const monday = demoMonday(today);
   const dateKeys = Array.from({ length: 7 }, (_, i) => addDays(monday, i));
-  const days = dateKeys.map((dateKey) => buildDay(dateKey, dayEventsFor(timetable, store, dateKey), todos, deadlines, shown));
+  const days = dateKeys.map((dateKey) => buildDay(dateKey, dayEventsFor(timetable, store, dateKey), todos, deadlines, shown, store));
   return { days, initialDateKey: dateKeys.includes(today) ? today : monday };
 }
 
@@ -123,15 +124,31 @@ function buildDays(user: UserData, store: EventStore, todos: Todo[], shown: stri
   const days: Day[] = [];
   for (let i = 0; i < user.weeks * 7; i++) {
     const dateKey = addDays(user.termStart, i);
-    days.push(buildDay(dateKey, dayEventsFor(events, store, dateKey), todos, user.deadlines, shown));
+    days.push(buildDay(dateKey, dayEventsFor(events, store, dateKey), todos, user.deadlines, shown, store));
   }
   return days;
 }
 
-/** One day: its events plus to-do blocks (busy time, so they shape the gaps), and deadline flags. */
-function buildDay(dateKey: string, events: Day["events"], todos: Todo[], deadlines: Deadline[], shown: string[]): Day {
+/**
+ * One day: its events plus to-do blocks (busy time, so they shape the gaps), deadline flags, and
+ * all-day society strips (not busy time, so they never touch the gaps).
+ */
+function buildDay(
+  dateKey: string,
+  events: Day["events"],
+  todos: Todo[],
+  deadlines: Deadline[],
+  shown: string[],
+  store: EventStore,
+): Day {
   const all = [...events, ...todoBlocksOn(todos, dateKey)];
-  return { dateKey, events: all, gaps: findGaps(all), deadlines: deadlinesOn(deadlines, shown, dateKey) };
+  return {
+    dateKey,
+    events: all,
+    gaps: findGaps(all),
+    deadlines: deadlinesOn(deadlines, shown, dateKey),
+    allDay: allDayOn(store.events, dateKey),
+  };
 }
 
 /** Today if it's a term day, else the next term day, else the last one. */

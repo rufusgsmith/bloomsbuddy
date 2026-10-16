@@ -10,9 +10,10 @@ import { londonDateKey } from "@/lib/gaps";
 import { homeLabel } from "@/lib/home";
 import { requestContext } from "@/lib/request-context";
 import { addDays, dayOfWeek, formatTime, londonWeekdayAndMinutes, mondayOf } from "@/lib/london-time";
-import { blankDraft, draftFromClass, draftFromManual, nextHalfHour } from "@/lib/manual-events";
+import { blankDraft, deleteManualEvent, draftFromClass, draftFromManual, nextHalfHour } from "@/lib/manual-events";
 import { saveTodos } from "@/lib/todos";
 import type { Deadline, Gap, Home, ManualEvent, Recommendation, Society, TimetableEvent, Todo } from "@/lib/types";
+import { allDayText, type AllDayItem } from "@/lib/all-day";
 import { DayCalendar, DayPills, KindLegend, type CalendarEvent, type CalendarGap, type CalendarMarker } from "./day-calendar";
 import { EventSheet, type EventFormTarget } from "./event-form";
 import { PageHeader } from "./form-ui";
@@ -26,6 +27,8 @@ export interface Day {
   gaps: Gap[];
   /** Deadlines due this day that are shown on Today, as flags. */
   deadlines: Deadline[];
+  /** Added society events with no time or over several days: strips at the top, not busy time. */
+  allDay: AllDayItem[];
 }
 
 // Always format in Europe/London, so the server and the browser render identical text.
@@ -169,11 +172,13 @@ export function TodayTimeline({
   const openGap = day?.gaps.find((g) => g.id === openId);
   const openTodo = day?.events.find((e) => e.id === openId && e.todoId);
   const openDeadline = day?.deadlines.find((d) => `deadline-${d.id}` === openId);
+  const openAllDay = day?.allDay.find((a) => a.id === openId);
 
-  /** Takes a to-do or deadline off the calendar. It stays in its own tab. */
+  /** Takes a to-do, deadline or all-day society event off the calendar. It stays in its own tab. */
   function removeFromToday() {
     if (openTodo) saveTodos(todos.map((t) => (t.id === openTodo.todoId ? setOnToday(t, false) : t)));
     if (openDeadline) setDeadlineOnCalendar(openDeadline.id, false);
+    if (openAllDay) deleteManualEvent(openAllDay.manualId);
     setOpenId(null);
   }
 
@@ -207,6 +212,8 @@ export function TodayTimeline({
         body: JSON.stringify({
           gap,
           dayGaps,
+          // Not busy time, but Claude should know ("Seven Sisters hike (Time TBC)").
+          ...(day?.allDay.length ? { allDay: day.allDay.map(allDayText) } : {}),
           ...requestContext({ deadlines, societies, home, todos, manualEvents }),
         }),
       });
@@ -318,6 +325,8 @@ export function TodayTimeline({
             events={day.events.map(toCalendarEvent)}
             gaps={day.gaps.map(toCalendarGap)}
             markers={day.deadlines.map(toCalendarMarker)}
+            allDay={day.allDay}
+            onAllDayTap={(id) => setOpenId(openId === id ? null : id)}
             nowMin={day.dateKey === todayKey ? minuteOfDay(nowIso) : null}
             openId={openId}
             onEventTap={editEvent}
@@ -336,6 +345,14 @@ export function TodayTimeline({
                   when={`${time(openTodo.start)}–${time(openTodo.end)} · To-do`}
                   href="/todo"
                   tab="To-do"
+                  onRemove={removeFromToday}
+                />
+              ) : openAllDay ? (
+                <ItemPanel
+                  title={openAllDay.title}
+                  when={`${openAllDay.label} · Society`}
+                  href="/societies"
+                  tab="Societies"
                   onRemove={removeFromToday}
                 />
               ) : openDeadline ? (

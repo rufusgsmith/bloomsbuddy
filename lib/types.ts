@@ -266,6 +266,14 @@ export interface ManualEvent {
   room?: string;
   location?: EventLocation;
   weekly: boolean;
+  /**
+   * A society event with no time, or one over several days: a strip at the top of each day it
+   * covers, not busy time. One day only = time TBC. With endDate, startTime is on `date` and
+   * endTime on endDate.
+   */
+  allDay?: true;
+  /** Last day of an all-day event over several days. */
+  endDate?: DateKey;
 }
 
 // ---- Chat (Today's chat assistant). Session-only: kept in sessionStorage, never in localStorage ----

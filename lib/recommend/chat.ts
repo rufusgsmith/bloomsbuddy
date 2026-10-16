@@ -60,6 +60,8 @@ const SHOWN = "Shown as a card.";
 export interface ChatDay {
   dateKey: DateKey;
   events: TimetableEvent[];
+  /** All-day society strips as text ("Seven Sisters hike (Time TBC)"). Not busy time. */
+  allDay?: string[];
 }
 
 export interface ChatContext extends StudentContext {
@@ -96,11 +98,13 @@ function eventLine(e: TimetableEvent): string {
 }
 
 /** A day's events and free gaps as indented lines. Undefined events = not loaded. */
-function scheduleLines(events: TimetableEvent[] | undefined): string[] {
+function scheduleLines(events: TimetableEvent[] | undefined, allDay: string[] = []): string[] {
   if (!events) return ["  (not loaded)"];
-  if (!events.length) return ["  nothing on"];
+  const allDayLines = allDay.map((a) => `  all day: ${a}`);
+  if (!events.length) return [...allDayLines, allDayLines.length ? "  nothing timed" : "  nothing on"];
   const sorted = [...events].sort(byStart);
   return [
+    ...allDayLines,
     ...sorted.map((e) => `  ${eventLine(e)}`),
     ...findGaps(sorted).map(
       (g) => `  free ${fmtTime(g.start)}–${fmtTime(g.end)} (${formatDurationShort(g.usableMins)} usable after the walk)`,
@@ -113,12 +117,12 @@ function scheduleLines(events: TimetableEvent[] | undefined): string[] {
  * with their offsets, deadlines and open to-dos. A few hundred tokens instead of a tool round trip.
  */
 function studentContext(ctx: ChatContext, today: DateKey, nowIso: string, deadlines: Deadline[]): string {
-  const dayEvents = (k: DateKey) => ctx.days.find((d) => d.dateKey === k)?.events;
+  const dayOf = (k: DateKey) => ctx.days.find((d) => d.dateKey === k);
   const days = Array.from({ length: DATE_LIST_DAYS }, (_, i) => {
     const key = addDays(today, i);
     const label = i === 0 ? " (today)" : i === 1 ? " (tomorrow)" : "";
     const head = `${fmtDateKey(key)} = ${key}, offset ${londonIso(key, "12:00").slice(-6)}${label}`;
-    return i < WEEK_DAYS ? [`${head}:`, ...scheduleLines(dayEvents(key))].join("\n") : head;
+    return i < WEEK_DAYS ? [`${head}:`, ...scheduleLines(dayOf(key)?.events, dayOf(key)?.allDay)].join("\n") : head;
   });
 
   const deadlineLines = deadlines.map((d) => {
@@ -223,11 +227,13 @@ function makeChatTools(ctx: ChatContext, proposals: ChatProposal[], today: DateK
       debug("tool get_schedule", { date });
       if (!isDateKey(date)) return "Error: date must be YYYY-MM-DD.";
       const events = dayEvents(date);
+      const allDay = ctx.days.find((d) => d.dateKey === date)?.allDay;
       if (!events) return `I can't see ${fmtDateKey(date)}: it's outside the weeks the app has loaded.`;
-      if (!events.length) return `${fmtDateKey(date)}: nothing scheduled, the whole day is free.`;
+      if (!events.length && !allDay) return `${fmtDateKey(date)}: nothing scheduled, the whole day is free.`;
       const sorted = [...events].sort(byStart);
       return JSON.stringify({
         day: fmtDateKey(date),
+        ...(allDay ? { allDay } : {}),
         events: sorted.map((e) => {
           const spot = spotOf(e);
           return {
