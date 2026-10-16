@@ -8,6 +8,7 @@ import { londonDateKey } from "@/lib/gaps";
 import { locationLabel } from "@/lib/location";
 import { addDays, formatWallTime, londonIso, relativeDayLabel } from "@/lib/london-time";
 import { EVENT_KINDS, saveManualEvent } from "@/lib/manual-events";
+import { allDayText } from "@/lib/all-day";
 import { requestContext } from "@/lib/request-context";
 import { parseTodos, readRawTodos, saveTodos } from "@/lib/todos";
 import type { ChatMessage, ChatProposal, DateKey, Deadline, Home, ManualEvent, Society, TimetableEvent, Todo } from "@/lib/types";
@@ -80,7 +81,11 @@ export function ChatAssistant({
           messages: turns.map(({ role, content }) => ({ role, content })),
           days: days
             .filter((d) => d.dateKey >= from && d.dateKey <= to)
-            .map(({ dateKey, events }) => ({ dateKey, events })),
+            .map(({ dateKey, events, allDay }) => ({
+              dateKey,
+              events,
+              ...(allDay.length ? { allDay: allDay.map(allDayText) } : {}),
+            })),
           ...requestContext({ deadlines, societies, home, todos, manualEvents }),
         }),
       });

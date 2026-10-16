@@ -206,7 +206,7 @@ const OUTPUT_SCHEMA = {
 };
 
 
-function describeGap(gap: Gap, dayGaps: Gap[], home?: HomeLocation, todos?: Todo[]): string {
+function describeGap(gap: Gap, dayGaps: Gap[], home?: HomeLocation, todos?: Todo[], allDay?: string[]): string {
   const where = (id: BuildingId) => BUILDINGS[id].name;
   // Other gaps today, so Claude can save deep work for a longer gap. Kept compact: ~30 tokens each.
   const otherGapsToday = dayGaps
@@ -240,6 +240,8 @@ function describeGap(gap: Gap, dayGaps: Gap[], home?: HomeLocation, todos?: Todo
         travelMode: gap.travelMode,
       },
       otherGapsToday,
+      // On their calendar for the whole day (a hike with no time yet, a trip). Not busy time.
+      ...(allDay?.length ? { allDayToday: allDay } : {}),
       // Worked out here, not by Claude: it overlaps 12:00–14:00 and there was no lunch-length gap earlier.
       lunch: lunchInfo(gap, dayGaps),
       home: home ? `Saved: ${home.label}. Call get_home to see if it's worth going back.` : "Not set",
@@ -293,6 +295,8 @@ export async function recommendForGap(
     todos?: Todo[];
     /** Society event ids the student added to their calendar. */
     addedEventIds?: string[];
+    /** The gap's day's all-day society strips, as text. Not busy time. */
+    allDay?: string[];
   } = {},
 ): Promise<Recommendation> {
   const client = new Anthropic(); // reads ANTHROPIC_API_KEY
@@ -311,7 +315,7 @@ export async function recommendForGap(
     messages: [
       {
         role: "user",
-        content: `Here's my gap. What should I do with it?\n\n${describeGap(gap, dayGaps, opts.home, todos)}`,
+        content: `Here's my gap. What should I do with it?\n\n${describeGap(gap, dayGaps, opts.home, todos, opts.allDay)}`,
       },
     ],
   });

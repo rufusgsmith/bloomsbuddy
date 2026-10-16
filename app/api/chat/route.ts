@@ -1,11 +1,12 @@
 // POST /api/chat  body: { messages, days, deadlines?, societies?, home?, todos?, addedEventIds? }
 //   →  { reply: string, proposals: ChatProposal[] }
 // messages: the conversation so far, oldest first, ending with the student's new message.
-// days: [{ dateKey, events }] the Today page can see, for get_schedule and travel.
+// days: [{ dateKey, events, allDay? }] the Today page can see, for get_schedule and travel.
+// allDay is that day's all-day society strips as text: not busy time, only context.
 // The other fields are the same as /api/recommend (parseStudentContext).
 import { isDateKey } from "@/lib/london-time";
 import { chatReply, type ChatDay, type ChatTurn } from "@/lib/recommend/chat";
-import { parseStudentContext } from "@/lib/recommend/request";
+import { parseAllDay, parseStudentContext } from "@/lib/recommend/request";
 import type { TimetableEvent } from "@/lib/types";
 
 /** Older turns are dropped: keeps each request (and its cost) small. */
@@ -36,11 +37,11 @@ function isEvent(x: unknown): x is TimetableEvent {
 
 function parseDays(x: unknown): ChatDay[] {
   if (!Array.isArray(x)) return [];
-  return x.slice(0, MAX_DAYS).flatMap((d) =>
-    d && isDateKey(d.dateKey) && Array.isArray(d.events)
-      ? [{ dateKey: d.dateKey, events: d.events.filter(isEvent).slice(0, MAX_EVENTS_PER_DAY) }]
-      : [],
-  );
+  return x.slice(0, MAX_DAYS).flatMap((d) => {
+    if (!d || !isDateKey(d.dateKey) || !Array.isArray(d.events)) return [];
+    const allDay = parseAllDay(d.allDay);
+    return [{ dateKey: d.dateKey, events: d.events.filter(isEvent).slice(0, MAX_EVENTS_PER_DAY), ...(allDay ? { allDay } : {}) }];
+  });
 }
 
 /** The last turns, trimmed, starting with the student and alternating (the API needs both). */

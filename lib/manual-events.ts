@@ -5,6 +5,7 @@
 // A change to one class (moved, renamed, cancelled) never touches the weekly pattern: that day's
 // class is hidden, and an edited copy is saved as a one-off ManualEvent.
 
+import { isAllDaySociety } from "./all-day";
 import { eventsOnDay, londonDateKey } from "./gaps";
 import { dayOfWeek, isDateKey, isWallTime, londonIso, londonWeekdayAndMinutes } from "./london-time";
 import {
@@ -64,7 +65,9 @@ export function isManualEvent(x: unknown): x is ManualEvent {
     isDateKey(m.date) &&
     isWallTime(m.startTime) &&
     isWallTime(m.endTime) &&
-    m.endTime > m.startTime &&
+    // A multi-day event can end earlier in the day than it started.
+    (m.endDate === undefined ? m.endTime > m.startTime : isDateKey(m.endDate) && m.endDate > m.date && m.allDay === true) &&
+    (m.allDay === undefined || m.allDay === true) &&
     typeof m.weekly === "boolean" &&
     (m.moduleCode === undefined || typeof m.moduleCode === "string") &&
     (m.fromClass === undefined || m.fromClass === true) &&
@@ -161,12 +164,15 @@ function toTimetableEvent(m: ManualEvent, dateKey: DateKey): TimetableEvent {
   };
 }
 
-/** A day's events: its timetable classes minus hidden ones, plus manual events that fall on it. */
+/**
+ * A day's events: its timetable classes minus hidden ones, plus manual events that fall on it.
+ * All-day events are left out: they're strips (allDayOn in all-day.ts), not busy time.
+ */
 export function eventsForDay(classes: TimetableEvent[], store: EventStore, dateKey: DateKey): TimetableEvent[] {
   const hidden = new Set(store.hidden);
   return [
     ...classes.filter((e) => !hidden.has(occurrenceKey(e, dateKey))),
-    ...store.events.filter((m) => occursOn(m, dateKey)).map((m) => toTimetableEvent(m, dateKey)),
+    ...store.events.filter((m) => !m.allDay && occursOn(m, dateKey)).map((m) => toTimetableEvent(m, dateKey)),
   ];
 }
 
@@ -180,10 +186,34 @@ export const dayEventsFor = (timetable: TimetableEvent[], store: EventStore, dat
 export const findSocietyAdd = (store: EventStore, societyEventId: string) =>
   store.events.find((m) => m.societyEventId === societyEventId);
 
-/** A society event as a one-off manual event, linked back to it. Cut at midnight if it runs over. */
+/**
+ * A society event as a one-off manual event, linked back to it. A late night out is cut at
+ * midnight. One with no time, or a trip over several days, becomes an all-day event (a strip).
+ */
 export function manualFromSociety(e: SocietyEvent, id: string): ManualEvent {
   const date = londonDateKey(e.start);
   const startMin = londonWeekdayAndMinutes(e.start).minutes;
+  const place = {
+    ...(e.venue ? { room: e.venue } : {}),
+    ...(e.buildingId ? { location: { kind: "building" as const, buildingId: e.buildingId } } : {}),
+  };
+  if (isAllDaySociety(e)) {
+    const endDate = londonDateKey(e.end);
+    const multiDay = !e.timeTBC && endDate > date;
+    return {
+      id,
+      title: e.title.slice(0, MAX_TITLE),
+      societyEventId: e.id,
+      kind: "society",
+      date,
+      startTime: multiDay ? wallTimeOf(startMin) : "00:00",
+      endTime: multiDay ? wallTimeOf(londonWeekdayAndMinutes(e.end).minutes) : "23:59",
+      ...(multiDay ? { endDate } : {}),
+      allDay: true,
+      ...place,
+      weekly: false,
+    };
+  }
   const endMin = londonDateKey(e.end) === date ? londonWeekdayAndMinutes(e.end).minutes : 24 * 60;
   return {
     id,
@@ -193,8 +223,7 @@ export function manualFromSociety(e: SocietyEvent, id: string): ManualEvent {
     date,
     startTime: wallTimeOf(startMin),
     endTime: wallTimeOf(Math.max(endMin, startMin + 1)),
-    ...(e.venue ? { room: e.venue } : {}),
-    ...(e.buildingId ? { location: { kind: "building" as const, buildingId: e.buildingId } } : {}),
+    ...place,
     weekly: false,
   };
 }

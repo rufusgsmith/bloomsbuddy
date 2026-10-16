@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { useEffect, useMemo, useRef, useState, useSyncExternalStore } from "react";
+import { isAllDaySociety } from "@/lib/all-day";
 import { clashMessage, findClashes } from "@/lib/clashes";
 import { newId } from "@/lib/deadline-draft";
 import { londonDateKey } from "@/lib/gaps";
@@ -29,8 +30,9 @@ import { SocietyPicker } from "../society-picker";
 // events until the end of term, grouped by day (past ones hidden). Each society loads on its
 // own (scraping can take a few seconds), so one slow or broken SU page never holds up the rest.
 // Without a saved timetable there's nowhere to save societies, so it shows the demo ones read-only.
-// Any event with a real time can be added to the calendar (a one-off manual event linked by
-// societyEventId), which works in the demo week too.
+// Any event can be added to the calendar (a one-off manual event linked by societyEventId), which
+// works in the demo week too. One with no time (Time TBC) or over several days goes on as an
+// all-day strip, which isn't busy time, so it skips the clash check.
 
 type Result = { status: "ok"; events: SocietyEvent[] } | { status: "error" };
 
@@ -306,7 +308,13 @@ function dayLabel(dateKey: DateKey, today: DateKey): string {
 function timeLabel(e: SocietyEvent): string {
   if (e.timeTBC) return e.partOfDay ? `Time TBC · ${e.partOfDay}` : "Time TBC";
   const start = formatTime(e.start);
-  return e.endEstimated ? start : `${start}–${formatTime(e.end)}`;
+  if (e.endEstimated) return start;
+  // Over several days: "Sun 8 Nov 07:00 – Wed 11 Nov 18:00". A late night out keeps the short form.
+  if (isAllDaySociety(e)) {
+    const day = (iso: string) => londonDay.format(new Date(iso)).replace(",", "");
+    return `${day(e.start)} ${start} – ${day(e.end)} ${formatTime(e.end)}`;
+  }
+  return `${start}–${formatTime(e.end)}`;
 }
 
 function EventCard({ event: e, calendar }: { event: SocietyEvent; calendar: Calendar }) {
@@ -347,12 +355,9 @@ function EventCard({ event: e, calendar }: { event: SocietyEvent; calendar: Cale
             </div>
           )}
         </div>
-        {/* A "Time TBC" session has no real time to block out. */}
-        {!e.timeTBC && (
-          <CalendarButton added={cal.added} onAdd={() => cal.add(false)} onRemove={cal.remove} title={e.title}>
-            Add to my calendar
-          </CalendarButton>
-        )}
+        <CalendarButton added={cal.added} onAdd={() => cal.add(false)} onRemove={cal.remove} title={e.title}>
+          Add to my calendar
+        </CalendarButton>
       </div>
       {cal.clash && (
         <div role="alert" className="mt-3 rounded-xl border border-amber-300 bg-amber-50 p-3 dark:border-amber-800 dark:bg-amber-950/40">
@@ -395,7 +400,8 @@ function useSocietyAdd(e: SocietyEvent, calendar: Calendar) {
 
   function add(anyway: boolean) {
     const m = manualFromSociety(e, newId("ev"));
-    if (!anyway) {
+    // An all-day strip isn't busy time, so it can't clash.
+    if (!anyway && !m.allDay) {
       const found = findClashes(
         dayEventsFor(calendar.timetable, calendar.store, m.date),
         londonIso(m.date, m.startTime),

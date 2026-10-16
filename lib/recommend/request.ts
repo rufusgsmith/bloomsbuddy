@@ -43,6 +43,18 @@ function isHomeLocation(x: unknown): x is HomeLocation {
   );
 }
 
+const MAX_ALL_DAY = 10;
+
+/**
+ * A day's all-day society strips as text ("Seven Sisters hike (Time TBC)"), for Claude.
+ * Not busy time, only context. Anything malformed is dropped.
+ */
+export function parseAllDay(x: unknown): string[] | undefined {
+  if (!Array.isArray(x)) return undefined;
+  const items = x.filter((s): s is string => typeof s === "string" && s.trim() !== "" && s.length <= 200);
+  return items.length ? items.slice(0, MAX_ALL_DAY) : undefined;
+}
+
 export interface StudentContext {
   /** The student's own deadlines. When sent, even empty, they replace the mock ones. */
   deadlines?: Deadline[];
