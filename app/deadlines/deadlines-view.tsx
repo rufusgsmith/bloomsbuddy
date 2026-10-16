@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { useMemo, useRef, useState, useSyncExternalStore, type ReactNode } from "react";
 import { CalendarButton, DeleteButton, Field, inputClass, PageHeader, TabPage } from "../form-ui";
+import { CameraIcon } from "../icons";
 import {
   parseDeadlineIds,
   readRawCalendarDeadlines,
@@ -287,7 +288,7 @@ function RescanButton({ onScanned }: { onScanned: (d: Deadline[]) => { added: nu
           onChange={(e) => void scan(e.target.files?.[0])}
           className="sr-only"
         />
-        <span aria-hidden>📸</span>
+        <CameraIcon />
         <span aria-live="polite">{reading ? "Squinting…" : "Re-scan Moodle screenshot"}</span>
       </label>
       {(state.status === "done" || state.status === "error") && (
@@ -407,7 +408,7 @@ function DeadlineRow({
         </p>
         {d.location && (
           <span className="mt-1.5 inline-block rounded-full bg-zinc-100 px-2 py-0.5 text-xs font-medium text-zinc-700 dark:bg-zinc-800 dark:text-zinc-300">
-            📍 {locationLabel(d.location)}
+            {locationLabel(d.location)}
           </span>
         )}
       </div>

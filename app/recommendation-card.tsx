@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState, type ReactNode } from "react";
-import type { BusynessLevel, Recommendation, RecommendationOption, RecommendationType } from "@/lib/types";
+import type { BusynessLevel, Recommendation, RecommendationOption } from "@/lib/types";
 import { travelLabel } from "@/lib/buildings";
 
 export type RecState = { status: "loading" } | { status: "ok"; rec: Recommendation } | { status: "error" };
@@ -14,7 +14,6 @@ const LOADING_LINES = [
   "Checking your to-do list…",
 ];
 
-const TYPE_EMOJI: Record<RecommendationType, string> = { study: "📚", event: "🎉", rest: "☕", home: "🏠", food: "🍜" };
 
 /** onReload asks Claude again, skipping the cached picks: "Try again" after an error, "↻ Redo" after picks. */
 export function RecommendationPanel({ state, onReload }: { state: RecState; onReload: () => void }) {
@@ -87,7 +86,7 @@ function TopPick({ option }: { option: RecommendationOption }) {
     <article className="rounded-xl bg-white p-4 shadow-sm ring-1 ring-emerald-200 dark:bg-zinc-950 dark:ring-emerald-800">
       <p className="text-sm font-semibold text-emerald-700 dark:text-emerald-400">Top pick</p>
       <h3 className="mt-1 text-lg font-semibold leading-snug">
-        <span aria-hidden>{TYPE_EMOJI[option.type]}</span> {option.title}
+        {option.title}
       </h3>
       <p className="text-sm text-zinc-500">{option.place}</p>
       <Badges option={option} />
@@ -100,7 +99,7 @@ function Alternative({ option }: { option: RecommendationOption }) {
   return (
     <article className="rounded-xl bg-white/70 p-3 dark:bg-zinc-950/60">
       <h3 className="text-sm font-semibold">
-        <span aria-hidden>{TYPE_EMOJI[option.type]}</span> {option.title}{" "}
+        {option.title}{" "}
         <span className="font-normal text-zinc-500">· {option.place}</span>
       </h3>
       <Badges option={option} />
@@ -113,8 +112,8 @@ function Badges({ option }: { option: RecommendationOption }) {
   return (
     <div className="mt-2 flex flex-wrap gap-1.5">
       <Badge tone="neutral">{option.travelMins === 0 ? "Staying put" : travelLabel(option.travelMins, option.travelMode)}</Badge>
-      {option.busyness && <Badge tone={BUSYNESS_TONE[option.busyness]}>🪑 Usually {option.busyness}</Badge>}
-      {option.todoId && <Badge tone="good">📝 From your to-do</Badge>}
+      {option.busyness && <Badge tone={BUSYNESS_TONE[option.busyness]}>Usually {option.busyness}</Badge>}
+      {option.todoId && <Badge tone="good">From your to-do</Badge>}
     </div>
   );
 }

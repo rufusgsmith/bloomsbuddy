@@ -225,7 +225,7 @@ export function EventSheet({
             role="alert"
             className="border-t border-amber-300 bg-amber-50 px-5 pb-[calc(1rem+env(safe-area-inset-bottom))] pt-3 dark:border-amber-800 dark:bg-amber-950/40"
           >
-            <p className="mb-3 text-sm font-medium text-amber-900 dark:text-amber-100">⚠️ {clash}</p>
+            <p className="mb-3 text-sm font-medium text-amber-900 dark:text-amber-100">{clash}</p>
             <div className="flex items-center justify-end gap-2">
               <button
                 type="button"

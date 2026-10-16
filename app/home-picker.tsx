@@ -5,6 +5,7 @@ import { BUILDINGS, getBuilding, HALL_IDS, searchBuildings, travelLabel, travelT
 import { isPostcodeShape } from "@/lib/postcode";
 import type { Home } from "@/lib/types";
 import { inputClass } from "./form-ui";
+import { BuildingIcon, HomeIcon, SlashIcon } from "./icons";
 import { lookupPostcode } from "./postcode-lookup";
 
 // Picks where the student lives: a UCL hall, private accommodation (a postcode), or no home.
@@ -97,7 +98,7 @@ export function HomePicker({
         <OptionCard
           selected={choice === "hall"}
           onPick={() => pick("hall")}
-          icon="🏛️"
+          icon={<BuildingIcon />}
           title="UCL hall"
           subtitle={hallId && choice === "hall" ? BUILDINGS[hallId].name : "Including intercollegiate halls"}
         >
@@ -135,7 +136,7 @@ export function HomePicker({
         <OptionCard
           selected={choice === "private"}
           onPick={() => pick("private")}
-          icon="🏡"
+          icon={<HomeIcon />}
           title="Private accommodation"
           subtitle="Flat, house share, living with family"
         >
@@ -164,7 +165,7 @@ export function HomePicker({
         <OptionCard
           selected={choice === "none"}
           onPick={() => pick("none")}
-          icon="🚫"
+          icon={<SlashIcon />}
           title="Skip / don't use my home"
           subtitle="I won't suggest heading home. Switch it on any time."
         />
@@ -201,7 +202,7 @@ function OptionCard({
 }: {
   selected: boolean;
   onPick: () => void;
-  icon: string;
+  icon: ReactNode;
   title: string;
   subtitle: string;
   children?: ReactNode;
@@ -221,7 +222,7 @@ function OptionCard({
         onClick={onPick}
         className="flex min-h-16 w-full items-center gap-3 px-4 py-3 text-left"
       >
-        <span aria-hidden className="flex size-10 shrink-0 items-center justify-center rounded-full bg-white text-xl shadow-sm dark:bg-zinc-800">
+        <span aria-hidden className="flex size-10 shrink-0 items-center justify-center rounded-full bg-white text-emerald-700 shadow-sm dark:bg-zinc-800 dark:text-emerald-300">
           {icon}
         </span>
         <span className="min-w-0 flex-1">

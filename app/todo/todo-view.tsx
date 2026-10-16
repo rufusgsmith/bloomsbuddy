@@ -716,13 +716,13 @@ function Badges({ todo: t, today, done }: { todo: Todo; today: DateKey; done: bo
   if (!t.estMinutes && !t.doBefore && !t.repeat && !t.location && !slot) return null;
   return (
     <span className="mt-1 flex flex-wrap gap-1.5">
-      {t.estMinutes && <span className={plain}>⏱ {formatDurationShort(t.estMinutes)}</span>}
+      {t.estMinutes && <span className={plain}>{formatDurationShort(t.estMinutes)}</span>}
       {t.doBefore && !done && <DoBeforeBadge doBefore={t.doBefore} today={today} className={badge} />}
       {t.repeat && <span className={plain}>{repeatLabel(t.repeat)}</span>}
-      {t.location && <span className={plain}>📍 {locationLabel(t.location)}</span>}
+      {t.location && <span className={plain}>{locationLabel(t.location)}</span>}
       {slot && !done && (
         <span className={plain}>
-          📅 {londonDay.format(new Date(`${slot.date}T12:00:00Z`))} {slot.time}
+          {londonDay.format(new Date(`${slot.date}T12:00:00Z`))} {slot.time}
         </span>
       )}
       {back && <span className={plain}>Back {relativeDayLabel(back, today).replace(/^Tomorrow$/, "tomorrow")}</span>}
@@ -738,7 +738,7 @@ function DoBeforeBadge({ doBefore, today, className }: { doBefore: DateKey; toda
     days <= 2
       ? "bg-red-100 text-red-700 dark:bg-red-950 dark:text-red-300"
       : "bg-zinc-100 text-zinc-700 dark:bg-zinc-800 dark:text-zinc-300";
-  return <span className={`${className} ${tone}`}>📅 {label}</span>;
+  return <span className={`${className} ${tone}`}>{label}</span>;
 }
 
 function CheckMark({ done }: { done: boolean }) {

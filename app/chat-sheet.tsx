@@ -406,12 +406,12 @@ function ProposalCard({
 
   return (
     <div className="ml-2 rounded-2xl border border-zinc-200 bg-white p-3 dark:border-zinc-800 dark:bg-zinc-950">
-      <p className="text-xs font-medium text-zinc-500">{p.kind === "event" ? "📅 Add to calendar" : "📝 Add to to-do"}</p>
+      <p className="text-xs font-medium text-zinc-500">{p.kind === "event" ? "Add to calendar" : "Add to to-do"}</p>
       <p className="mt-0.5 font-semibold">{p.kind === "event" ? p.event.title : p.todo.title}</p>
       {(details.length > 0 || location) && (
         <p className="mt-0.5 text-sm tabular-nums text-zinc-600 dark:text-zinc-400">
           {details.join(" · ")}
-          {location && `${details.length ? " · " : ""}📍 ${locationLabel(location)}`}
+          {location && `${details.length ? " · " : ""}${locationLabel(location)}`}
         </p>
       )}
 
@@ -421,7 +421,7 @@ function ProposalCard({
         </p>
       ) : clash ? (
         <div role="alert" className="mt-3 rounded-xl bg-amber-50 p-3 dark:bg-amber-950/40">
-          <p className="mb-2 text-sm font-medium text-amber-900 dark:text-amber-100">⚠️ {clash}</p>
+          <p className="mb-2 text-sm font-medium text-amber-900 dark:text-amber-100">{clash}</p>
           <div className="flex items-center justify-end gap-2">
             <button
               type="button"

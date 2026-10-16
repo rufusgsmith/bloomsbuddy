@@ -411,7 +411,7 @@ function Segment({
             const body = (
               <>
                 <span className="truncate font-semibold">
-                  {clashes && <span aria-hidden>⚠️ </span>}
+                  {clashes && <span aria-hidden className="font-bold">! </span>}
                   {e.title}
                 </span>
                 {e.endMin - e.startMin >= TWO_LINE_MINS && <span className="truncate text-xs opacity-90 tabular-nums">{second}</span>}
