@@ -65,9 +65,10 @@ function toCalendarEvent(e: TimetableEvent): CalendarEvent {
     startMin,
     endMin,
     kind: e.kind,
-    tone: e.todoId ? "todo" : !e.manualId || e.fromClass ? "timetable" : e.kind === "society" ? "society" : "mine",
+    tone: e.deadlineId ? "test" : e.todoId ? "todo" : !e.manualId || e.fromClass ? "timetable" : e.kind === "society" ? "society" : "mine",
     title: [e.moduleCode, e.title].filter(Boolean).join(" "),
-    detail: e.room || undefined,
+    // A test has no room, so it shows its building.
+    detail: e.room || (e.deadlineId && e.buildingId ? place(e.buildingId) : undefined),
   };
 }
 
@@ -171,6 +172,7 @@ export function TodayTimeline({
   const todayKey = londonDateKey(nowIso);
   const openGap = day?.gaps.find((g) => g.id === openId);
   const openTodo = day?.events.find((e) => e.id === openId && e.todoId);
+  const openTest = day?.events.find((e) => e.id === openId && e.deadlineId);
   const openDeadline = day?.deadlines.find((d) => `deadline-${d.id}` === openId);
   const openAllDay = day?.allDay.find((a) => a.id === openId);
 
@@ -192,8 +194,8 @@ export function TodayTimeline({
   function editEvent(id: string) {
     const e = day?.events.find((x) => x.id === id);
     if (!day || !e) return;
-    // A to-do block opens a small panel under it instead of the event form.
-    if (e.todoId) return setOpenId(openId === id ? null : id);
+    // A to-do or test block opens a small panel under it instead of the event form.
+    if (e.todoId || e.deadlineId) return setOpenId(openId === id ? null : id);
     const manual = e.manualId ? manualEvents.find((m) => m.id === e.manualId) : undefined;
     setEventForm(
       manual
@@ -347,6 +349,19 @@ export function TodayTimeline({
                   tab="To-do"
                   onRemove={removeFromToday}
                 />
+              ) : openTest ? (
+                <ItemPanel
+                  title={[openTest.moduleCode, openTest.title].filter(Boolean).join(" ")}
+                  when={[
+                    `${time(openTest.start)}–${time(openTest.end)}`,
+                    testKindLabel(deadlines, openTest.deadlineId),
+                    openTest.buildingId ? `📍 ${place(openTest.buildingId)}` : openTest.place && `📍 ${openTest.place.label}`,
+                  ]
+                    .filter(Boolean)
+                    .join(" · ")}
+                  href="/deadlines"
+                  tab="Deadlines"
+                />
               ) : openAllDay ? (
                 <ItemPanel
                   title={openAllDay.title}
@@ -445,7 +460,15 @@ function GapPanel({ gap, rec, onReload }: { gap: Gap; rec: RecState | undefined;
   );
 }
 
-/** Opens under a tapped to-do block or deadline flag: what it is, and a way to take it off Today. */
+/** "Test" or "Exam", from the deadline behind a test block. */
+function testKindLabel(deadlines: Deadline[] | undefined, id: string | undefined): string {
+  return deadlines?.find((d) => d.id === id)?.kind === "exam" ? "Exam" : "Test";
+}
+
+/**
+ * Opens under a tapped to-do block, test block or deadline flag: what it is, and a way to take it
+ * off Today. A test is fixed, so it has no onRemove: it's edited in the Deadlines tab instead.
+ */
 function ItemPanel({
   title,
   when,
@@ -457,20 +480,22 @@ function ItemPanel({
   when: string;
   href: string;
   tab: string;
-  onRemove: () => void;
+  onRemove?: () => void;
 }) {
   return (
     <div className="rounded-2xl border border-zinc-200 bg-white p-4 dark:border-zinc-800 dark:bg-zinc-950">
       <p className="font-semibold">{title}</p>
       <p className="mt-0.5 text-sm tabular-nums text-zinc-600 dark:text-zinc-400">{when}</p>
       <div className="mt-3 flex flex-wrap items-center gap-2">
-        <button
-          type="button"
-          onClick={onRemove}
-          className="min-h-11 rounded-full bg-zinc-900 px-4 text-sm font-medium text-white hover:bg-zinc-700 dark:bg-zinc-100 dark:text-zinc-900 dark:hover:bg-zinc-300"
-        >
-          Remove from Today
-        </button>
+        {onRemove && (
+          <button
+            type="button"
+            onClick={onRemove}
+            className="min-h-11 rounded-full bg-zinc-900 px-4 text-sm font-medium text-white hover:bg-zinc-700 dark:bg-zinc-100 dark:text-zinc-900 dark:hover:bg-zinc-300"
+          >
+            Remove from Today
+          </button>
+        )}
         <Link
           href={href}
           className="flex min-h-11 items-center rounded-full px-3 text-sm text-zinc-600 hover:bg-zinc-100 dark:text-zinc-400 dark:hover:bg-zinc-900"
@@ -478,7 +503,9 @@ function ItemPanel({
           Open {tab} tab
         </Link>
       </div>
-      <p className="mt-2 text-xs text-zinc-500">It stays in the {tab} tab, and you can add it back there.</p>
+      <p className="mt-2 text-xs text-zinc-500">
+        {onRemove ? `It stays in the ${tab} tab, and you can add it back there.` : `Edit or delete it in the ${tab} tab.`}
+      </p>
     </div>
   );
 }

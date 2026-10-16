@@ -4,7 +4,8 @@ import Link from "next/link";
 import { useEffect, useMemo, useRef, useState, useSyncExternalStore } from "react";
 import { isAllDaySociety } from "@/lib/all-day";
 import { clashMessage, findClashes } from "@/lib/clashes";
-import { newId } from "@/lib/deadline-draft";
+import { testBlocksOn } from "@/lib/calendar-items";
+import { isTest, newId } from "@/lib/deadline-draft";
 import { londonDateKey } from "@/lib/gaps";
 import { addDays, formatTime, londonIso, londonTodayKey } from "@/lib/london-time";
 import {
@@ -19,7 +20,7 @@ import {
   type EventStore,
 } from "@/lib/manual-events";
 import { CalendarButton, PageHeader, TabPage } from "../form-ui";
-import { mockSocietyEvents, mockTimetable } from "@/lib/mock";
+import { mockDeadlines, mockSocietyEvents, mockTimetable } from "@/lib/mock";
 import { parseUserData, readRawUserData, saveUserData, subscribeUserData } from "@/lib/storage";
 import { termEndKey } from "@/lib/term";
 import { expandWeekly } from "@/lib/timetable";
@@ -56,10 +57,14 @@ export function SocietiesView() {
   const rawEvents = useSyncExternalStore(subscribeEvents, () => readRawEvents() ?? "", () => null);
   const store = useMemo(() => parseEvents(rawEvents), [rawEvents]);
   // Browser only (raw is null on the server), so the demo week never moves with the server's clock.
-  const timetable = useMemo(
-    () => (raw === null ? [] : user ? expandWeekly(user.classes, user.termStart, user.weeks) : mockTimetable()),
-    [raw, user],
-  );
+  // Tests and exams are busy time too, so adding an event over one warns.
+  const timetable = useMemo(() => {
+    if (raw === null) return [];
+    const classes = user ? expandWeekly(user.classes, user.termStart, user.weeks) : mockTimetable();
+    const deadlines = user ? user.deadlines : mockDeadlines();
+    const testDays = [...new Set(deadlines.filter(isTest).map((d) => londonDateKey(d.due)))];
+    return [...classes, ...testDays.flatMap((k) => testBlocksOn(deadlines, k))];
+  }, [raw, user]);
   const calendar = useMemo(() => ({ store, timetable }), [store, timetable]);
 
   return (

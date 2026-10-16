@@ -8,6 +8,7 @@ import {
   parseDeadlineIds,
   readRawCalendarDeadlines,
   subscribeCalendarDeadlines,
+  testBlocksOn,
   todoBlocksOn,
 } from "@/lib/calendar-items";
 import { allDayOn } from "@/lib/all-day";
@@ -130,7 +131,7 @@ function buildDays(user: UserData, store: EventStore, todos: Todo[], shown: stri
 }
 
 /**
- * One day: its events plus to-do blocks (busy time, so they shape the gaps), deadline flags, and
+ * One day: its events plus to-do and test blocks (busy time, so they shape the gaps), deadline flags, and
  * all-day society strips (not busy time, so they never touch the gaps).
  */
 function buildDay(
@@ -141,7 +142,7 @@ function buildDay(
   shown: string[],
   store: EventStore,
 ): Day {
-  const all = [...events, ...todoBlocksOn(todos, dateKey)];
+  const all = [...events, ...todoBlocksOn(todos, dateKey), ...testBlocksOn(deadlines, dateKey)];
   return {
     dateKey,
     events: all,

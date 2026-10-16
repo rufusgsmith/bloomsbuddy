@@ -34,6 +34,8 @@ export interface TimetableEvent {
   fromClass?: true;
   /** A to-do shown on the calendar as a block: its Todo.id. */
   todoId?: string;
+  /** A test or exam shown on the calendar as a block: its Deadline.id. */
+  deadlineId?: string;
 }
 
 /**
@@ -62,11 +64,19 @@ export interface Gap {
   locationSource: "inferred" | "manual";
 }
 
+/** A sit-down assessment at a fixed time. A deadline without a kind is coursework. */
+export type TestKind = "test" | "exam";
+
 export interface Deadline {
   id: string;
   moduleCode: string;
   title: string;
+  /** When it's due. For a test or exam: when it starts. */
   due: IsoDateTime;
+  /** Set for a test or exam. Missing means coursework. */
+  kind?: TestKind;
+  /** When a test or exam ends, if known. After `due`. */
+  end?: IsoDateTime;
   /** Percentage of the module grade, if known. */
   weight?: number;
   source: "moodle" | "manual";

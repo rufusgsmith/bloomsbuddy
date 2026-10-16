@@ -4,7 +4,9 @@
 // Deadlines the student adds to the calendar ("Add to calendar" on the Deadlines tab) show as thin
 // flags at their due time: not blocks, not busy time. Their ids are kept on their own localStorage
 // key, so it works in the demo week too.
+// Tests and exams always show as blocks at their time: busy time, like a lecture.
 
+import { isTest } from "./deadline-draft";
 import { londonDateKey } from "./gaps";
 import { londonIso, londonWeekdayAndMinutes } from "./london-time";
 import { locationFields, wallTimeOf } from "./manual-events";
@@ -13,6 +15,8 @@ import type { DateKey, Deadline, TimetableEvent, Todo, TodoSlot, WallTime } from
 
 /** A to-do with no estimate gets a block this long. */
 export const TODO_DEFAULT_MINS = 30;
+/** A test or exam with no end time gets a block this long. */
+export const TEST_DEFAULT_MINS = 60;
 
 const KEY = "bloomsbuddy:calendar-deadlines";
 /** Fired on this tab after we write. The "storage" event only reaches other tabs. */
@@ -80,9 +84,32 @@ export function calendarKey(todos: Todo[], today: DateKey): string {
 
 // ---------- Deadlines ----------
 
-/** Deadlines due on this London day that the student added to the calendar. */
+/** Coursework due on this London day that the student added to the calendar. Tests are blocks instead. */
 export const deadlinesOn = (deadlines: Deadline[], added: string[], dateKey: DateKey) =>
-  deadlines.filter((d) => londonDateKey(d.due) === dateKey && added.includes(d.id));
+  deadlines.filter((d) => !isTest(d) && londonDateKey(d.due) === dateKey && added.includes(d.id));
+
+/** The day's tests and exams, as events (busy time, like a lecture). */
+export function testBlocksOn(deadlines: Deadline[], dateKey: DateKey): TimetableEvent[] {
+  return deadlines.flatMap((d) => {
+    if (!isTest(d) || londonDateKey(d.due) !== dateKey) return [];
+    const startMin = londonWeekdayAndMinutes(d.due).minutes;
+    const endMin =
+      d.end && londonDateKey(d.end) === dateKey ? londonWeekdayAndMinutes(d.end).minutes : startMin + TEST_DEFAULT_MINS;
+    return [
+      {
+        id: `test-${d.id}`,
+        deadlineId: d.id,
+        moduleCode: d.moduleCode,
+        title: d.title,
+        kind: "personal" as const,
+        start: d.due,
+        end: londonIso(dateKey, wallTimeOf(Math.max(startMin + 1, Math.min(endMin, 23 * 60 + 59)))),
+        room: "",
+        ...locationFields(d.location),
+      },
+    ];
+  });
+}
 
 export function readRawCalendarDeadlines(): string | null {
   try {

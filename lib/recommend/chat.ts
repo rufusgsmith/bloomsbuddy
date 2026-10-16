@@ -23,6 +23,7 @@ import { byDueThenEstimate, EST_STEP, isDoneNow, MAX_EST_MINS, repeatLabel, vali
 import type { ChatProposal, DateKey, Deadline, EventKind, TimetableEvent, Todo } from "../types";
 import {
   BUILDING_IDS,
+  byUrgency,
   eventLabel,
   eventRows,
   fmt,
@@ -125,14 +126,18 @@ function studentContext(ctx: ChatContext, today: DateKey, nowIso: string, deadli
     return i < WEEK_DAYS ? [`${head}:`, ...scheduleLines(dayOf(key)?.events, dayOf(key)?.allDay)].join("\n") : head;
   });
 
-  const deadlineLines = deadlines.map((d) => {
+  // Most urgent first (hours left minus work needed), the same order the gap picks use.
+  const deadlineLines = [...deadlines].sort(byUrgency(nowIso)).map((d) => {
     const inDays = daysFrom(today, londonDateKey(d.due));
     const extra = [
       d.weight ? `${d.weight}%` : "",
       d.estimatedHours ? `~${formatDuration(d.estimatedHours * 60)}` : "",
       d.location ? `at ${locationLabel(d.location)}` : "",
     ].filter(Boolean);
-    return `- ${d.moduleCode} ${d.title}: due ${fmt(d.due)} (${inDays === 0 ? "today" : `in ${inDays} days`})${extra.length ? `. ${extra.join(", ")}` : ""}`;
+    const when = d.kind
+      ? `${d.kind.toUpperCase()} ${fmt(d.due)}${d.end ? `–${fmtTime(d.end)}` : ""}`
+      : `due ${fmt(d.due)}`;
+    return `- ${d.moduleCode} ${d.title}: ${when} (${inDays === 0 ? "today" : `in ${inDays} days`})${extra.length ? `. ${extra.join(", ")}` : ""}`;
   });
 
   const todos = (ctx.todos ?? []).filter((t) => !isDoneNow(t, today)).sort(byDueThenEstimate);
@@ -153,7 +158,7 @@ function studentContext(ctx: ChatContext, today: DateKey, nowIso: string, deadli
     ctx.societies?.length ? `Societies: ${ctx.societies.map((s) => s.name).join(", ")}.` : "",
     `## Their days (date = YYYY-MM-DD, ISO offset; @ = building id)`,
     ...days,
-    `## Deadlines (next ${DEADLINE_DAYS} days)`,
+    `## Deadlines, tests and exams (next ${DEADLINE_DAYS} days, most urgent first)`,
     ...(deadlineLines.length ? deadlineLines : ["None."]),
     `## To-dos (open)`,
     ...(todos.length ? todos.map(todoLine) : ["None."]),

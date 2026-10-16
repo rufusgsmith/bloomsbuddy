@@ -23,6 +23,17 @@ function isDeadline(x: unknown): x is Deadline {
   );
 }
 
+function cleanDeadline({ location, kind, end, ...d }: Deadline): Deadline {
+  const test = kind === "test" || kind === "exam";
+  const goodEnd = test && typeof end === "string" && Date.parse(end) > Date.parse(d.due);
+  return {
+    ...d,
+    ...(isLocation(location) ? { location } : {}),
+    ...(test ? { kind } : {}),
+    ...(goodEnd ? { end } : {}),
+  };
+}
+
 function isSociety(x: unknown): x is Society {
   const s = x as Partial<Society> | null;
   return isSlug(s?.slug) && typeof s.name === "string";
@@ -68,12 +79,8 @@ export interface StudentContext {
 
 export function parseStudentContext(body: Record<string, unknown>): StudentContext {
   return {
-    // A malformed location is dropped, not the whole deadline.
-    deadlines: Array.isArray(body.deadlines)
-      ? body.deadlines
-          .filter(isDeadline)
-          .map(({ location, ...d }) => (isLocation(location) ? { ...d, location } : d))
-      : undefined,
+    // A malformed location, kind or end is dropped, not the whole deadline.
+    deadlines: Array.isArray(body.deadlines) ? body.deadlines.filter(isDeadline).map(cleanDeadline) : undefined,
     societies: Array.isArray(body.societies) ? body.societies.filter(isSociety).slice(0, MAX_SOCIETIES) : undefined,
     // A home outside the commuter belt is ignored (no home picks) rather than rejected.
     home: isHomeLocation(body.home) ? body.home : undefined,
