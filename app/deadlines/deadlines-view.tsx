@@ -9,14 +9,14 @@ import {
   setDeadlineOnCalendar,
   subscribeCalendarDeadlines,
 } from "@/lib/calendar-items";
-import { blankDraft, deadlineProblem, fromDraft, isTest, toDraft, type DraftDeadline } from "@/lib/deadline-draft";
+import { blankDraft, deadlineProblem, fromDraft, toDraft, type DraftDeadline } from "@/lib/deadline-draft";
 import { londonDateKey } from "@/lib/gaps";
 import { locationLabel } from "@/lib/location";
 import { addDays, formatTime, formatTimeRange, londonTodayKey, mondayOf } from "@/lib/london-time";
 import { mockDeadlines } from "@/lib/mock";
 import { prepareImage } from "@/lib/prepare-image";
 import { parseUserData, readRawUserData, saveUserData, subscribeUserData } from "@/lib/storage";
-import type { DateKey, Deadline, TestKind, UserData } from "@/lib/types";
+import type { DateKey, Deadline, UserData } from "@/lib/types";
 import { LocationPicker } from "../location-picker";
 import { resolveLocation } from "../postcode-lookup";
 
@@ -35,14 +35,13 @@ const londonDueDay = new Intl.DateTimeFormat("en-GB", {
   day: "numeric",
   month: "short",
 });
-/** "Fri 16 Oct, 17:00", or for a test with an end "Thu 22 Oct, 10:00–11:00". */
+/** "Fri 16 Oct, 17:00", or for an exam with an end "Thu 22 Oct, 10:00–11:00". */
 const dueLabel = (d: Deadline) =>
-  `${londonDueDay.format(new Date(d.due))}, ${d.kind && d.end ? formatTimeRange(d.due, d.end) : formatTime(d.due)}`;
+  `${londonDueDay.format(new Date(d.due))}, ${d.exam && d.end ? formatTimeRange(d.due, d.end) : formatTime(d.due)}`;
 
-const KIND_OPTIONS: { value: TestKind | ""; label: string }[] = [
-  { value: "", label: "Coursework" },
-  { value: "test", label: "Test" },
-  { value: "exam", label: "Exam" },
+const KIND_OPTIONS = [
+  { exam: false, label: "Coursework" },
+  { exam: true, label: "Exam" },
 ];
 
 
@@ -365,12 +364,12 @@ function DeadlineRow({
         />
       )}
       <div className="pointer-events-none relative min-w-0 flex-1">
-        {(d.moduleCode || d.kind) && (
+        {(d.moduleCode || d.exam) && (
           <p className="flex items-center gap-1.5 text-xs font-semibold text-emerald-700 dark:text-emerald-400">
             {d.moduleCode}
-            {d.kind && (
+            {d.exam && (
               <span className="rounded-full bg-rose-100 px-2 py-0.5 text-rose-700 dark:bg-rose-950 dark:text-rose-300">
-                {d.kind === "exam" ? "Exam" : "Test"}
+                Exam
               </span>
             )}
           </p>
@@ -390,8 +389,8 @@ function DeadlineRow({
         <span className="pointer-events-none">
           <DaysLeft days={daysBetween(today, londonDateKey(d.due))} past={past} />
         </span>
-        {/* Puts a flag on Today at the due time. Not for ones already past, nor tests (always on Today). */}
-        {!past && !isTest(d) && (
+        {/* Puts a flag on Today at the due time. Not for ones already past, nor exams (always on Today). */}
+        {!past && !d.exam && (
           <CalendarButton
             added={added}
             onAdd={() => setDeadlineOnCalendar(d.id, true)}
@@ -430,7 +429,6 @@ function DeadlineForm({
   onDelete: () => void;
 }) {
   const problem = deadlineProblem(d);
-  const test = isTest(d);
   const [busy, setBusy] = useState(false);
   const [saveError, setSaveError] = useState<string | null>(null);
 
@@ -445,17 +443,17 @@ function DeadlineForm({
       }}
       className="rounded-2xl border border-emerald-400 bg-white p-3 dark:border-emerald-700 dark:bg-zinc-950"
     >
-      {/* A test or exam is a fixed time: it shows on Today as a block, and gets revision picks. */}
-      <div role="radiogroup" aria-label="Type" className="mb-2 grid grid-cols-3 gap-1 rounded-full bg-zinc-100 p-1 dark:bg-zinc-900">
+      {/* An exam is a fixed time: it shows on Today as a block, and gets revision picks. */}
+      <div role="radiogroup" aria-label="Type" className="mb-2 grid grid-cols-2 gap-1 rounded-full bg-zinc-100 p-1 dark:bg-zinc-900">
         {KIND_OPTIONS.map((o) => (
           <button
             key={o.label}
             type="button"
             role="radio"
-            aria-checked={d.kind === o.value}
-            onClick={() => onChange({ kind: o.value, ...(o.value ? {} : { endTime: "" }) })}
+            aria-checked={d.exam === o.exam}
+            onClick={() => onChange({ exam: o.exam, ...(o.exam ? {} : { endTime: "" }) })}
             className={`min-h-9 rounded-full text-sm font-medium ${
-              d.kind === o.value
+              d.exam === o.exam
                 ? "bg-white text-zinc-900 shadow-sm dark:bg-zinc-700 dark:text-zinc-50"
                 : "text-zinc-600 hover:text-zinc-900 dark:text-zinc-400 dark:hover:text-zinc-100"
             }`}
@@ -473,27 +471,27 @@ function DeadlineForm({
             className={inputClass}
           />
         </Field>
-        <Field label={test ? `What's the ${d.kind}` : "What's due"}>
+        <Field label={d.exam ? "What's the exam" : "What's due"}>
           <input
             value={d.title}
             onChange={(e) => onChange({ title: e.target.value })}
-            placeholder={test ? "Midterm test" : "Problem Set 2"}
+            placeholder={d.exam ? "Midterm" : "Problem Set 2"}
             autoFocus={isNew}
             className={inputClass}
           />
         </Field>
       </div>
-      {/* A test has a date on its own row, then start, end and weight: four across is too tight on a phone. */}
+      {/* An exam has a date on its own row, then start, end and weight: four across is too tight on a phone. */}
       <div className="mt-2 grid grid-cols-[1fr_1fr_4.5rem] gap-2">
-        <div className={test ? "col-span-3" : "contents"}>
-          <Field label={test ? "Date" : "Due date"}>
+        <div className={d.exam ? "col-span-3" : "contents"}>
+          <Field label={d.exam ? "Date" : "Due date"}>
             <input type="date" value={d.date} onChange={(e) => onChange({ date: e.target.value })} className={inputClass} />
           </Field>
         </div>
-        <Field label={test ? "Starts" : "Time"}>
+        <Field label={d.exam ? "Starts" : "Time"}>
           <input type="time" value={d.time} onChange={(e) => onChange({ time: e.target.value })} className={inputClass} />
         </Field>
-        {test && (
+        {d.exam && (
           <Field label="Ends (optional)">
             <input
               type="time"
@@ -518,7 +516,7 @@ function DeadlineForm({
       </div>
       <fieldset className="mt-2 flex min-w-0 flex-col gap-1">
         <legend className="mb-1 text-xs font-medium text-zinc-500">
-          Where (optional, e.g. {test ? "the exam hall" : "a lab"})
+          Where (optional, e.g. {d.exam ? "the exam hall" : "a lab"})
         </legend>
         <LocationPicker
           value={d}

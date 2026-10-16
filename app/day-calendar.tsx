@@ -58,17 +58,17 @@ const TWO_LINE_MINS = 45;
 
 /**
  * Colour by where an event came from, not its type: the timetable (classes, and one-day edits of
- * them), the student's own events, society events, to-dos and tests/exams. Emerald is kept for gaps,
+ * them), the student's own events, society events, to-dos and exams. Emerald is kept for gaps,
  * so none is green; amber is kept for deadline flags.
  */
-export type EventTone = "timetable" | "mine" | "society" | "todo" | "test";
+export type EventTone = "timetable" | "mine" | "society" | "todo" | "exam";
 
 const TONE_CLASS: Record<EventTone, string> = {
   timetable: "bg-indigo-600 text-white hover:bg-indigo-700 dark:bg-indigo-500 dark:hover:bg-indigo-600",
   mine: "bg-fuchsia-600 text-white hover:bg-fuchsia-700 dark:bg-fuchsia-500 dark:hover:bg-fuchsia-600",
   society: "bg-orange-500 text-orange-950 hover:bg-orange-600",
   todo: "bg-sky-600 text-white hover:bg-sky-700 dark:bg-sky-500 dark:text-sky-950 dark:hover:bg-sky-600",
-  test: "bg-rose-600 text-white hover:bg-rose-700 dark:bg-rose-500 dark:text-rose-950 dark:hover:bg-rose-600",
+  exam: "bg-rose-600 text-white hover:bg-rose-700 dark:bg-rose-500 dark:text-rose-950 dark:hover:bg-rose-600",
 };
 
 // The legend's dots: the same colour as each block's fill.
@@ -77,7 +77,7 @@ const TONES: { tone: EventTone; label: string; dot: string }[] = [
   { tone: "mine", label: "Your events", dot: "bg-fuchsia-600 dark:bg-fuchsia-500" },
   { tone: "society", label: "Society", dot: "bg-orange-500" },
   { tone: "todo", label: "To-do", dot: "bg-sky-600 dark:bg-sky-500" },
-  { tone: "test", label: "Test / exam", dot: "bg-rose-600 dark:bg-rose-500" },
+  { tone: "exam", label: "Exam", dot: "bg-rose-600 dark:bg-rose-500" },
 ];
 
 const KIND_LABEL = Object.fromEntries(EVENT_KINDS.map((k) => [k.value, k.label])) as Record<EventKind, string>;
@@ -389,7 +389,7 @@ function Segment({
                 {e.endMin - e.startMin >= TWO_LINE_MINS && <span className="truncate text-xs opacity-90 tabular-nums">{second}</span>}
               </>
             );
-            const label = `${e.tone === "test" ? "Test or exam" : KIND_LABEL[e.kind]}, ${e.title}, ${time}${e.detail ? `, ${e.detail}` : ""}${clashes ? ", clashes with another event" : ""}`;
+            const label = `${e.tone === "exam" ? "Exam" : KIND_LABEL[e.kind]}, ${e.title}, ${time}${e.detail ? `, ${e.detail}` : ""}${clashes ? ", clashes with another event" : ""}`;
             return onEventTap ? (
               <button
                 key={e.id}

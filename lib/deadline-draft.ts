@@ -5,7 +5,7 @@
 import { londonDateKey } from "./gaps";
 import { addDays, isDateKey, isWallTime, londonIso, londonTodayKey } from "./london-time";
 import { locationDraftFrom, locationDraftProblem, type LocationDraft } from "./location";
-import type { Deadline, EventLocation, TestKind } from "./types";
+import type { Deadline, EventLocation } from "./types";
 
 /**
  * A deadline while it's being edited: date and time apart, weight as typed. The picker edits the
@@ -15,12 +15,11 @@ export interface DraftDeadline extends LocationDraft {
   id: string;
   moduleCode: string;
   title: string;
-  /** "" = coursework. */
-  kind: TestKind | "";
+  exam: boolean;
   date: string;
-  /** Due time, or a test's start time. */
+  /** Due time, or an exam's start time. */
   time: string;
-  /** A test's end time, same day. "" = not given. */
+  /** An exam's end time, same day. "" = not given. */
   endTime: string;
   weight: string;
   source: Deadline["source"];
@@ -34,9 +33,6 @@ const londonTime = new Intl.DateTimeFormat("en-GB", {
   hourCycle: "h23",
 });
 
-/** A test or exam: a fixed time, shown on Today as a block. */
-export const isTest = (d: { kind?: TestKind | "" }) => d.kind === "test" || d.kind === "exam";
-
 export const newId = (prefix: string) =>
   `${prefix}-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 7)}`;
 
@@ -46,7 +42,7 @@ export function blankDraft(): DraftDeadline {
     id: newId("dl"),
     moduleCode: "",
     title: "",
-    kind: "",
+    exam: false,
     date: addDays(londonTodayKey(), 7),
     time: "23:59",
     endTime: "",
@@ -61,10 +57,10 @@ export function toDraft(d: Deadline): DraftDeadline {
     id: d.id,
     moduleCode: d.moduleCode,
     title: d.title,
-    kind: d.kind ?? "",
+    exam: !!d.exam,
     date: londonDateKey(d.due),
     time: londonTime.format(new Date(d.due)),
-    endTime: d.kind && d.end ? londonTime.format(new Date(d.end)) : "",
+    endTime: d.exam && d.end ? londonTime.format(new Date(d.end)) : "",
     weight: d.weight === undefined ? "" : String(d.weight),
     source: d.source,
     ...locationDraftFrom(d.location),
@@ -80,8 +76,8 @@ export function fromDraft(d: DraftDeadline, extra?: Pick<Deadline, "estimatedHou
     moduleCode: d.moduleCode.trim().toUpperCase(),
     title: d.title.trim(),
     due: londonIso(d.date, d.time),
-    ...(d.kind ? { kind: d.kind } : {}),
-    ...(d.kind && d.endTime ? { end: londonIso(d.date, d.endTime) } : {}),
+    ...(d.exam ? { exam: true as const } : {}),
+    ...(d.exam && d.endTime ? { end: londonIso(d.date, d.endTime) } : {}),
     ...(Number.isFinite(weight) ? { weight } : {}),
     source: d.source,
     ...(extra?.estimatedHours !== undefined ? { estimatedHours: extra.estimatedHours } : {}),
@@ -91,8 +87,8 @@ export function fromDraft(d: DraftDeadline, extra?: Pick<Deadline, "estimatedHou
 
 export function deadlineProblem(d: DraftDeadline): string | null {
   if (!d.title.trim()) return "Give it a name";
-  if (!isDateKey(d.date) || !isWallTime(d.time)) return d.kind ? "Needs a date and start time" : "Needs a due date and time";
-  if (d.kind && d.endTime) {
+  if (!isDateKey(d.date) || !isWallTime(d.time)) return d.exam ? "Needs a date and start time" : "Needs a due date and time";
+  if (d.exam && d.endTime) {
     if (!isWallTime(d.endTime)) return "End time doesn't look right";
     if (d.endTime <= d.time) return "It has to end after it starts";
   }
