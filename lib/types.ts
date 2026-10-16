@@ -48,7 +48,7 @@ export interface Gap {
   start: IsoDateTime;
   end: IsoDateTime;
   durationMins: number;
-  /** durationMins minus the trip to the next event. Never below 0 in findGaps; a ShortGap's can be. */
+  /** durationMins minus the trip to the next event. Never below 0 in findGaps; can be in findShortGaps. */
   usableMins: number;
   /** Travel time from locationId to nextLocationId. */
   travelMins: number;
@@ -62,12 +62,6 @@ export interface Gap {
   locationId: BuildingId;
   /** "inferred" comes from prevEvent's building, "manual" from the user's override. */
   locationSource: "inferred" | "manual";
-}
-
-/** A gap too short for Claude picks (see findShortGaps). usableMins can be negative: the trip is longer than the gap. */
-export interface ShortGap extends Gap {
-  /** "tip": a quick rule-based tip. "move": get going (or you may be late). */
-  tier: "tip" | "move";
 }
 
 export interface Deadline {

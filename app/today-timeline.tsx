@@ -13,8 +13,7 @@ import { requestContext } from "@/lib/request-context";
 import { addDays, dayOfWeek, formatTime, londonWeekdayAndMinutes, mondayOf } from "@/lib/london-time";
 import { blankDraft, deleteManualEvent, draftFromClass, draftFromManual, nextHalfHour } from "@/lib/manual-events";
 import { saveTodos } from "@/lib/todos";
-import type { Deadline, Gap, Home, ManualEvent, Recommendation, ShortGap, Society, TimetableEvent, Todo } from "@/lib/types";
-import { quickTip } from "@/lib/quick-tips";
+import type { Deadline, Gap, Home, ManualEvent, Recommendation, Society, TimetableEvent, Todo } from "@/lib/types";
 import { allDayText, type AllDayItem } from "@/lib/all-day";
 import { DayCalendar, DayPills, KindLegend, type CalendarEvent, type CalendarGap, type CalendarMarker } from "./day-calendar";
 import { EventSheet, type EventFormTarget } from "./event-form";
@@ -28,8 +27,8 @@ export interface Day {
   /** Timetable classes, the student's events and to-do blocks. */
   events: TimetableEvent[];
   gaps: Gap[];
-  /** Gaps too short for Claude: a quick tip or a "get moving" note, not tappable. */
-  shortGaps: ShortGap[];
+  /** Gaps too short for Claude: empty gap boxes, not tappable. */
+  shortGaps: Gap[];
   /** Deadlines due this day that are shown on Today, as flags. */
   deadlines: Deadline[];
   /** Added society events with no time or over several days: strips at the top, not busy time. */
@@ -95,14 +94,8 @@ function toCalendarGap(g: Gap): CalendarGap {
   };
 }
 
-function toShortCalendarGap(g: ShortGap): CalendarGap {
-  return {
-    id: g.id,
-    startMin: minuteOfDay(g.start),
-    endMin: minuteOfDay(g.end),
-    label: quickTip(g),
-    kind: g.tier,
-  };
+function toShortCalendarGap(g: Gap): CalendarGap {
+  return { id: g.id, startMin: minuteOfDay(g.start), endMin: minuteOfDay(g.end), label: "", plain: true };
 }
 
 /** The current time in ms, updated on each minute boundary. */
