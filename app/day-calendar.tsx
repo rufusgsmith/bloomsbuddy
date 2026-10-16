@@ -179,6 +179,9 @@ export function DayCalendar({
   const split = open && panel ? Math.min(end, Math.max(start, open.endMin)) : null;
   // A tapped strip opens its panel right under the strips, above the grid.
   const allDayOpen = !!panel && allDay.some((a) => a.id === openId);
+  // An open gap becomes one card in the page flow: a slim header (its arrow closes it) with the panel
+  // as its body. Its empty stretch of grid is skipped, so the card starts right at the gap's start.
+  const openGap = panel ? gaps.find((g) => g.id === openId) : undefined;
 
   const nowRef = useRef<HTMLDivElement>(null);
   useEffect(() => {
@@ -235,7 +238,32 @@ export function DayCalendar({
           {panel}
         </div>
       )}
-      {split === null ? (
+      {openGap ? (
+        <>
+          {openGap.startMin > start && segment(start, Math.min(end, openGap.startMin), false)}
+          <div ref={panelRef} className="my-1 ml-[calc(3rem+0.25rem)] mr-1 scroll-mt-4 scroll-mb-28">
+            <button
+              type="button"
+              onClick={() => onGapTap?.(openGap.id)}
+              aria-expanded
+              aria-label={`Free ${minutesLabel(openGap.startMin)}–${minutesLabel(openGap.endMin)}, ${openGap.label}. Hide suggestions`}
+              className="flex w-full items-center justify-between gap-2 rounded-t-2xl border-2 border-b-0 border-emerald-500 bg-emerald-100 px-3 pb-0.5 pt-1.5 text-left text-sm font-medium text-emerald-800 dark:border-emerald-500 dark:bg-emerald-950/70 dark:text-emerald-200"
+            >
+              <span className="truncate">
+                <span className="tabular-nums">
+                  {minutesLabel(openGap.startMin)}–{minutesLabel(openGap.endMin)}
+                </span>{" "}
+                · {openGap.label}
+              </span>
+              <span aria-hidden className="shrink-0 rotate-180">
+                ▾
+              </span>
+            </button>
+            {panel}
+          </div>
+          {openGap.endMin < end && segment(Math.max(start, openGap.endMin), end, true)}
+        </>
+      ) : split === null ? (
         segment(start, end, true)
       ) : (
         <>

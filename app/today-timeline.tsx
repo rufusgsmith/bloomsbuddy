@@ -8,6 +8,7 @@ import { dayNote } from "@/lib/day-note";
 import { formatDurationShort } from "@/lib/duration";
 import { londonDateKey } from "@/lib/gaps";
 import { homeLabel } from "@/lib/home";
+import { readRec, recFingerprint, saveRec } from "@/lib/rec-cache";
 import { requestContext } from "@/lib/request-context";
 import { addDays, dayOfWeek, formatTime, londonWeekdayAndMinutes, mondayOf } from "@/lib/london-time";
 import { blankDraft, deleteManualEvent, draftFromClass, draftFromManual, nextHalfHour } from "@/lib/manual-events";
@@ -118,6 +119,7 @@ export function TodayTimeline({
   home,
   todos = [],
   manualEvents = [],
+  cacheKey,
 }: {
   days: Day[];
   initialDateKey: string;
@@ -133,12 +135,15 @@ export function TodayTimeline({
   todos?: Todo[];
   /** The student's hand-added events, to open one in the form when tapped. Already merged into days. */
   manualEvents?: ManualEvent[];
+  /** What the picks depend on besides the gap itself. Saved picks are kept under it for the session. */
+  cacheKey: string;
 }) {
   const [dateKey, setDateKey] = useState(
     days.some((d) => d.dateKey === initialDateKey) ? initialDateKey : days[0]?.dateKey,
   );
   const [openId, setOpenId] = useState<string | null>(null);
-  // Cached per gap, so collapsing and reopening a gap doesn't call Claude (and spend tokens) again.
+  // Cached per gap (and in sessionStorage, see rec-cache), so collapsing and reopening a gap doesn't
+  // call Claude (and spend tokens) again. Only Redo does.
   const [recs, setRecs] = useState<Record<string, RecState>>({});
   const [homeSheetOpen, setHomeSheetOpen] = useState(false);
   const [eventForm, setEventForm] = useState<EventFormTarget | null>(null);
@@ -220,7 +225,9 @@ export function TodayTimeline({
         }),
       });
       if (!res.ok) throw new Error(`HTTP ${res.status}`);
-      next = { status: "ok", rec: (await res.json()) as Recommendation };
+      const rec = (await res.json()) as Recommendation;
+      saveRec(recFingerprint(gap, cacheKey), rec);
+      next = { status: "ok", rec };
     } catch (err) {
       console.warn("[recommend]", err); // warn, not error: the fallback handles it, so no dev-overlay alarm
       next = { status: "error" };
@@ -235,7 +242,10 @@ export function TodayTimeline({
       return;
     }
     setOpenId(gap.id);
-    if (!recs[gap.id] && day) void loadRec(gap, day.gaps);
+    if (recs[gap.id] || !day) return;
+    const saved = readRec(recFingerprint(gap, cacheKey));
+    if (saved) setRecs((r) => ({ ...r, [gap.id]: { status: "ok", rec: saved } }));
+    else void loadRec(gap, day.gaps);
   }
 
   return (
@@ -424,7 +434,7 @@ function WeekButton({
   );
 }
 
-/** Opens inline under a tapped gap: the trip, what's either side, then Claude's picks. */
+/** The body of an open gap, joined under its box: the trip, what's either side, then Claude's picks. */
 function GapPanel({ gap, rec, onReload }: { gap: Gap; rec: RecState | undefined; onReload: () => void }) {
   const from = place(gap.locationId);
   const to = place(gap.nextLocationId);
@@ -433,21 +443,18 @@ function GapPanel({ gap, rec, onReload }: { gap: Gap; rec: RecState | undefined;
   return (
     <div
       id={`${gap.id}-panel`}
-      className="rounded-2xl border-2 border-emerald-400 bg-emerald-50 p-4 dark:border-emerald-700 dark:bg-emerald-950/40"
+      // The body of the open gap's card, under its header in DayCalendar: same border and fill, no top edge.
+      className="rounded-b-2xl border-2 border-t-0 border-emerald-500 bg-emerald-100 px-3 pb-3 pt-1 dark:border-emerald-500 dark:bg-emerald-950/70"
     >
-      <div className="mb-3 border-b border-emerald-200 pb-3 text-sm text-emerald-900 dark:border-emerald-800 dark:text-emerald-100">
-        <p className="font-semibold">
-          <span className="tabular-nums">
-            {time(gap.start)}–{time(gap.end)}
-          </span>{" "}
-          · {formatDurationShort(gap.durationMins)} free · {formatDurationShort(gap.usableMins)} usable
-        </p>
-        <p className="mt-0.5 text-emerald-800 dark:text-emerald-200">
+      <div className="mb-3 border-b border-emerald-300 pb-2 text-sm text-emerald-900 dark:border-emerald-800 dark:text-emerald-100">
+        {/* The header above already shows the times and how long it's free. */}
+        <p className="text-emerald-800 dark:text-emerald-200">
+          {formatDurationShort(gap.usableMins)} usable ·{" "}
           {sameBuilding
             ? `Staying in ${from}, no walk needed`
             : `${from} → ${to}, ${formatDurationShort(gap.travelMins)} ${gap.travelMode === "tube" ? "by tube" : "walk"}`}
         </p>
-        <p className="mt-2">
+        <p className="mt-1">
           After <strong>{gap.prevEvent.title}</strong> ({place(gap.prevLocationId)})
         </p>
         <p>

@@ -63,13 +63,16 @@ export function Home() {
   }, [firstVisit, router]);
 
   if (raw === null || firstVisit) return <Skeleton />;
+  // Everything besides the timetable that changes the gaps or the picks. Also keys the saved picks.
+  const inputsKey = `${rawHome ?? ""}|${rawEvents ?? ""}|${todoKey}`;
   if (!user || !userDays) {
     if (!demo) return <Skeleton />;
     return (
       <>
         <TodayTimeline
           // Remount when home or events change, so cached recommendations for old gaps are dropped.
-          key={`${rawHome ?? ""}|${rawEvents ?? ""}|${todoKey}`}
+          key={inputsKey}
+          cacheKey={inputsKey}
           days={demo.days}
           initialDateKey={demo.initialDateKey}
           mode="demo"
@@ -86,7 +89,8 @@ export function Home() {
     <>
       <TodayTimeline
         // Remount when the data, home or events change, so cached recommendations for old gaps are dropped.
-        key={`${user.savedAt}|${rawHome ?? ""}|${rawEvents ?? ""}|${todoKey}`}
+        key={`${user.savedAt}|${inputsKey}`}
+        cacheKey={`${user.savedAt}|${inputsKey}`}
         days={userDays}
         initialDateKey={pickInitialDay(userDays)}
         mode="user"
