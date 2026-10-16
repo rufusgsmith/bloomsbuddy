@@ -24,6 +24,18 @@ const DEADLINES: Deadline[] = [
     estimatedHours: 4,
   },
   {
+    // A test: a block on Today at its time, and revision picks in the days before.
+    id: "dl-stat0002-midterm",
+    moduleCode: "STAT0002",
+    title: "Midterm test: probability",
+    kind: "test",
+    due: "2026-10-16T15:00:00+01:00",
+    end: "2026-10-16T16:00:00+01:00",
+    weight: 20,
+    source: "manual",
+    location: { kind: "building", buildingId: "cruciform" },
+  },
+  {
     id: "dl-econ0027-ps1",
     moduleCode: "ECON0027",
     title: "Problem Set 1: Nash equilibria",
@@ -54,5 +66,5 @@ const DEADLINES: Deadline[] = [
 
 /** The mock deadlines, moved by the same number of weeks as the timetable. */
 export function mockDeadlines(): Deadline[] {
-  return DEADLINES.map((d) => ({ ...d, due: toDemoWeek(d.due) }));
+  return DEADLINES.map((d) => ({ ...d, due: toDemoWeek(d.due), ...(d.end ? { end: toDemoWeek(d.end) } : {}) }));
 }

@@ -109,7 +109,7 @@ function makeTools(
   const getDeadlines = betaTool({
     name: "get_deadlines",
     description:
-      "The student's upcoming coursework deadlines, due within `within_days` days of the gap starting. location is null, or the place the work has to happen (a lab, a studio) with travel minutes there from where the student is (minsThere), on to their next lecture (minsOnToNext), and minsAtPlace: how long they'd get there in this gap.",
+      "The student's upcoming coursework deadlines, tests and exams within `within_days` days of the gap starting, most urgent first (urgencyRank 1 = most urgent: hours until due minus effortHours, worked out for you). kind is coursework, test or exam. A test or exam has starts/ends instead of due, sitsItAt (where it's held), and reviseNow: true when it's within 7 days. effortHours is the student's estimate, or a rough guess when effortIsGuess is true. For coursework, location is null, or the place the work has to happen (a lab, a studio) with travel minutes there from where the student is (minsThere), on to their next lecture (minsOnToNext), and minsAtPlace: how long they'd get there in this gap.",
     inputSchema: {
       type: "object",
       properties: {
