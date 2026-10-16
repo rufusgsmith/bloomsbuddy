@@ -185,7 +185,7 @@ function Editor({ user }: { user: UserData }) {
       {user.deadlines.length === 0 && !draft ? (
         <p className="rounded-2xl border border-dashed border-zinc-300 p-6 text-center text-sm text-zinc-600 dark:border-zinc-700 dark:text-zinc-400">
           No deadlines. Add one above, or scan your Moodle in{" "}
-          <Link href="/setup" className="font-medium text-emerald-700 underline dark:text-emerald-400">
+          <Link href="/setup?again=1" className="font-medium text-emerald-700 underline dark:text-emerald-400">
             setup
           </Link>
           .

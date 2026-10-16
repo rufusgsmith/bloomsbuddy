@@ -12,6 +12,7 @@
 // /timetable ("Edit timetable") is step 1 on its own and saves straight from it. Everything else is
 // kept as it was (to-dos, societies and deadlines have their own tabs; home is set from Today).
 // Each route redirects to the other if it doesn't fit (/setup with data saved, /timetable without).
+// /setup?again=1 (linked from the Deadlines tab) runs the full setup again, prefilled with the saved data.
 
 import Link from "next/link";
 import { useRouter } from "next/navigation";
@@ -66,11 +67,11 @@ function classProblem(c: WeeklyClass): string | null {
 /** "onboarding" = /setup, first launch only. "timetable" = /timetable, from "Edit timetable". */
 export type SetupMode = "onboarding" | "timetable";
 
-export function SetupFlow({ mode }: { mode: SetupMode }) {
+export function SetupFlow({ mode, again = false }: { mode: SetupMode; again?: boolean }) {
   // localStorage only exists in the browser: null until we've looked, then the raw JSON ("" = nothing saved).
   const raw = useSyncExternalStore(subscribeUserData, () => readRawUserData() ?? "", () => null);
   if (raw === null) return <Loading />;
-  return <Editor mode={mode} initial={parseUserData(raw)} />;
+  return <Editor mode={mode} initial={parseUserData(raw)} again={again} />;
 }
 
 function Shell({ children }: { children: ReactNode }) {
@@ -88,11 +89,11 @@ function Loading() {
 type Step = 0 | 1 | 2 | 3 | 4 | 5;
 const STEP_LABELS = ["Timetable", "To-do", "Home", "Societies", "Deadlines", "Confirm"];
 
-function Editor({ mode, initial }: { mode: SetupMode; initial: UserData | null }) {
+function Editor({ mode, initial, again }: { mode: SetupMode; initial: UserData | null; again: boolean }) {
   const router = useRouter();
   // Decided once on mount: saving changes `initial`, and that mustn't bounce us to the other route.
   const [redirectTo] = useState(() =>
-    mode === "onboarding" && initial ? "/timetable" : mode === "timetable" && !initial ? "/setup" : null,
+    mode === "onboarding" && initial && !again ? "/timetable" : mode === "timetable" && !initial ? "/setup" : null,
   );
   const [step, setStep] = useState<Step>(0);
   const [classes, setClasses] = useState<WeeklyClass[]>(initial?.classes ?? []);
