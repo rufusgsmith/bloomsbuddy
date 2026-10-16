@@ -31,6 +31,7 @@ export function HomePicker({
   onDone,
   submitLabel = "Save",
   footer,
+  onSkip,
 }: {
   initial: Home | null;
   /** Called with a valid home. Saving it is up to the caller. */
@@ -38,6 +39,8 @@ export function HomePicker({
   submitLabel?: string;
   /** Extra buttons next to submit, e.g. onboarding's Back. */
   footer?: ReactNode;
+  /** Onboarding: with nothing picked yet, the submit button reads "Skip for now" and calls this. */
+  onSkip?: () => void;
 }) {
   const [choice, setChoice] = useState<Choice | null>(initial?.kind ?? null);
   const [hallId, setHallId] = useState<BuildingId | null>(initial?.kind === "hall" ? initial.buildingId : null);
@@ -61,8 +64,10 @@ export function HomePicker({
     })).filter((g) => g.ids.length > 0);
   }, [query]);
 
+  const skipping = !!onSkip && choice === null;
   const canSubmit =
-    !busy && (choice === "none" || (choice === "hall" && !!hallId) || (choice === "private" && !postcodeError));
+    !busy &&
+    (skipping || choice === "none" || (choice === "hall" && !!hallId) || (choice === "private" && !postcodeError));
 
   function pick(next: Choice) {
     setChoice(next);
@@ -72,6 +77,7 @@ export function HomePicker({
   async function onSubmit(e: FormEvent) {
     e.preventDefault();
     setError(null);
+    if (skipping) return onSkip();
     if (choice === "none") return onDone({ kind: "none" });
     if (choice === "hall") return hallId ? onDone({ kind: "hall", buildingId: hallId }) : setError("Pick your hall first.");
     if (choice !== "private") return;
@@ -177,7 +183,7 @@ export function HomePicker({
           disabled={!canSubmit}
           className="min-h-12 flex-1 rounded-full bg-emerald-600 px-4 font-medium text-white hover:bg-emerald-700 disabled:cursor-not-allowed disabled:opacity-40 dark:bg-emerald-500 dark:text-emerald-950 dark:hover:bg-emerald-400"
         >
-          {busy ? "Finding it…" : submitLabel}
+          {busy ? "Finding it…" : skipping ? "Skip for now" : submitLabel}
         </button>
       </div>
     </form>
