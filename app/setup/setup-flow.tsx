@@ -67,11 +67,11 @@ function classProblem(c: WeeklyClass): string | null {
 /** "onboarding" = /setup, first launch only. "timetable" = /timetable, from "Edit timetable". */
 export type SetupMode = "onboarding" | "timetable";
 
-export function SetupFlow({ mode, again = false }: { mode: SetupMode; again?: boolean }) {
+export function SetupFlow({ mode }: { mode: SetupMode }) {
   // localStorage only exists in the browser: null until we've looked, then the raw JSON ("" = nothing saved).
   const raw = useSyncExternalStore(subscribeUserData, () => readRawUserData() ?? "", () => null);
   if (raw === null) return <Loading />;
-  return <Editor mode={mode} initial={parseUserData(raw)} again={again} />;
+  return <Editor mode={mode} initial={parseUserData(raw)} />;
 }
 
 function Shell({ children }: { children: ReactNode }) {
@@ -89,11 +89,17 @@ function Loading() {
 type Step = 0 | 1 | 2 | 3 | 4 | 5;
 const STEP_LABELS = ["Timetable", "To-do", "Home", "Societies", "Deadlines", "Confirm"];
 
-function Editor({ mode, initial, again }: { mode: SetupMode; initial: UserData | null; again: boolean }) {
+function Editor({ mode, initial }: { mode: SetupMode; initial: UserData | null }) {
   const router = useRouter();
   // Decided once on mount: saving changes `initial`, and that mustn't bounce us to the other route.
+  // ?again=1 is read here, not with searchParams in the page: that would block prerendering. Editor only
+  // renders in the browser (after the localStorage read), so window is safe.
   const [redirectTo] = useState(() =>
-    mode === "onboarding" && initial && !again ? "/timetable" : mode === "timetable" && !initial ? "/setup" : null,
+    mode === "onboarding" && initial && new URLSearchParams(window.location.search).get("again") !== "1"
+      ? "/timetable"
+      : mode === "timetable" && !initial
+        ? "/setup"
+        : null,
   );
   const [step, setStep] = useState<Step>(0);
   const [classes, setClasses] = useState<WeeklyClass[]>(initial?.classes ?? []);
