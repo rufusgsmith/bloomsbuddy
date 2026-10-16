@@ -9,6 +9,7 @@ import { betaTool } from "@anthropic-ai/sdk/helpers/beta/json-schema";
 import { BUILDINGS } from "../buildings";
 import { MODEL } from "../claude-json";
 import { formatDuration } from "../duration";
+import { SHORT_GAP_MINS } from "../gaps";
 import { lunchInfo } from "../lunch";
 import { deadlinesFromList, eventsFor, getProviders } from "../providers";
 import { todosForGap } from "../todos";
@@ -109,7 +110,7 @@ function makeTools(
   const getDeadlines = betaTool({
     name: "get_deadlines",
     description:
-      "The student's upcoming coursework deadlines and exams within `within_days` days of the gap starting, most urgent first (urgencyRank 1 = most urgent: hours until due minus effortHours, worked out for you). kind is coursework or exam. An exam has starts/ends instead of due, sitsItAt (where it's held), and reviseNow: true when it's within 7 days. effortHours is the student's estimate, or a rough guess when effortIsGuess is true. For coursework, location is null, or the place the work has to happen (a lab, a studio) with travel minutes there from where the student is (minsThere), on to their next lecture (minsOnToNext), and minsAtPlace: how long they'd get there in this gap.",
+      "The student's upcoming coursework deadlines and exams within `within_days` days of the gap starting, most urgent first (urgencyRank 1 = most urgent: hours until due minus effortHours, worked out for you). kind is coursework or exam. An exam has starts/ends instead of due, sitsItAt (where it's held), and reviseNow: true when it's within 7 days. effortHours is the student's estimate, or a rough guess when effortIsGuess is true. For coursework, location is null, or the place the work has to happen (a lab, a studio) with travel minutes there from where the student is (minsThere), on to their next lecture (minsOnToNext), and minsAtPlace: how long they'd get there in this gap, and detourMins: extra travel compared with going straight to the next lecture (5 or less = on the way).",
     inputSchema: {
       type: "object",
       properties: {
@@ -146,7 +147,7 @@ function makeTools(
   const getTodos = todos?.length ? betaTool({
     name: "get_todos",
     description:
-      "The student's own to-do items that could go in this gap, soonest do-before date first. One-off items say when to do them by (daysUntilDoBefore counts London calendar days from the gap; negative = overdue). Repeating items (repeats is set) only appear when they come up on the gap's day and their preferred time or part of day falls in the gap, so they're timely now. Each has the student's time estimate if they gave one. location is null, or the place it has to be done with travel minutes there from where the student is (minsThere), on to their next lecture (minsOnToNext), and minsAtPlace: how long they'd get there. fitsInGap says whether the estimate fits (in minsAtPlace when there's a location, else the gap's usable minutes), or \"unknown\" with no estimate.",
+      "The student's own to-do items that could go in this gap, soonest do-before date first. One-off items say when to do them by (daysUntilDoBefore counts London calendar days from the gap; negative = overdue). Repeating items (repeats is set) only appear when they come up on the gap's day and their preferred time or part of day falls in the gap, so they're timely now. Each has the student's time estimate if they gave one. location is null, or the place it has to be done with travel minutes there from where the student is (minsThere), on to their next lecture (minsOnToNext), and minsAtPlace: how long they'd get there, and detourMins: extra travel compared with going straight to the next lecture (5 or less = on the way). fitsInGap says whether the estimate fits (in minsAtPlace when there's a location, else the gap's usable minutes), or \"unknown\" with no estimate.",
     inputSchema: { type: "object", properties: {}, additionalProperties: false },
     run: async () => {
       debug("tool get_todos", { count: todos.length });
@@ -155,7 +156,8 @@ function makeTools(
   }) : null;
 
   const tools = [getStudySpaces, getEventsInWindow, getDeadlines, getFoodSpots, ...(getTodos ? [getTodos] : [])];
-  if (!home) return tools;
+  // A short gap never leaves time to go home, so get_home is left out.
+  if (!home || gap.usableMins < SHORT_GAP_MINS) return tools;
 
   const getHome = betaTool({
     name: "get_home",
@@ -227,6 +229,8 @@ function describeGap(gap: Gap, dayGaps: Gap[], home?: HomeLocation, todos?: Todo
       // Pre-formatted, so Claude quotes "3 hours and 12 minutes" rather than "192 minutes".
       length: formatDuration(gap.durationMins),
       usableTime: formatDuration(gap.usableMins),
+      // 15–29 usable minutes: picks stay on the way to (or near) the next event.
+      ...(gap.usableMins < SHORT_GAP_MINS ? { shortGap: true } : {}),
       studentIsAt: { buildingId: gap.locationId, name: where(gap.locationId), source: gap.locationSource },
       justFinished: `${eventLabel(gap.prevEvent)}${gap.prevEvent.room ? ` in ${gap.prevEvent.room}` : ""}`,
       ...(isOwnPlan(gap.prevEvent) ? { justFinishedIsOwnPlan: true } : {}),
@@ -244,7 +248,11 @@ function describeGap(gap: Gap, dayGaps: Gap[], home?: HomeLocation, todos?: Todo
       ...(allDay?.length ? { allDayToday: allDay } : {}),
       // Worked out here, not by Claude: it overlaps 12:00–14:00 and there was no lunch-length gap earlier.
       lunch: lunchInfo(gap, dayGaps),
-      home: home ? `Saved: ${home.label}. Call get_home to see if it's worth going back.` : "Not set",
+      home: !home
+        ? "Not set"
+        : gap.usableMins < SHORT_GAP_MINS
+          ? "Not an option in a short gap"
+          : `Saved: ${home.label}. Call get_home to see if it's worth going back.`,
       todos: todos?.length ? `${todos.length} that could fit. Call get_todos.` : "None",
     },
     null,

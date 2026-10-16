@@ -94,6 +94,7 @@ function placeTrip(win: ToolWindow, loc: EventLocation | undefined) {
   if (!loc) return null;
   const there = travelTimeBetween(BUILDINGS[win.locationId], locationPoint(loc));
   const onward = travelTimeBetween(locationPoint(loc), BUILDINGS[win.nextLocationId]);
+  const direct = travelTimeBetween(BUILDINGS[win.locationId], BUILDINGS[win.nextLocationId]);
   return {
     place: locationName(loc),
     minsThere: there.mins,
@@ -101,6 +102,8 @@ function placeTrip(win: ToolWindow, loc: EventLocation | undefined) {
     minsOnToNext: onward.mins,
     modeOnToNext: onward.mode,
     minsAtPlace: Math.max(0, win.durationMins - there.mins - onward.mins),
+    // Extra travel compared with going straight to the next event: 5 or less is "on the way".
+    detourMins: Math.max(0, there.mins + onward.mins - direct.mins),
   };
 }
 

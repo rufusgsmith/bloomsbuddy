@@ -3,10 +3,14 @@
 // server's timezone never matters. See "Time rules" in CLAUDE.md.
 
 import { BUILDINGS, nearestBuilding, travelTimeBetween, type BuildingId, type LatLng, type TravelMode } from "./buildings";
-import type { Gap, IsoDateTime, TimetableEvent } from "./types";
+import type { Gap, IsoDateTime, ShortGap, TimetableEvent } from "./types";
 
-/** Gaps with less usable time than this (after the trip to the next event) aren't worth recommending anything for. */
-export const MIN_GAP_MINS = 30;
+/** Gaps with this much usable time or more (after the trip to the next event) get Claude picks. Shared by Today, recommendations and chat. */
+export const AI_GAP_MINS = 15;
+/** Claude gaps under this many usable minutes are "short": picks stay on the way to the next event. */
+export const SHORT_GAP_MINS = 30;
+/** Short gaps with this many usable minutes or more get a quick tip; below it, a "get moving" warning. */
+export const TIP_GAP_MINS = 5;
 
 const MS_PER_MIN = 60_000;
 
@@ -64,16 +68,8 @@ function tripBetween(a: EventSpot, b: EventSpot): { mins: number; mode: TravelMo
   return travelTimeBetween(a.point, b.point);
 }
 
-/**
- * Returns every gap between consecutive events with MIN_GAP_MINS or more usable time after travel.
- * Pass one day's events (timetable and manual). They can be in any order and may overlap: time
- * covered by any event is never part of a gap, so an event inside free time splits it in two,
- * and each leftover piece is kept only if it's still long enough on its own.
- */
-export function findGaps(
-  events: TimetableEvent[],
-  opts: { locationOverride?: BuildingId } = {},
-): Gap[] {
+/** Every stretch between consecutive events, with the trip to the next one. Overlaps never make a gap. */
+function rawGaps(events: TimetableEvent[], opts: { locationOverride?: BuildingId }): Gap[] {
   const sorted = [...events].sort((a, b) => Date.parse(a.start) - Date.parse(b.start));
   const spots = eventSpots(sorted);
   const gaps: Gap[] = [];
@@ -84,16 +80,13 @@ export function findGaps(
   for (const next of sorted) {
     if (latest) {
       const durationMins = (Date.parse(next.start) - Date.parse(latest.end)) / MS_PER_MIN;
-
-      const prevSpot = spots.get(latest.id)!;
-      const nextSpot = spots.get(next.id)!;
-      const here: EventSpot = opts.locationOverride
-        ? { buildingId: opts.locationOverride, point: BUILDINGS[opts.locationOverride] }
-        : prevSpot;
-      // Only worth working out the trip when the gap could be long enough.
-      const travel = durationMins >= MIN_GAP_MINS ? tripBetween(here, nextSpot) : null;
-
-      if (travel && durationMins - travel.mins >= MIN_GAP_MINS) {
+      if (durationMins >= 0) {
+        const prevSpot = spots.get(latest.id)!;
+        const nextSpot = spots.get(next.id)!;
+        const here: EventSpot = opts.locationOverride
+          ? { buildingId: opts.locationOverride, point: BUILDINGS[opts.locationOverride] }
+          : prevSpot;
+        const travel = tripBetween(here, nextSpot);
         gaps.push({
           id: `gap-${latest.id}-${next.id}`,
           start: latest.end,
@@ -116,4 +109,27 @@ export function findGaps(
   }
 
   return gaps;
+}
+
+/**
+ * Returns every gap between consecutive events with AI_GAP_MINS or more usable time after travel.
+ * Pass one day's events (timetable and manual). They can be in any order and may overlap: time
+ * covered by any event is never part of a gap, so an event inside free time splits it in two,
+ * and each leftover piece is kept only if it's still long enough on its own.
+ */
+export function findGaps(
+  events: TimetableEvent[],
+  opts: { locationOverride?: BuildingId } = {},
+): Gap[] {
+  return rawGaps(events, opts).filter((g) => g.usableMins >= AI_GAP_MINS);
+}
+
+/**
+ * The gaps too short for Claude: "tip" (TIP_GAP_MINS to AI_GAP_MINS usable) or "move" (less, or
+ * the trip eats the gap; usableMins can be negative). A tiny gap with no trip (same building) is left out.
+ */
+export function findShortGaps(events: TimetableEvent[]): ShortGap[] {
+  return rawGaps(events, {})
+    .filter((g) => g.usableMins < AI_GAP_MINS && (g.usableMins >= TIP_GAP_MINS || g.travelMins > 0))
+    .map((g) => ({ ...g, tier: g.usableMins >= TIP_GAP_MINS ? "tip" : "move" }));
 }
