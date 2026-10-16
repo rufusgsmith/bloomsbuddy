@@ -3,14 +3,12 @@
 // server's timezone never matters. See "Time rules" in CLAUDE.md.
 
 import { BUILDINGS, nearestBuilding, travelTimeBetween, type BuildingId, type LatLng, type TravelMode } from "./buildings";
-import type { Gap, IsoDateTime, ShortGap, TimetableEvent } from "./types";
+import type { Gap, IsoDateTime, TimetableEvent } from "./types";
 
 /** Gaps with this much usable time or more (after the trip to the next event) get Claude picks. Shared by Today, recommendations and chat. */
 export const AI_GAP_MINS = 15;
 /** Claude gaps under this many usable minutes are "short": picks stay on the way to the next event. */
 export const SHORT_GAP_MINS = 30;
-/** Short gaps with this many usable minutes or more get a quick tip; below it, a "get moving" warning. */
-export const TIP_GAP_MINS = 5;
 
 const MS_PER_MIN = 60_000;
 
@@ -125,11 +123,9 @@ export function findGaps(
 }
 
 /**
- * The gaps too short for Claude: "tip" (TIP_GAP_MINS to AI_GAP_MINS usable) or "move" (less, or
- * the trip eats the gap; usableMins can be negative). A tiny gap with no trip (same building) is left out.
+ * The gaps too short for Claude (under AI_GAP_MINS usable; usableMins can be negative when the trip
+ * is longer than the gap). Today draws them as plain, empty gap boxes. Back-to-back events have none.
  */
-export function findShortGaps(events: TimetableEvent[]): ShortGap[] {
-  return rawGaps(events, {})
-    .filter((g) => g.usableMins < AI_GAP_MINS && (g.usableMins >= TIP_GAP_MINS || g.travelMins > 0))
-    .map((g) => ({ ...g, tier: g.usableMins >= TIP_GAP_MINS ? "tip" : "move" }));
+export function findShortGaps(events: TimetableEvent[]): Gap[] {
+  return rawGaps(events, {}).filter((g) => g.durationMins > 0 && g.usableMins < AI_GAP_MINS);
 }

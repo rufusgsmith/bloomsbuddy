@@ -28,10 +28,10 @@ export interface CalendarGap {
   id: string;
   startMin: number;
   endMin: number;
-  /** E.g. "1h 30m free", or the tip itself for a short gap. */
+  /** E.g. "1h 30m free". */
   label: string;
-  /** "ai" (default): tappable, opens Claude picks. "tip" / "move": a short gap's one-line note, not tappable. */
-  kind?: "ai" | "tip" | "move";
+  /** Too short for Claude picks: same look, but no text and not tappable. */
+  plain?: boolean;
 }
 
 /** A thin flag at one moment, e.g. a deadline. Not a block and not busy time. */
@@ -50,13 +50,14 @@ export interface CalendarAllDay {
   label: string;
 }
 
-const PX_PER_HOUR = 64;
+// 96px an hour: a 15-minute block is 24px, enough for one line of text.
+const PX_PER_HOUR = 96;
 const PX_PER_MIN = PX_PER_HOUR / 60;
 const DEFAULT_START = 8 * 60;
 const DEFAULT_END = 22 * 60;
-const MIN_EVENT_PX = 22;
+const MIN_EVENT_PX = 24;
 /** Blocks this long or longer have room for a second line. */
-const TWO_LINE_MINS = 45;
+const TWO_LINE_MINS = 30;
 
 /**
  * Colour by where an event came from, not its type: the timetable (classes, and one-day edits of
@@ -361,22 +362,16 @@ function Segment({
           .map((g) => {
             const top = y(Math.max(from, g.startMin));
             const height = y(Math.min(to, g.endMin)) - top;
-            if (g.kind === "tip" || g.kind === "move") {
-              // Too short for Claude: one plain line, not tappable. A back-to-back "move" gap has no
-              // height of its own, so it sits as a thin strip over the boundary.
-              const boxHeight = Math.max(MIN_EVENT_PX, height - 4);
+            if (g.plain) {
+              // Drawn at its real size (no minimum), so it never spills onto the events around it.
+              if (height - 2 < 3) return null;
               return (
                 <div
                   key={g.id}
-                  className={`absolute inset-x-1 flex items-center overflow-hidden rounded-lg border px-2 text-xs ${
-                    g.kind === "tip"
-                      ? "border-dashed border-emerald-300 bg-emerald-50/60 text-zinc-600 dark:border-emerald-800 dark:bg-emerald-950/20 dark:text-zinc-400"
-                      : "border-amber-300 bg-amber-50 font-medium text-amber-800 dark:border-amber-700 dark:bg-amber-950/40 dark:text-amber-200"
-                  }`}
-                  style={{ top: height - 4 < MIN_EVENT_PX ? top + height / 2 - boxHeight / 2 : top + 2, height: boxHeight, zIndex: 1 }}
-                >
-                  <span className="truncate">{g.label}</span>
-                </div>
+                  aria-hidden
+                  className="absolute inset-x-1 rounded-lg border-2 border-dashed border-emerald-400 bg-emerald-50 dark:border-emerald-700 dark:bg-emerald-950/40"
+                  style={{ top: top + 1, height: height - 2 }}
+                />
               );
             }
             const isOpen = g.id === openId;
@@ -419,7 +414,9 @@ function Segment({
             const clashes = cols > 1;
             const time = `${minutesLabel(e.startMin)}–${minutesLabel(e.endMin)}`;
             const second = [time, e.detail].filter(Boolean).join(" · ");
-            const className = `absolute flex flex-col overflow-hidden rounded-lg px-2 py-1 text-left text-sm leading-tight transition-colors ${TONE_CLASS[e.tone ?? "timetable"]} ${
+            // Under 30 minutes there's room for one line only: centre it with no vertical padding.
+            const pad = e.endMin - e.startMin < TWO_LINE_MINS ? "justify-center py-0" : "py-1";
+            const className = `absolute flex flex-col overflow-hidden rounded-lg px-2 ${pad} text-left text-sm leading-tight transition-colors ${TONE_CLASS[e.tone ?? "timetable"]} ${
               e.invalid ? "ring-2 ring-red-500 ring-offset-1 ring-offset-white dark:ring-offset-zinc-950" : ""
             } ${e.id === openId ? "ring-2 ring-zinc-900 ring-offset-1 ring-offset-white dark:ring-zinc-100 dark:ring-offset-zinc-950" : ""}`;
             const style = {
@@ -490,15 +487,18 @@ function Segment({
           className="pointer-events-none absolute inset-x-0 z-10 scroll-mt-4"
           style={{ top: y(nowMin) }}
         >
-          <span aria-hidden className="absolute left-12 size-2.5 -translate-x-1/2 -translate-y-1/2 rounded-full bg-red-500" />
-          {/* The time sits in a break in the middle of the line, clear of the hour labels on the left. */}
+          {/* Dot drawn in two layers: its halo under the line, its fill over it, so the halo outlines dot and line as one shape. */}
+          <span aria-hidden className="absolute left-12 size-3.5 -translate-x-1/2 -translate-y-1/2 rounded-full bg-background" />
+          {/* The time sits in a break in the middle of the line, clear of the hour labels on the left. A halo in the
+              page colour round the line, dot and pill keeps them readable over rose exams and fuchsia own events. */}
           <div className="absolute left-12 right-0 flex -translate-y-1/2 items-center gap-1.5">
-            <span aria-hidden className="h-0.5 flex-1 bg-red-500" />
-            <span className="text-[11px] font-semibold leading-none tabular-nums text-red-600 dark:text-red-400">
+            <span aria-hidden className="h-0.5 flex-1 bg-red-500 shadow-[0_0_0_1.5px_var(--background)]" />
+            <span className="rounded-full bg-red-600 px-1.5 py-0.5 text-[11px] font-semibold leading-none tabular-nums text-white ring-2 ring-background dark:bg-red-500">
               {minutesLabel(nowMin)}
             </span>
-            <span aria-hidden className="h-0.5 flex-1 bg-red-500" />
+            <span aria-hidden className="h-0.5 flex-1 bg-red-500 shadow-[0_0_0_1.5px_var(--background)]" />
           </div>
+          <span aria-hidden className="absolute left-12 size-2.5 -translate-x-1/2 -translate-y-1/2 rounded-full bg-red-500" />
         </div>
       )}
     </div>
