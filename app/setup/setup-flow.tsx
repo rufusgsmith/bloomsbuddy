@@ -77,13 +77,13 @@ export function SetupFlow({ mode }: { mode: SetupMode }) {
 }
 
 function Shell({ children }: { children: ReactNode }) {
-  return <main className="mx-auto w-full max-w-md px-4 pb-24 pt-8">{children}</main>;
+  return <main className="mx-auto w-full max-w-2xl px-4 pb-24 pt-8 md:px-6">{children}</main>;
 }
 
 function Loading() {
   return (
     <Shell>
-      <div aria-busy="true" className="h-64 animate-pulse rounded-2xl bg-zinc-100 dark:bg-zinc-900" />
+      <div aria-busy="true" className="h-64 animate-pulse rounded-xl bg-zinc-100 dark:bg-zinc-900" />
     </Shell>
   );
 }
@@ -167,7 +167,7 @@ function Editor({ mode, initial }: { mode: SetupMode; initial: UserData | null }
           action={
             <Link
               href="/"
-              className="rounded-full px-3 py-1.5 text-sm text-zinc-600 hover:bg-zinc-100 dark:text-zinc-400 dark:hover:bg-zinc-900"
+              className="rounded-lg px-3 py-1.5 text-sm text-zinc-600 hover:bg-zinc-100 dark:text-zinc-400 dark:hover:bg-zinc-900"
             >
               Cancel
             </Link>
@@ -200,7 +200,7 @@ function Editor({ mode, initial }: { mode: SetupMode; initial: UserData | null }
           <button
             type="button"
             onClick={skip}
-            className="rounded-full px-3 py-1.5 text-sm text-zinc-600 hover:bg-zinc-100 dark:text-zinc-400 dark:hover:bg-zinc-900"
+            className="rounded-lg px-3 py-1.5 text-sm text-zinc-600 hover:bg-zinc-100 dark:text-zinc-400 dark:hover:bg-zinc-900"
           >
             Skip, show the demo week
           </button>
@@ -221,7 +221,7 @@ function Editor({ mode, initial }: { mode: SetupMode; initial: UserData | null }
                   className={`w-full truncate border-t-4 pt-2 text-left text-xs font-medium transition-colors disabled:cursor-not-allowed ${
                     i <= step
                       ? "border-emerald-500 text-emerald-700 dark:text-emerald-300"
-                      : "border-zinc-200 text-zinc-500 dark:border-zinc-800"
+                      : "border-line text-muted"
                   }`}
                 >
                   {i + 1}. {label}
@@ -436,7 +436,7 @@ function TimetableStep({
       <button
         type="button"
         onClick={add}
-        className="min-h-11 rounded-xl border-2 border-dashed border-zinc-300 text-sm font-medium text-zinc-600 hover:border-zinc-400 hover:bg-zinc-50 dark:border-zinc-700 dark:text-zinc-400 dark:hover:bg-zinc-900"
+        className="min-h-10 rounded-xl border-2 border-dashed border-zinc-300 text-sm font-medium text-zinc-600 hover:border-zinc-400 hover:bg-zinc-50 dark:border-zinc-700 dark:text-zinc-400 dark:hover:bg-zinc-900"
       >
         + Add a class on {DAYS[selectedDay - 1]}
       </button>
@@ -452,7 +452,7 @@ function TimetableStep({
         />
       )}
 
-      <fieldset className="rounded-2xl bg-zinc-100 p-4 dark:bg-zinc-900">
+      <fieldset className="rounded-xl bg-zinc-100 p-4 dark:bg-zinc-900">
         <legend className="sr-only">How long the timetable repeats</legend>
         <h3 className="font-semibold">How long does it repeat?</h3>
         <div className="mt-3 grid grid-cols-2 gap-3">
@@ -491,7 +491,7 @@ function TimetableStep({
 }
 
 // One width for both states ("Delete", "Tap again to delete"), so the first tap never resizes it.
-const DELETE_PILL = "min-h-11 w-44 shrink-0 whitespace-nowrap rounded-full px-3 text-center text-sm font-medium";
+const DELETE_PILL = "min-h-10 w-44 shrink-0 whitespace-nowrap rounded-lg px-3 text-center text-sm font-medium";
 
 function DeletePill({ label, onRemove }: { label: string; onRemove: () => void }) {
   return (
@@ -518,7 +518,7 @@ function ClassRow({
 }) {
   return (
     <div
-      className={`rounded-2xl border bg-white p-3 dark:bg-zinc-950 ${
+      className={`rounded-xl border bg-surface p-3 ${
         classProblem(c) ? "border-red-400 dark:border-red-700" : "border-zinc-200 dark:border-zinc-800"
       }`}
     >
@@ -578,7 +578,7 @@ function ClassSheet({
               type="button"
               onClick={onClose}
               aria-label="Close"
-              className="-mr-2 flex size-11 shrink-0 items-center justify-center rounded-full text-2xl leading-none text-zinc-500 hover:bg-zinc-100 dark:hover:bg-zinc-900"
+              className="-mr-2 flex size-11 shrink-0 items-center justify-center rounded-lg text-2xl leading-none text-muted hover:bg-zinc-100 dark:hover:bg-zinc-900"
             >
               ×
             </button>
@@ -589,12 +589,12 @@ function ClassSheet({
           <ClassFields value={c} onChange={onChange} />
         </div>
 
-        <div className="flex items-center gap-2 border-t border-zinc-200 px-5 pb-[calc(1rem+env(safe-area-inset-bottom))] pt-3 dark:border-zinc-800">
+        <div className="flex items-center gap-2 border-t border-line px-5 pb-[calc(1rem+env(safe-area-inset-bottom))] pt-3">
           <DeletePill label={`Delete ${c.moduleCode || c.title || "class"}`} onRemove={onRemove} />
           <button
             type="button"
             onClick={onClose}
-            className="ml-auto min-h-11 rounded-full bg-zinc-900 px-6 text-sm font-medium text-white hover:bg-zinc-700 dark:bg-zinc-100 dark:text-zinc-900 dark:hover:bg-zinc-300"
+            className="ml-auto min-h-10 rounded-lg bg-primary px-6 text-sm font-medium text-on-primary hover:bg-primary-hover"
           >
             Done
           </button>
@@ -668,7 +668,7 @@ function ClassFields({ value: c, onChange }: { value: WeeklyClass; onChange: (pa
         </Field>
       </div>
       <fieldset className="mt-2 flex min-w-0 flex-col gap-1">
-        <legend className="mb-1 text-xs font-medium text-zinc-500">
+        <legend className="mb-1 text-xs font-medium text-muted">
           {c.buildingGuessed ? "Building: please check, I couldn't tell" : "Building (for travel times)"}
         </legend>
         <LocationPicker
@@ -739,7 +739,7 @@ function DeadlinesStep({
       <button
         type="button"
         onClick={add}
-        className="min-h-11 rounded-xl border-2 border-dashed border-zinc-300 text-sm font-medium text-zinc-600 hover:border-zinc-400 hover:bg-zinc-50 dark:border-zinc-700 dark:text-zinc-400 dark:hover:bg-zinc-900"
+        className="min-h-10 rounded-xl border-2 border-dashed border-zinc-300 text-sm font-medium text-zinc-600 hover:border-zinc-400 hover:bg-zinc-50 dark:border-zinc-700 dark:text-zinc-400 dark:hover:bg-zinc-900"
       >
         + Add a deadline or exam by hand
       </button>
@@ -767,7 +767,7 @@ function DeadlineRow({
   const problem = deadlineProblem(d);
   return (
     <div
-      className={`rounded-2xl border bg-white p-3 dark:bg-zinc-950 ${
+      className={`rounded-xl border bg-surface p-3 ${
         problem ? "border-red-400 dark:border-red-700" : "border-zinc-200 dark:border-zinc-800"
       }`}
     >
@@ -890,7 +890,7 @@ function HomeStep({
           <button
             type="button"
             onClick={onBack}
-            className="min-h-12 rounded-full bg-zinc-100 px-5 font-medium text-zinc-700 hover:bg-zinc-200 dark:bg-zinc-800 dark:text-zinc-200 dark:hover:bg-zinc-700"
+            className="min-h-10 rounded-lg bg-zinc-100 px-5 font-medium text-zinc-700 hover:bg-zinc-200 dark:bg-zinc-800 dark:text-zinc-200 dark:hover:bg-zinc-700"
           >
             Back
           </button>
@@ -930,7 +930,7 @@ function SocietiesStep({
           {societies.map((s) => (
             <li
               key={s.slug}
-              className="flex items-center justify-between gap-2 rounded-xl border border-zinc-200 bg-white pl-4 dark:border-zinc-800 dark:bg-zinc-950"
+              className="flex items-center justify-between gap-2 rounded-xl border border-line bg-surface pl-4"
             >
               <span className="min-w-0 truncate text-sm font-medium">{s.name}</span>
               <RemoveButton label={`Remove ${s.name}`} onClick={() => setSocieties(societies.filter((x) => x.slug !== s.slug))} />
@@ -987,19 +987,19 @@ function ReviewStep({
         </p>
       </div>
 
-      <div className="rounded-2xl border border-zinc-200 bg-white p-4 dark:border-zinc-800 dark:bg-zinc-950">
+      <div className="rounded-xl border border-line bg-surface p-4">
         <h3 className="font-semibold">Every week</h3>
         <dl className="mt-2 flex flex-col gap-2 text-sm">
           {byDay.map((day) => (
             <div key={day.label} className="grid grid-cols-[2.5rem_1fr] gap-2">
-              <dt className="font-medium text-zinc-500">{day.label}</dt>
+              <dt className="font-medium text-muted">{day.label}</dt>
               <dd className="flex flex-col gap-0.5">
                 {day.rows.map((c) => (
                   <span key={c.id}>
-                    <span className="tabular-nums text-zinc-500">
+                    <span className="tabular-nums text-muted">
                       {c.startTime}–{c.endTime}
                     </span>{" "}
-                    {c.moduleCode || c.title} <span className="text-zinc-500">· {BUILDINGS[c.buildingId].shortName}</span>
+                    {c.moduleCode || c.title} <span className="text-muted">· {BUILDINGS[c.buildingId].shortName}</span>
                   </span>
                 ))}
               </dd>
@@ -1008,7 +1008,7 @@ function ReviewStep({
         </dl>
       </div>
 
-      <div className="rounded-2xl border border-zinc-200 bg-white p-4 dark:border-zinc-800 dark:bg-zinc-950">
+      <div className="rounded-xl border border-line bg-surface p-4">
         <h3 className="font-semibold">To-do</h3>
         {openTodos.length === 0 ? (
           <p className="mt-1 text-sm text-zinc-600 dark:text-zinc-400">No to-dos yet</p>
@@ -1021,14 +1021,14 @@ function ReviewStep({
         )}
       </div>
 
-      <div className="rounded-2xl border border-zinc-200 bg-white p-4 dark:border-zinc-800 dark:bg-zinc-950">
+      <div className="rounded-xl border border-line bg-surface p-4">
         <h3 className="font-semibold">Home</h3>
         <p className="mt-1 text-sm text-zinc-600 dark:text-zinc-400">
           {home ? homeLabel(home) : "Not set. You can add it later from Today."}
         </p>
       </div>
 
-      <div className="rounded-2xl border border-zinc-200 bg-white p-4 dark:border-zinc-800 dark:bg-zinc-950">
+      <div className="rounded-xl border border-line bg-surface p-4">
         <h3 className="font-semibold">Societies</h3>
         {societies.length === 0 ? (
           <p className="mt-1 text-sm text-zinc-600 dark:text-zinc-400">No societies added</p>
@@ -1037,7 +1037,7 @@ function ReviewStep({
         )}
       </div>
 
-      <div className="rounded-2xl border border-zinc-200 bg-white p-4 dark:border-zinc-800 dark:bg-zinc-950">
+      <div className="rounded-xl border border-line bg-surface p-4">
         <h3 className="font-semibold">Deadlines</h3>
         {sortedDeadlines.length === 0 ? (
           <p className="mt-1 text-sm text-zinc-600 dark:text-zinc-400">No deadlines added</p>
@@ -1045,13 +1045,13 @@ function ReviewStep({
           <ul className="mt-2 flex flex-col gap-1 text-sm">
             {sortedDeadlines.map((d) => (
               <li key={d.id}>
-                <span className="tabular-nums text-zinc-500">
+                <span className="tabular-nums text-muted">
                   {isDateKey(d.date) ? londonWeekdayDayMonth.format(dayDate(d.date)) : d.date}{" "}
                   {isWallTime(d.time) ? formatWallTime(d.time) : d.time}
                 </span>{" "}
-                {d.moduleCode && <span className="text-zinc-500">{d.moduleCode} </span>}
+                {d.moduleCode && <span className="text-muted">{d.moduleCode} </span>}
                 {d.title}
-                {d.exam && <span className="text-zinc-500"> (exam)</span>}
+                {d.exam && <span className="text-muted"> (exam)</span>}
               </li>
             ))}
           </ul>
@@ -1078,7 +1078,7 @@ function UseDemoButton({ onClick }: { onClick: () => void }) {
     <span className="self-center">
       <DeleteButton
         onDelete={onClick}
-        className="rounded-full px-3 py-2 text-sm text-zinc-500 underline-offset-4 hover:underline"
+        className="rounded-lg px-3 py-2 text-sm text-muted underline-offset-4 hover:underline"
       >
         Delete my timetable and use the demo week
       </DeleteButton>
@@ -1184,7 +1184,7 @@ function Uploader<K extends "timetable" | "deadlines">({
           e.preventDefault();
           void handleFile(e.dataTransfer.files[0]);
         }}
-        className={`flex min-h-32 cursor-pointer flex-col items-center justify-center gap-1 rounded-2xl border-2 border-dashed p-5 text-center transition-colors ${
+        className={`flex min-h-32 cursor-pointer flex-col items-center justify-center gap-1 rounded-xl border-2 border-dashed p-5 text-center transition-colors ${
           reading
             ? "cursor-wait border-emerald-400 bg-emerald-50 dark:border-emerald-700 dark:bg-emerald-950/40"
             : "border-emerald-400 bg-emerald-50/50 hover:bg-emerald-50 dark:border-emerald-700 dark:bg-emerald-950/20 dark:hover:bg-emerald-950/40"
@@ -1213,7 +1213,7 @@ function Uploader<K extends "timetable" | "deadlines">({
         )}
       </label>
 
-      <div className="flex items-center gap-3 text-sm text-zinc-500" aria-hidden>
+      <div className="flex items-center gap-3 text-sm text-muted" aria-hidden>
         <span className="h-px flex-1 bg-zinc-200 dark:bg-zinc-800" />
         or type it
         <span className="h-px flex-1 bg-zinc-200 dark:bg-zinc-800" />
@@ -1237,7 +1237,7 @@ function Uploader<K extends "timetable" | "deadlines">({
               void handleText();
             }
           }}
-          className="w-full rounded-xl border border-zinc-300 bg-white p-3 text-base text-zinc-900 placeholder:text-zinc-400 disabled:opacity-60 dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-100 sm:text-sm"
+          className="w-full rounded-xl border border-zinc-300 bg-surface p-3 text-base text-zinc-900 placeholder:text-zinc-400 disabled:opacity-60 dark:border-zinc-700 dark:text-zinc-100 sm:text-sm"
         />
         <div className="flex justify-end">
           <SmallButton primary disabled={reading || !text.trim()} onClick={() => void handleText()}>
@@ -1253,7 +1253,7 @@ function Uploader<K extends "timetable" | "deadlines">({
       )}
 
       {pending ? (
-        <div role="alert" className="rounded-xl bg-white p-3 text-sm ring-1 ring-emerald-300 dark:bg-zinc-950 dark:ring-emerald-800">
+        <div role="alert" className="rounded-xl bg-surface p-3 text-sm ring-1 ring-emerald-300 dark:ring-emerald-800">
           <p>
             Found {plural(pending.length)}. You&apos;ve already got {plural(existingCount)}. What should I do?
           </p>
@@ -1305,7 +1305,7 @@ function RemoveButton({ label, onClick }: { label: string; onClick: () => void }
     <DeleteButton
       onDelete={onClick}
       label={label}
-      className="flex size-11 shrink-0 items-center justify-center rounded-lg text-zinc-500 hover:bg-red-50 hover:text-red-600 dark:hover:bg-red-950/40"
+      className="flex size-11 shrink-0 items-center justify-center rounded-lg text-muted hover:bg-red-50 hover:text-red-600 dark:hover:bg-red-950/40"
     >
       ✕
     </DeleteButton>
@@ -1328,9 +1328,9 @@ function SmallButton({
       type="button"
       disabled={disabled}
       onClick={onClick}
-      className={`min-h-10 rounded-full px-4 text-sm font-medium disabled:cursor-not-allowed disabled:opacity-50 ${
+      className={`min-h-10 rounded-lg px-4 text-sm font-medium disabled:cursor-not-allowed disabled:opacity-50 ${
         primary
-          ? "bg-emerald-600 text-white hover:bg-emerald-700 dark:bg-emerald-500 dark:text-emerald-950 dark:hover:bg-emerald-400"
+          ? "bg-primary text-on-primary hover:bg-primary-hover"
           : "bg-zinc-100 text-zinc-700 hover:bg-zinc-200 dark:bg-zinc-800 dark:text-zinc-200 dark:hover:bg-zinc-700"
       }`}
     >
@@ -1359,7 +1359,7 @@ function StepNav({
           <button
             type="button"
             onClick={onBack}
-            className="min-h-12 rounded-full bg-zinc-100 px-5 font-medium text-zinc-700 hover:bg-zinc-200 dark:bg-zinc-800 dark:text-zinc-200 dark:hover:bg-zinc-700"
+            className="min-h-10 rounded-lg bg-zinc-100 px-5 font-medium text-zinc-700 hover:bg-zinc-200 dark:bg-zinc-800 dark:text-zinc-200 dark:hover:bg-zinc-700"
           >
             Back
           </button>
@@ -1368,12 +1368,12 @@ function StepNav({
           type="button"
           onClick={onNext}
           disabled={!canContinue}
-          className="min-h-12 flex-1 rounded-full bg-emerald-600 px-5 font-medium text-white hover:bg-emerald-700 disabled:cursor-not-allowed disabled:opacity-40 dark:bg-emerald-500 dark:text-emerald-950 dark:hover:bg-emerald-400"
+          className="min-h-10 flex-1 rounded-lg bg-primary px-5 font-medium text-on-primary hover:bg-primary-hover disabled:cursor-not-allowed disabled:opacity-40"
         >
           {nextLabel}
         </button>
       </div>
-      {!canContinue && blockedHint && <p className="text-center text-sm text-zinc-500">{blockedHint}</p>}
+      {!canContinue && blockedHint && <p className="text-center text-sm text-muted">{blockedHint}</p>}
     </div>
   );
 }

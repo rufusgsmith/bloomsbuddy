@@ -1,8 +1,18 @@
 "use client";
 
 import { useEffect, useState, type ReactNode } from "react";
-import type { BusynessLevel, Recommendation, RecommendationOption } from "@/lib/types";
+import type { BusynessLevel, Recommendation, RecommendationOption, RecommendationType } from "@/lib/types";
 import { travelLabel } from "@/lib/buildings";
+import { BookIcon, CupIcon, HomeIcon, MoonIcon, PeopleIcon } from "./icons";
+
+// One icon tile per pick type, in the same card language as Today's day list.
+const TYPE_ICON: Record<RecommendationType, (p: { className?: string }) => ReactNode> = {
+  study: BookIcon,
+  event: PeopleIcon,
+  rest: MoonIcon,
+  home: HomeIcon,
+  food: CupIcon,
+};
 
 export type RecState = { status: "loading" } | { status: "ok"; rec: Recommendation } | { status: "error" };
 
@@ -22,21 +32,22 @@ export function RecommendationPanel({ state, onReload }: { state: RecState; onRe
 
   const { top, alternatives } = state.rec;
   return (
-    <div className="flex flex-col gap-3">
-      <div className="-mb-1 flex justify-end">
+    <div className="flex flex-col gap-2.5">
+      <div className="flex items-center justify-between">
+        <h3 className="text-sm font-semibold">Top pick</h3>
         <button
           type="button"
           onClick={onReload}
           aria-label="Redo: get fresh picks for this gap"
-          className="min-h-9 rounded-full px-3 text-sm font-medium text-emerald-800 hover:bg-emerald-100 dark:text-emerald-200 dark:hover:bg-emerald-900/50"
+          className="min-h-8 rounded-lg px-2.5 text-sm font-medium text-muted hover:bg-zinc-100 hover:text-foreground dark:hover:bg-zinc-800"
         >
           ↻ Redo
         </button>
       </div>
-      <TopPick option={top} />
-      <p className="text-sm font-semibold text-emerald-800 dark:text-emerald-200">Or…</p>
+      <Pick option={top} top />
+      <h3 className="mt-3 text-sm font-semibold">Or</h3>
       {alternatives.map((option) => (
-        <Alternative key={option.title} option={option} />
+        <Pick key={option.title} option={option} />
       ))}
     </div>
   );
@@ -51,13 +62,13 @@ function Loading() {
 
   return (
     <div aria-busy="true">
-      <p aria-live="polite" className="mb-3 text-sm text-emerald-800 dark:text-emerald-200">
+      <p aria-live="polite" className="mb-3 text-sm text-muted">
         {LOADING_LINES[line]}
       </p>
       <div className="flex animate-pulse flex-col gap-3">
-        <div className="h-32 rounded-xl bg-emerald-100 dark:bg-emerald-900/50" />
-        <div className="h-16 rounded-xl bg-emerald-100/70 dark:bg-emerald-900/30" />
-        <div className="h-16 rounded-xl bg-emerald-100/70 dark:bg-emerald-900/30" />
+        <div className="h-32 rounded-xl bg-zinc-100 dark:bg-zinc-800" />
+        <div className="h-20 rounded-xl bg-zinc-100 dark:bg-zinc-800" />
+        <div className="h-20 rounded-xl bg-zinc-100 dark:bg-zinc-800" />
       </div>
     </div>
   );
@@ -65,15 +76,15 @@ function Loading() {
 
 function Fallback({ onRetry }: { onRetry: () => void }) {
   return (
-    <div role="alert" className="rounded-xl bg-white p-4 text-sm dark:bg-zinc-950">
+    <div role="alert" className="rounded-xl border border-line bg-surface p-4 text-sm">
       <p className="font-semibold">Couldn&apos;t get recommendations</p>
-      <p className="mt-1 text-zinc-600 dark:text-zinc-400">
+      <p className="mt-1 text-muted">
         Something went wrong loading picks for this gap. Try again.
       </p>
       <button
         type="button"
         onClick={onRetry}
-        className="mt-3 min-h-11 rounded-full bg-emerald-600 px-4 text-sm font-medium text-white hover:bg-emerald-700 dark:bg-emerald-500 dark:text-emerald-950 dark:hover:bg-emerald-400"
+        className="mt-3 min-h-10 rounded-lg bg-primary px-3.5 text-sm font-medium text-on-primary hover:bg-primary-hover"
       >
         Try again
       </button>
@@ -81,29 +92,30 @@ function Fallback({ onRetry }: { onRetry: () => void }) {
   );
 }
 
-function TopPick({ option }: { option: RecommendationOption }) {
+function Pick({ option, top = false }: { option: RecommendationOption; top?: boolean }) {
+  const Icon = TYPE_ICON[option.type];
   return (
-    <article className="rounded-xl bg-white p-4 shadow-sm ring-1 ring-emerald-200 dark:bg-zinc-950 dark:ring-emerald-800">
-      <p className="text-sm font-semibold text-emerald-700 dark:text-emerald-400">Top pick</p>
-      <h3 className="mt-1 text-lg font-semibold leading-snug">
-        {option.title}
-      </h3>
-      <p className="text-sm text-zinc-500">{option.place}</p>
-      <Badges option={option} />
-      <p className="mt-3 text-sm text-zinc-800 dark:text-zinc-200">{option.reason}</p>
-    </article>
-  );
-}
-
-function Alternative({ option }: { option: RecommendationOption }) {
-  return (
-    <article className="rounded-xl bg-white/70 p-3 dark:bg-zinc-950/60">
-      <h3 className="text-sm font-semibold">
-        {option.title}{" "}
-        <span className="font-normal text-zinc-500">· {option.place}</span>
-      </h3>
-      <Badges option={option} />
-      <p className="mt-2 text-sm text-zinc-600 dark:text-zinc-400">{option.reason}</p>
+    <article
+      className={`flex gap-3 rounded-xl border bg-surface p-4 ${
+        top ? "border-emerald-300 ring-1 ring-emerald-300 dark:border-emerald-500/60 dark:ring-emerald-500/60" : "border-line"
+      }`}
+    >
+      <span
+        aria-hidden
+        className={`flex size-10 shrink-0 items-center justify-center rounded-lg border ${
+          top
+            ? "border-emerald-200 bg-emerald-50 text-emerald-700 dark:border-emerald-500/40 dark:bg-emerald-500/15 dark:text-emerald-300"
+            : "border-line bg-background text-muted"
+        }`}
+      >
+        <Icon className="size-5" />
+      </span>
+      <div className="min-w-0 flex-1">
+        <h4 className="font-medium leading-snug">{option.title}</h4>
+        <p className="text-sm text-muted">{option.place}</p>
+        <Badges option={option} />
+        <p className={`mt-2.5 text-sm ${top ? "text-foreground" : "text-muted"}`}>{option.reason}</p>
+      </div>
     </article>
   );
 }
@@ -123,15 +135,15 @@ type Tone = "neutral" | "good" | "warn" | "bad";
 const BUSYNESS_TONE: Record<BusynessLevel, Tone> = { quiet: "good", moderate: "neutral", busy: "warn", packed: "bad" };
 
 const TONE_CLASSES: Record<Tone, string> = {
-  neutral: "bg-zinc-100 text-zinc-700 dark:bg-zinc-800 dark:text-zinc-300",
-  good: "bg-emerald-100 text-emerald-800 dark:bg-emerald-900/60 dark:text-emerald-200",
-  warn: "bg-amber-100 text-amber-800 dark:bg-amber-900/50 dark:text-amber-200",
-  bad: "bg-rose-100 text-rose-800 dark:bg-rose-900/50 dark:text-rose-200",
+  neutral: "border-line bg-background text-zinc-600 dark:text-zinc-300",
+  good: "border-emerald-200 bg-emerald-50 text-emerald-700 dark:border-emerald-500/40 dark:bg-emerald-500/15 dark:text-emerald-300",
+  warn: "border-amber-200 bg-amber-50 text-amber-700 dark:border-amber-500/40 dark:bg-amber-500/15 dark:text-amber-300",
+  bad: "border-rose-200 bg-rose-50 text-rose-700 dark:border-rose-500/40 dark:bg-rose-500/15 dark:text-rose-300",
 };
 
 function Badge({ tone, children }: { tone: Tone; children: ReactNode }) {
   return (
-    <span className={`rounded-full px-2 py-0.5 text-xs font-medium tabular-nums ${TONE_CLASSES[tone]}`}>
+    <span className={`rounded-md border px-1.5 py-px text-xs font-medium tabular-nums ${TONE_CLASSES[tone]}`}>
       {children}
     </span>
   );

@@ -20,6 +20,7 @@ import {
   type EventStore,
 } from "@/lib/manual-events";
 import { CalendarButton, PageHeader, TabPage } from "../form-ui";
+import { PeopleIcon } from "../icons";
 import { mockDeadlines, mockSocietyEvents, mockTimetable } from "@/lib/mock";
 import { parseUserData, readRawUserData, saveUserData, subscribeUserData } from "@/lib/storage";
 import { termEndKey } from "@/lib/term";
@@ -153,7 +154,7 @@ function Mine({ user, calendar }: { user: UserData; calendar: Calendar }) {
           <button
             type="button"
             onClick={() => retry(s)}
-            className="min-h-11 shrink-0 rounded-full bg-white px-3 font-medium text-zinc-800 hover:bg-zinc-100 dark:bg-zinc-900 dark:text-zinc-100 dark:hover:bg-zinc-800"
+            className="min-h-10 shrink-0 rounded-lg bg-surface px-3 font-medium text-zinc-800 hover:bg-zinc-100 dark:text-zinc-100 dark:hover:bg-zinc-800"
           >
             Retry
           </button>
@@ -184,19 +185,19 @@ function Demo({ calendar }: { calendar: Calendar }) {
     <>
       <Link
         href="/setup"
-        className="mb-5 flex items-center justify-between gap-3 rounded-2xl bg-emerald-600 p-4 text-white hover:bg-emerald-700 dark:bg-emerald-500 dark:text-emerald-950 dark:hover:bg-emerald-400"
+        className="mb-5 flex items-center justify-between gap-3 rounded-lg border border-emerald-200 bg-emerald-50 px-3 py-2 text-sm text-emerald-900 hover:bg-emerald-100 dark:border-emerald-500/40 dark:bg-emerald-500/10 dark:text-emerald-100"
       >
         <span>
-          <span className="block font-semibold">These are demo societies</span>
-          <span className="block text-sm opacity-90">Set up your timetable, then add the societies you&apos;re in.</span>
+          <span className="font-medium">These are demo societies.</span>{" "}
+          <span>Set up your timetable, then add the societies you&apos;re in.</span>
         </span>
-        <span aria-hidden className="text-xl">
-          →
+        <span className="shrink-0 font-medium underline underline-offset-2">
+          Set up
         </span>
       </Link>
       <ul className="mb-6 flex flex-wrap gap-2">
         {names.map((name) => (
-          <li key={name} className="rounded-full bg-zinc-100 px-3 py-1.5 text-sm font-medium dark:bg-zinc-800">
+          <li key={name} className="rounded-lg bg-zinc-100 px-3 py-1.5 text-sm font-medium dark:bg-zinc-800">
             {name}
           </li>
         ))}
@@ -229,7 +230,7 @@ function Chip({
   onRemove: () => void;
 }) {
   return (
-    <span className="flex items-center gap-1.5 rounded-full bg-emerald-50 py-1 pl-3 pr-1 text-sm font-medium text-emerald-900 dark:bg-emerald-950 dark:text-emerald-100">
+    <span className="flex items-center gap-1.5 rounded-lg bg-emerald-50 py-1 pl-3 pr-1 text-sm font-medium text-emerald-900 dark:bg-emerald-950 dark:text-emerald-100">
       {state === "loading" && (
         <span
           aria-label="Loading events"
@@ -243,7 +244,7 @@ function Chip({
         type="button"
         onClick={onRemove}
         aria-label={`Remove ${society.name}`}
-        className="-my-1.5 flex size-11 items-center justify-center rounded-full text-emerald-700 hover:bg-emerald-100 dark:text-emerald-300 dark:hover:bg-emerald-900"
+        className="-my-1.5 flex size-11 items-center justify-center rounded-lg text-emerald-700 hover:bg-emerald-100 dark:text-emerald-300 dark:hover:bg-emerald-900"
       >
         ×
       </button>
@@ -292,12 +293,12 @@ function EventList({
         </section>
       ))}
       {stillLoading > 0 ? (
-        <p className="text-sm text-zinc-500">
+        <p className="text-sm text-muted">
           Still checking {stillLoading} {stillLoading === 1 ? "society" : "societies"}…
         </p>
       ) : (
         days.length === 0 && (
-          <p className="rounded-2xl border border-dashed border-zinc-300 p-6 text-center text-sm text-zinc-600 dark:border-zinc-700 dark:text-zinc-400">
+          <p className="rounded-xl border border-dashed border-zinc-300 p-6 text-center text-sm text-zinc-600 dark:border-zinc-700 dark:text-zinc-400">
             No more events this term.
           </p>
         )
@@ -334,11 +335,17 @@ function EventCard({ event: e, calendar }: { event: SocietyEvent; calendar: Cale
   const cal = useSocietyAdd(e, calendar);
 
   return (
-    <article className="rounded-2xl border border-zinc-200 p-4 dark:border-zinc-800">
+    <article className="rounded-xl bg-surface border border-line p-4">
       {/* The button sits bottom-right beside the details, so the card stays a tidy rectangle. */}
-      <div className="flex items-end gap-3">
+      <div className="flex items-end gap-4">
+        <span
+          aria-hidden
+          className="hidden size-10 sm:flex shrink-0 items-center justify-center self-start rounded-lg border border-orange-200 bg-orange-50 text-orange-700 dark:border-orange-400/40 dark:bg-orange-500/15 dark:text-orange-300"
+        >
+          <PeopleIcon className="size-5" />
+        </span>
         <div className="min-w-0 flex-1">
-          <p className="text-xs font-semibold text-emerald-700 dark:text-emerald-400">{e.society}</p>
+          <p className="text-xs font-medium text-orange-700 dark:text-orange-300">{e.society}</p>
           <h3 className="font-medium">
             {e.url ? (
               <a href={e.url} target="_blank" rel="noreferrer" className="underline-offset-2 hover:underline">
@@ -355,7 +362,7 @@ function EventCard({ event: e, calendar }: { event: SocietyEvent; calendar: Cale
           {tags.length > 0 && (
             <div className="mt-2 flex flex-wrap gap-1.5">
               {tags.map((t) => (
-                <span key={t.label} className={`rounded-full px-2.5 py-0.5 text-xs font-semibold ${t.tone}`}>
+                <span key={t.label} className={`rounded-md px-1.5 py-px text-xs font-medium ${t.tone}`}>
                   {t.label}
                 </span>
               ))}
@@ -373,14 +380,14 @@ function EventCard({ event: e, calendar }: { event: SocietyEvent; calendar: Cale
             <button
               type="button"
               onClick={cal.cancel}
-              className="min-h-11 rounded-full px-4 text-sm font-medium text-zinc-700 hover:bg-amber-100 dark:text-zinc-300 dark:hover:bg-amber-900/40"
+              className="min-h-10 rounded-lg px-4 text-sm font-medium text-zinc-700 hover:bg-amber-100 dark:text-zinc-300 dark:hover:bg-amber-900/40"
             >
               Cancel
             </button>
             <button
               type="button"
               onClick={() => cal.add(true)}
-              className="min-h-11 rounded-full bg-zinc-900 px-4 text-sm font-medium text-white hover:bg-zinc-700 dark:bg-zinc-100 dark:text-zinc-900 dark:hover:bg-zinc-300"
+              className="min-h-10 rounded-lg bg-primary px-4 text-sm font-medium text-on-primary hover:bg-primary-hover"
             >
               Add anyway
             </button>
@@ -434,11 +441,11 @@ function Skeleton() {
   return (
     <div aria-busy="true" className="flex animate-pulse flex-col gap-3">
       <div className="flex gap-2">
-        <div className="h-9 w-28 rounded-full bg-zinc-100 dark:bg-zinc-900" />
-        <div className="h-9 w-36 rounded-full bg-zinc-100 dark:bg-zinc-900" />
+        <div className="h-9 w-28 rounded-lg bg-zinc-100 dark:bg-zinc-900" />
+        <div className="h-9 w-36 rounded-lg bg-zinc-100 dark:bg-zinc-900" />
       </div>
-      <div className="h-20 rounded-2xl bg-zinc-100 dark:bg-zinc-900" />
-      <div className="h-20 rounded-2xl bg-zinc-100 dark:bg-zinc-900" />
+      <div className="h-20 rounded-xl bg-zinc-100 dark:bg-zinc-900" />
+      <div className="h-20 rounded-xl bg-zinc-100 dark:bg-zinc-900" />
     </div>
   );
 }

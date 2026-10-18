@@ -156,7 +156,7 @@ export function EventSheet({
               type="button"
               onClick={onClose}
               aria-label="Close"
-              className="-mr-2 flex size-11 shrink-0 items-center justify-center rounded-full text-2xl leading-none text-zinc-500 hover:bg-zinc-100 dark:hover:bg-zinc-900"
+              className="-mr-2 flex size-11 shrink-0 items-center justify-center rounded-lg text-2xl leading-none text-muted hover:bg-zinc-100 dark:hover:bg-zinc-900"
             >
               ×
             </button>
@@ -200,7 +200,7 @@ export function EventSheet({
           </Field>
 
           <fieldset className="flex min-w-0 flex-col gap-1">
-            <legend className="mb-1 text-xs font-medium text-zinc-500">Location (for travel times)</legend>
+            <legend className="mb-1 text-xs font-medium text-muted">Location (for travel times)</legend>
             <LocationPicker value={draft} onChange={set} />
           </fieldset>
 
@@ -230,7 +230,7 @@ export function EventSheet({
               <button
                 type="button"
                 onClick={() => setClash(null)}
-                className="min-h-11 rounded-full px-4 text-sm font-medium text-zinc-700 hover:bg-amber-100 dark:text-zinc-300 dark:hover:bg-amber-900/40"
+                className="min-h-10 rounded-lg px-4 text-sm font-medium text-zinc-700 hover:bg-amber-100 dark:text-zinc-300 dark:hover:bg-amber-900/40"
               >
                 Cancel
               </button>
@@ -238,19 +238,19 @@ export function EventSheet({
                 type="button"
                 disabled={busy}
                 onClick={() => void save(true)}
-                className="min-h-11 rounded-full bg-zinc-900 px-6 text-sm font-medium text-white hover:bg-zinc-700 disabled:opacity-50 dark:bg-zinc-100 dark:text-zinc-900 dark:hover:bg-zinc-300"
+                className="min-h-10 rounded-lg bg-primary px-6 text-sm font-medium text-on-primary hover:bg-primary-hover disabled:opacity-50"
               >
                 {busy ? "Saving…" : target.kind === "new" ? "Add anyway" : "Save anyway"}
               </button>
             </div>
           </div>
         ) : (
-          <div className="flex items-center gap-2 border-t border-zinc-200 px-5 pb-[calc(1rem+env(safe-area-inset-bottom))] pt-3 dark:border-zinc-800">
+          <div className="flex items-center gap-2 border-t border-line px-5 pb-[calc(1rem+env(safe-area-inset-bottom))] pt-3">
             {target.kind !== "new" && (
               <DeleteButton
                 onDelete={remove}
                 label={isClass ? "Remove this class on this day" : "Delete event"}
-                className="min-h-11 shrink-0 rounded-full px-4 text-sm font-medium text-red-600 hover:bg-red-50 dark:text-red-400 dark:hover:bg-red-950/40"
+                className="min-h-10 shrink-0 rounded-lg px-4 text-sm font-medium text-red-600 hover:bg-red-50 dark:text-red-400 dark:hover:bg-red-950/40"
               >
                 Delete
               </DeleteButton>
@@ -258,7 +258,7 @@ export function EventSheet({
             <button
               type="submit"
               disabled={busy}
-              className="ml-auto min-h-11 rounded-full bg-zinc-900 px-6 text-sm font-medium text-white hover:bg-zinc-700 disabled:opacity-50 dark:bg-zinc-100 dark:text-zinc-900 dark:hover:bg-zinc-300"
+              className="ml-auto min-h-10 rounded-lg bg-primary px-6 text-sm font-medium text-on-primary hover:bg-primary-hover disabled:opacity-50"
             >
               {busy ? "Saving…" : "Save"}
             </button>

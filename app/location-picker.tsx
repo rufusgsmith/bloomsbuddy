@@ -56,7 +56,7 @@ export function LocationPicker({
       />
       <ul role="radiogroup" aria-label="Places" className="flex flex-col gap-1">
         {query.trim() && matches.length === 0 && (
-          <li className="py-2 text-center text-sm text-zinc-500">
+          <li className="py-2 text-center text-sm text-muted">
             No UCL building called that.{buildingOnly ? "" : " Somewhere else? Use a postcode."}
           </li>
         )}

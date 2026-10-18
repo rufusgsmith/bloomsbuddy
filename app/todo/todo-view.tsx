@@ -52,14 +52,14 @@ const daysBetween = (from: DateKey, to: DateKey) =>
 const chipClass = (on: boolean) =>
   `min-h-11 rounded-full px-3 text-sm font-medium transition-colors ${
     on
-      ? "bg-emerald-600 text-white dark:bg-emerald-500 dark:text-emerald-950"
+      ? "bg-primary text-on-primary"
       : "bg-zinc-100 text-zinc-700 hover:bg-zinc-200 dark:bg-zinc-800 dark:text-zinc-200 dark:hover:bg-zinc-700"
   }`;
 
 const primaryButton =
-  "min-h-11 rounded-full bg-emerald-600 px-5 text-sm font-medium text-white hover:bg-emerald-700 disabled:cursor-not-allowed disabled:opacity-40 dark:bg-emerald-500 dark:text-emerald-950 dark:hover:bg-emerald-400";
+  "min-h-10 rounded-lg bg-primary px-5 text-sm font-medium text-on-primary hover:bg-primary-hover disabled:cursor-not-allowed disabled:opacity-40";
 const secondaryButton =
-  "min-h-11 rounded-full bg-zinc-100 px-4 text-sm font-medium text-zinc-700 hover:bg-zinc-200 dark:bg-zinc-800 dark:text-zinc-200 dark:hover:bg-zinc-700";
+  "min-h-10 rounded-lg bg-zinc-100 px-4 text-sm font-medium text-zinc-700 hover:bg-zinc-200 dark:bg-zinc-800 dark:text-zinc-200 dark:hover:bg-zinc-700";
 
 export function TodoView() {
   // "" = checked, nothing saved. null = not checked yet (server render / hydration).
@@ -143,7 +143,7 @@ export function TodoEditor({
     <div className="flex flex-col gap-6">
       <AddTodo today={today} onAdd={(t) => onChange([...todos, t])} />
       {open.length === 0 ? (
-        <p className="rounded-2xl border border-dashed border-zinc-300 p-6 text-center text-sm text-zinc-600 dark:border-zinc-700 dark:text-zinc-400">
+        <p className="rounded-xl border border-dashed border-zinc-300 p-6 text-center text-sm text-zinc-600 dark:border-zinc-700 dark:text-zinc-400">
           {done.length ? "All done" : "No to-dos yet. Add one above."}
         </p>
       ) : (
@@ -155,7 +155,7 @@ export function TodoEditor({
       )}
       {done.length > 0 && (
         <details className="group">
-          <summary className="flex min-h-11 cursor-pointer list-none items-center gap-2 text-sm font-semibold text-zinc-600 dark:text-zinc-400">
+          <summary className="flex min-h-10 cursor-pointer list-none items-center gap-2 text-sm font-semibold text-zinc-600 dark:text-zinc-400">
             <span aria-hidden className="transition-transform group-open:rotate-90">
               ›
             </span>
@@ -171,7 +171,7 @@ export function TodoEditor({
             <button
               type="button"
               onClick={() => onChange(todos.filter((t) => t.repeat || !t.done))}
-              className="mt-2 min-h-11 rounded-full px-4 text-sm font-medium text-red-600 hover:bg-red-50 dark:text-red-400 dark:hover:bg-red-950"
+              className="mt-2 min-h-10 rounded-lg px-4 text-sm font-medium text-red-600 hover:bg-red-50 dark:text-red-400 dark:hover:bg-red-950"
             >
               Clear done
             </button>
@@ -243,7 +243,7 @@ function TodoForm({
   return (
     <form
       onSubmit={submit}
-      className={`rounded-2xl border bg-white transition-colors dark:bg-zinc-950 ${
+      className={`rounded-xl border bg-surface transition-colors ${
         expanded ? "border-emerald-400 dark:border-emerald-700" : "border-zinc-200 dark:border-zinc-800"
       }`}
     >
@@ -260,7 +260,7 @@ function TodoForm({
       </div>
 
       {expanded && (
-        <div className="flex flex-col gap-5 border-t border-zinc-200 p-4 dark:border-zinc-800">
+        <div className="flex flex-col gap-5 border-t border-line p-4">
           <DurationField draft={draft} set={set} error={touched.duration ? errors.duration : undefined} onTouch={() => touch("duration")} />
 
           {draft.freq === "none" && (
@@ -307,7 +307,7 @@ function TodoForm({
             {onDelete && (
               <DeleteButton
                 onDelete={onDelete}
-                className="min-h-11 rounded-full px-3 text-sm font-medium text-red-600 hover:bg-red-50 dark:text-red-400 dark:hover:bg-red-950"
+                className="min-h-10 rounded-lg px-3 text-sm font-medium text-red-600 hover:bg-red-50 dark:text-red-400 dark:hover:bg-red-950"
               >
                 Delete
               </DeleteButton>
@@ -359,7 +359,7 @@ function OnTodayField({
       {on && !timed && (
         <div className="mt-2 grid grid-cols-2 gap-2">
           <fieldset className="flex min-w-0 flex-col gap-1">
-            <legend className="mb-1 text-xs font-medium text-zinc-500">Day</legend>
+            <legend className="mb-1 text-xs font-medium text-muted">Day</legend>
             <input
               type="date"
               value={draft.placeDate}
@@ -382,7 +382,7 @@ function Section({ label, hint, children }: { label: string; hint?: string; chil
   return (
     <fieldset className="flex min-w-0 flex-col gap-2">
       <legend className="mb-2 text-sm font-medium">
-        {label} {hint && <span className="font-normal text-zinc-500">· {hint}</span>}
+        {label} {hint && <span className="font-normal text-muted">· {hint}</span>}
       </legend>
       {children}
     </fieldset>
@@ -455,7 +455,7 @@ function DurationField({
       {error ? (
         <FieldError>{error}</FieldError>
       ) : (
-        total > 0 && <p className="text-xs text-zinc-500">That&apos;s {formatDurationShort(total)}.</p>
+        total > 0 && <p className="text-xs text-muted">That&apos;s {formatDurationShort(total)}.</p>
       )}
     </Section>
   );
@@ -485,10 +485,10 @@ function Stepper({
   invalid: boolean;
 }) {
   const btn =
-    "flex size-11 shrink-0 items-center justify-center rounded-full bg-zinc-100 text-lg font-medium text-zinc-700 hover:bg-zinc-200 disabled:opacity-30 dark:bg-zinc-800 dark:text-zinc-200 dark:hover:bg-zinc-700";
+    "flex size-11 shrink-0 items-center justify-center rounded-lg bg-zinc-100 text-lg font-medium text-zinc-700 hover:bg-zinc-200 disabled:opacity-30 dark:bg-zinc-800 dark:text-zinc-200 dark:hover:bg-zinc-700";
   return (
     <div className="flex flex-col gap-1">
-      <span className="text-xs font-medium text-zinc-500">{label}</span>
+      <span className="text-xs font-medium text-muted">{label}</span>
       <div className="flex items-center gap-1.5">
         <button type="button" onClick={onDec} disabled={!canDec} aria-label={`Less (${label.toLowerCase()})`} className={btn}>
           −
@@ -549,7 +549,7 @@ function RepeatField({
             onClick={() => set({ freq: f.value, ...(f.value !== "none" ? { doBefore: "" } : {}) })}
             className={`min-h-10 rounded-lg text-sm font-medium transition-colors ${
               draft.freq === f.value
-                ? "bg-white text-zinc-900 shadow-sm dark:bg-zinc-700 dark:text-zinc-50"
+                ? "bg-surface text-zinc-900 shadow-sm dark:bg-zinc-700 dark:text-zinc-50"
                 : "text-zinc-600 hover:text-zinc-900 dark:text-zinc-400 dark:hover:text-zinc-100"
             }`}
           >
@@ -574,7 +574,7 @@ function RepeatField({
 
       {draft.freq === "monthly" && (
         <div>
-          <p className="mb-1 text-xs text-zinc-500">On day</p>
+          <p className="mb-1 text-xs text-muted">On day</p>
           <div className="grid grid-cols-7 gap-1" role="radiogroup" aria-label="Day of the month">
             {Array.from({ length: 31 }, (_, i) => i + 1).map((n) => (
               <button
@@ -593,7 +593,7 @@ function RepeatField({
             ))}
           </div>
           {(draft.dayOfMonth ?? 0) > 28 && (
-            <p className="mt-1 text-xs text-zinc-500">In shorter months it&apos;ll land on the last day.</p>
+            <p className="mt-1 text-xs text-muted">In shorter months it&apos;ll land on the last day.</p>
           )}
         </div>
       )}
@@ -601,7 +601,7 @@ function RepeatField({
       {draft.freq !== "none" && (
         <div className="flex flex-col gap-3">
           <label className="flex flex-col gap-1">
-            <span className="text-xs font-medium text-zinc-500">At a time · Optional</span>
+            <span className="text-xs font-medium text-muted">At a time · Optional</span>
             <div className="flex gap-2">
               <input
                 type="time"
@@ -621,7 +621,7 @@ function RepeatField({
             </div>
           </label>
           <div>
-            <p className="mb-1 text-xs font-medium text-zinc-500">Or a part of the day · Optional</p>
+            <p className="mb-1 text-xs font-medium text-muted">Or a part of the day · Optional</p>
             <div className="flex flex-wrap gap-2">
               {PARTS_OF_DAY.map((p) => {
                 const on = draft.partOfDay === p.value;
@@ -673,7 +673,7 @@ function TodoRow({
     </>
   );
   return (
-    <div className="flex items-center rounded-2xl border border-zinc-200 bg-white dark:border-zinc-800 dark:bg-zinc-950">
+    <div className="flex items-center rounded-xl border border-line bg-surface">
       {allowTick ? (
         <button
           type="button"
@@ -691,7 +691,7 @@ function TodoRow({
         type="button"
         onClick={onEdit}
         aria-label={`Edit ${t.title}`}
-        className="flex size-11 shrink-0 items-center justify-center rounded-full text-zinc-500 hover:bg-zinc-100 hover:text-zinc-800 dark:hover:bg-zinc-900 dark:hover:text-zinc-200"
+        className="flex size-11 shrink-0 items-center justify-center rounded-lg text-muted hover:bg-zinc-100 hover:text-zinc-800 dark:hover:bg-zinc-900 dark:hover:text-zinc-200"
       >
         <PencilIcon />
       </button>
@@ -699,7 +699,7 @@ function TodoRow({
         <DeleteButton
           onDelete={onRemove}
           label={`Remove ${t.title}`}
-          className="mr-1 flex size-11 shrink-0 items-center justify-center rounded-full text-xl text-zinc-500 hover:bg-red-50 hover:text-red-600 dark:hover:bg-red-950 dark:hover:text-red-400"
+          className="mr-1 flex size-11 shrink-0 items-center justify-center rounded-lg text-xl text-muted hover:bg-red-50 hover:text-red-600 dark:hover:bg-red-950 dark:hover:text-red-400"
         >
           ×
         </DeleteButton>
@@ -709,7 +709,7 @@ function TodoRow({
 }
 
 function Badges({ todo: t, today, done }: { todo: Todo; today: DateKey; done: boolean }) {
-  const badge = "rounded-full px-2 py-0.5 text-xs font-medium";
+  const badge = "rounded-md px-2 py-0.5 text-xs font-medium";
   const plain = `${badge} bg-zinc-100 text-zinc-700 dark:bg-zinc-800 dark:text-zinc-300`;
   const back = done && t.repeat && t.doneOn ? nextOccurrence(t.repeat, t.doneOn) : null;
   const slot = t.onToday || undefined;
@@ -768,9 +768,9 @@ function PencilIcon() {
 function Skeleton() {
   return (
     <div aria-busy="true" className="flex animate-pulse flex-col gap-3">
-      <div className="h-14 rounded-2xl bg-zinc-100 dark:bg-zinc-900" />
-      <div className="h-16 rounded-2xl bg-zinc-100 dark:bg-zinc-900" />
-      <div className="h-16 rounded-2xl bg-zinc-100 dark:bg-zinc-900" />
+      <div className="h-14 rounded-xl bg-zinc-100 dark:bg-zinc-900" />
+      <div className="h-16 rounded-xl bg-zinc-100 dark:bg-zinc-900" />
+      <div className="h-16 rounded-xl bg-zinc-100 dark:bg-zinc-900" />
     </div>
   );
 }

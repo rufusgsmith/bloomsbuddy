@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { useMemo, useRef, useState, useSyncExternalStore, type ReactNode } from "react";
 import { CalendarButton, DeleteButton, Field, inputClass, PageHeader, TabPage } from "../form-ui";
-import { CameraIcon } from "../icons";
+import { CameraIcon, FlagIcon, PenIcon } from "../icons";
 import {
   parseDeadlineIds,
   readRawCalendarDeadlines,
@@ -53,7 +53,7 @@ const KIND_OPTIONS = [
  */
 export function DeadlineKindToggle({ value: d, onChange }: { value: DraftDeadline; onChange: (patch: Partial<DraftDeadline>) => void }) {
   return (
-    <div role="radiogroup" aria-label="Type" className="mb-2 grid grid-cols-2 gap-1 rounded-full bg-zinc-100 p-1 dark:bg-zinc-900">
+    <div role="radiogroup" aria-label="Type" className="mb-2 grid grid-cols-2 gap-1 rounded-lg bg-zinc-100 p-1 dark:bg-zinc-900">
       {KIND_OPTIONS.map((o) => (
         <button
           key={o.label}
@@ -61,9 +61,9 @@ export function DeadlineKindToggle({ value: d, onChange }: { value: DraftDeadlin
           role="radio"
           aria-checked={d.exam === o.exam}
           onClick={() => onChange({ exam: o.exam, ...(o.exam ? {} : { endTime: "" }) })}
-          className={`min-h-9 rounded-full text-sm font-medium ${
+          className={`min-h-9 rounded-lg text-sm font-medium ${
             d.exam === o.exam
-              ? "bg-white text-zinc-900 shadow-sm dark:bg-zinc-700 dark:text-zinc-50"
+              ? "bg-surface text-zinc-900 shadow-sm dark:bg-zinc-700 dark:text-zinc-50"
               : "text-zinc-600 hover:text-zinc-900 dark:text-zinc-400 dark:hover:text-zinc-100"
           }`}
         >
@@ -129,14 +129,14 @@ export function DeadlinesView() {
         <>
           <Link
             href="/setup"
-            className="mb-5 flex items-center justify-between gap-3 rounded-2xl bg-emerald-600 p-4 text-white hover:bg-emerald-700 dark:bg-emerald-500 dark:text-emerald-950 dark:hover:bg-emerald-400"
+            className="mb-5 flex items-center justify-between gap-3 rounded-lg border border-emerald-200 bg-emerald-50 px-3 py-2 text-sm text-emerald-900 hover:bg-emerald-100 dark:border-emerald-500/40 dark:bg-emerald-500/10 dark:text-emerald-100"
           >
             <span>
-              <span className="block font-semibold">These are demo deadlines</span>
-              <span className="block text-sm opacity-90">Snap your timetable and Moodle to track your own.</span>
+              <span className="font-medium">These are demo deadlines.</span>{" "}
+              <span>Snap your timetable and Moodle to track your own.</span>
             </span>
-            <span aria-hidden className="text-xl">
-              →
+            <span className="shrink-0 font-medium underline underline-offset-2">
+              Set up
             </span>
           </Link>
           <Groups deadlines={demo ?? []} />
@@ -205,7 +205,7 @@ function Editor({ user }: { user: UserData }) {
               setIsNew(true);
               setDraft(blankDraft());
             }}
-            className="min-h-12 flex-1 rounded-full bg-emerald-600 px-4 font-medium text-white hover:bg-emerald-700 dark:bg-emerald-500 dark:text-emerald-950 dark:hover:bg-emerald-400"
+            className="min-h-10 flex-1 rounded-lg bg-primary px-4 font-medium text-on-primary hover:bg-primary-hover"
           >
             + Add deadline
           </button>
@@ -213,7 +213,7 @@ function Editor({ user }: { user: UserData }) {
         </div>
       )}
       {user.deadlines.length === 0 && !draft ? (
-        <p className="rounded-2xl border border-dashed border-zinc-300 p-6 text-center text-sm text-zinc-600 dark:border-zinc-700 dark:text-zinc-400">
+        <p className="rounded-xl border border-dashed border-zinc-300 p-6 text-center text-sm text-zinc-600 dark:border-zinc-700 dark:text-zinc-400">
           No deadlines. Add one above, or scan your Moodle in{" "}
           <Link href="/setup?again=1" className="font-medium text-emerald-700 underline dark:text-emerald-400">
             setup
@@ -276,7 +276,7 @@ function RescanButton({ onScanned }: { onScanned: (d: Deadline[]) => { added: nu
   return (
     <>
       <label
-        className={`flex min-h-12 flex-1 items-center justify-center gap-1.5 rounded-full border border-emerald-500 px-4 text-center text-sm font-medium text-emerald-800 hover:bg-emerald-50 dark:text-emerald-200 dark:hover:bg-emerald-950/40 ${
+        className={`flex min-h-10 flex-1 items-center justify-center gap-1.5 rounded-lg border border-emerald-500 px-4 text-center text-sm font-medium text-emerald-800 hover:bg-emerald-50 dark:text-emerald-200 dark:hover:bg-emerald-950/40 ${
           reading ? "cursor-wait animate-pulse" : "cursor-pointer"
         }`}
       >
@@ -386,20 +386,30 @@ function DeadlineRow({
   const title = [d.moduleCode, d.title].filter(Boolean).join(" ");
   return (
     <div
-      className={`relative flex gap-3 rounded-2xl border border-zinc-200 p-4 dark:border-zinc-800 ${past ? "opacity-60" : ""}`}
+      className={`relative flex gap-3 rounded-xl bg-surface border border-line p-4 ${past ? "opacity-60" : ""}`}
     >
       {onEdit && (
         <button
           type="button"
           onClick={onEdit}
           aria-label={`Edit ${d.title}`}
-          className="absolute inset-0 rounded-2xl hover:bg-zinc-50 dark:hover:bg-zinc-900"
+          className="absolute inset-0 rounded-xl hover:bg-zinc-50 dark:hover:bg-zinc-900"
         />
       )}
+      <span
+        aria-hidden
+        className={`pointer-events-none relative hidden size-10 sm:flex shrink-0 items-center justify-center rounded-lg border ${
+          d.exam
+            ? "border-rose-200 bg-rose-50 text-rose-700 dark:border-rose-400/40 dark:bg-rose-500/15 dark:text-rose-300"
+            : "border-amber-200 bg-amber-50 text-amber-700 dark:border-amber-400/40 dark:bg-amber-500/15 dark:text-amber-300"
+        }`}
+      >
+        {d.exam ? <PenIcon className="size-5" /> : <FlagIcon className="size-5" />}
+      </span>
       <div className="pointer-events-none relative min-w-0 flex-1">
         <p className="mb-1 flex items-center gap-2 text-xs font-semibold leading-5">
           <KindBadge exam={!!d.exam} />
-          {d.moduleCode && <span className="text-emerald-700 dark:text-emerald-400">{d.moduleCode}</span>}
+          {d.moduleCode && <span className="font-medium text-muted">{d.moduleCode}</span>}
         </p>
         <p className="font-medium">{d.title}</p>
         <p className="mt-0.5 text-sm text-zinc-600 dark:text-zinc-400">
@@ -407,7 +417,7 @@ function DeadlineRow({
           {d.weight !== undefined && ` · ${d.weight}%`}
         </p>
         {d.location && (
-          <span className="mt-1.5 inline-block rounded-full bg-zinc-100 px-2 py-0.5 text-xs font-medium text-zinc-700 dark:bg-zinc-800 dark:text-zinc-300">
+          <span className="mt-1.5 inline-block rounded-md bg-zinc-100 px-2 py-0.5 text-xs font-medium text-zinc-700 dark:bg-zinc-800 dark:text-zinc-300">
             {locationLabel(d.location)}
           </span>
         )}
@@ -434,10 +444,10 @@ function DeadlineRow({
 function KindBadge({ exam }: { exam: boolean }) {
   return (
     <span
-      className={`inline-flex h-5 items-center rounded-full px-2 text-[11px] font-semibold leading-none ${
+      className={`inline-flex h-5 items-center rounded-md border px-1.5 text-xs font-medium leading-none ${
         exam
-          ? "bg-rose-100 text-rose-700 dark:bg-rose-950 dark:text-rose-300"
-          : "bg-amber-100 text-amber-800 dark:bg-amber-950 dark:text-amber-300"
+          ? "border-rose-200 bg-rose-50 text-rose-700 dark:border-rose-400/40 dark:bg-rose-500/15 dark:text-rose-300"
+          : "border-amber-200 bg-amber-50 text-amber-700 dark:border-amber-400/40 dark:bg-amber-500/15 dark:text-amber-300"
       }`}
     >
       {exam ? "Exam" : "Coursework"}
@@ -448,11 +458,11 @@ function KindBadge({ exam }: { exam: boolean }) {
 function DaysLeft({ days, past }: { days: number; past: boolean }) {
   const label = past ? "Overdue" : days === 0 ? "Today" : days === 1 ? "Tomorrow" : `${days} days`;
   const tone = past
-    ? "bg-zinc-100 text-zinc-500 dark:bg-zinc-800 dark:text-zinc-400"
+    ? "bg-zinc-100 text-muted dark:bg-zinc-800 dark:text-zinc-400"
     : days <= URGENT_DAYS
       ? "bg-red-100 text-red-700 dark:bg-red-950 dark:text-red-300"
       : "bg-zinc-100 text-zinc-700 dark:bg-zinc-800 dark:text-zinc-300";
-  return <span className={`shrink-0 rounded-full px-2.5 py-1 text-xs font-semibold ${tone}`}>{label}</span>;
+  return <span className={`shrink-0 rounded-md px-2 py-0.5 text-xs font-medium tabular-nums ${tone}`}>{label}</span>;
 }
 
 function DeadlineForm({
@@ -483,7 +493,7 @@ function DeadlineForm({
         setSaveError(await onSave());
         setBusy(false);
       }}
-      className="rounded-2xl border border-emerald-400 bg-white p-3 dark:border-emerald-700 dark:bg-zinc-950"
+      className="rounded-xl border border-emerald-400 bg-surface p-3 dark:border-emerald-700"
     >
       <DeadlineKindToggle value={d} onChange={onChange} />
       <div className="grid grid-cols-[7rem_1fr] gap-2">
@@ -539,7 +549,7 @@ function DeadlineForm({
         </Field>
       </div>
       <fieldset className="mt-2 flex min-w-0 flex-col gap-1">
-        <legend className="mb-1 text-xs font-medium text-zinc-500">
+        <legend className="mb-1 text-xs font-medium text-muted">
           Where (optional, e.g. {d.exam ? "the exam hall" : "a lab"})
         </legend>
         <LocationPicker
@@ -559,7 +569,7 @@ function DeadlineForm({
         {!isNew && (
           <DeleteButton
             onDelete={onDelete}
-            className="min-h-11 rounded-full px-4 text-sm font-medium text-red-600 hover:bg-red-50 dark:text-red-400 dark:hover:bg-red-950"
+            className="min-h-10 rounded-lg px-4 text-sm font-medium text-red-600 hover:bg-red-50 dark:text-red-400 dark:hover:bg-red-950"
           >
             Delete
           </DeleteButton>
@@ -567,14 +577,14 @@ function DeadlineForm({
         <button
           type="button"
           onClick={onCancel}
-          className="ml-auto min-h-11 rounded-full bg-zinc-100 px-4 text-sm font-medium text-zinc-700 hover:bg-zinc-200 dark:bg-zinc-800 dark:text-zinc-200 dark:hover:bg-zinc-700"
+          className="ml-auto min-h-10 rounded-lg bg-zinc-100 px-4 text-sm font-medium text-zinc-700 hover:bg-zinc-200 dark:bg-zinc-800 dark:text-zinc-200 dark:hover:bg-zinc-700"
         >
           Cancel
         </button>
         <button
           type="submit"
           disabled={!!problem || busy}
-          className="min-h-11 rounded-full bg-emerald-600 px-5 text-sm font-medium text-white hover:bg-emerald-700 disabled:cursor-not-allowed disabled:opacity-40 dark:bg-emerald-500 dark:text-emerald-950 dark:hover:bg-emerald-400"
+          className="min-h-10 rounded-lg bg-primary px-5 text-sm font-medium text-on-primary hover:bg-primary-hover disabled:cursor-not-allowed disabled:opacity-40"
         >
           {busy ? "Saving…" : isNew ? "Add" : "Save"}
         </button>
@@ -587,9 +597,9 @@ function DeadlineForm({
 function Skeleton() {
   return (
     <div aria-busy="true" className="flex animate-pulse flex-col gap-3">
-      <div className="h-12 rounded-full bg-zinc-100 dark:bg-zinc-900" />
-      <div className="h-20 rounded-2xl bg-zinc-100 dark:bg-zinc-900" />
-      <div className="h-20 rounded-2xl bg-zinc-100 dark:bg-zinc-900" />
+      <div className="h-12 rounded-lg bg-zinc-100 dark:bg-zinc-900" />
+      <div className="h-20 rounded-xl bg-zinc-100 dark:bg-zinc-900" />
+      <div className="h-20 rounded-xl bg-zinc-100 dark:bg-zinc-900" />
     </div>
   );
 }

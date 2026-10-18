@@ -112,7 +112,7 @@ export function HomePicker({
           />
           <div role="radiogroup" aria-label="Halls" className="mt-3 flex flex-col gap-3">
             {groups.length === 0 && (
-              <p className="py-4 text-center text-sm text-zinc-500">
+              <p className="py-4 text-center text-sm text-muted">
                 No hall called that. Living privately? Pick Private accommodation.
               </p>
             )}
@@ -157,7 +157,7 @@ export function HomePicker({
                 {postcodeError}
               </span>
             ) : (
-              <span className="text-xs text-zinc-500">Only used to work out travel times. Saved on this device.</span>
+              <span className="text-xs text-muted">Only used to work out travel times. Saved on this device.</span>
             )}
           </label>
         </OptionCard>
@@ -182,7 +182,7 @@ export function HomePicker({
         <button
           type="submit"
           disabled={!canSubmit}
-          className="min-h-12 flex-1 rounded-full bg-emerald-600 px-4 font-medium text-white hover:bg-emerald-700 disabled:cursor-not-allowed disabled:opacity-40 dark:bg-emerald-500 dark:text-emerald-950 dark:hover:bg-emerald-400"
+          className="min-h-10 flex-1 rounded-lg bg-primary px-4 font-medium text-on-primary hover:bg-primary-hover disabled:cursor-not-allowed disabled:opacity-40"
         >
           {busy ? "Finding it…" : skipping ? "Skip for now" : submitLabel}
         </button>
@@ -209,7 +209,7 @@ function OptionCard({
 }) {
   return (
     <div
-      className={`shrink-0 rounded-2xl border transition-colors ${
+      className={`shrink-0 rounded-xl border transition-colors ${
         selected
           ? "border-emerald-500 bg-emerald-50/50 dark:border-emerald-600 dark:bg-emerald-950/30"
           : "border-zinc-200 dark:border-zinc-800"
@@ -222,12 +222,12 @@ function OptionCard({
         onClick={onPick}
         className="flex min-h-16 w-full items-center gap-3 px-4 py-3 text-left"
       >
-        <span aria-hidden className="flex size-10 shrink-0 items-center justify-center rounded-full bg-white text-emerald-700 shadow-sm dark:bg-zinc-800 dark:text-emerald-300">
+        <span aria-hidden className="flex size-10 shrink-0 items-center justify-center rounded-lg bg-surface text-emerald-700 shadow-sm dark:bg-zinc-800 dark:text-emerald-300">
           {icon}
         </span>
         <span className="min-w-0 flex-1">
           <span className="block font-medium">{title}</span>
-          <span className="block truncate text-sm text-zinc-500">{subtitle}</span>
+          <span className="block truncate text-sm text-muted">{subtitle}</span>
         </span>
         <span
           aria-hidden
@@ -262,17 +262,17 @@ export function PickRow({
       className={`flex min-h-14 w-full items-center gap-3 rounded-xl px-3 py-2 text-left transition-colors ${
         selected
           ? "bg-emerald-100 ring-2 ring-emerald-500 dark:bg-emerald-950/60"
-          : "bg-white hover:bg-zinc-100 dark:bg-zinc-950 dark:hover:bg-zinc-900"
+          : "bg-surface hover:bg-zinc-100 dark:hover:bg-zinc-900"
       }`}
     >
       <span className="min-w-0 flex-1">
         <span className="block truncate font-medium">{name}</span>
-        <span className="block truncate text-xs text-zinc-500">{children}</span>
+        <span className="block truncate text-xs text-muted">{children}</span>
       </span>
       <span
         aria-hidden
         className={`flex size-6 shrink-0 items-center justify-center rounded-full text-xs ${
-          selected ? "bg-emerald-600 text-white dark:bg-emerald-500 dark:text-emerald-950" : "ring-1 ring-zinc-300 dark:ring-zinc-700"
+          selected ? "bg-primary text-on-primary" : "ring-1 ring-zinc-300 dark:ring-zinc-700"
         }`}
       >
         {selected ? "✓" : ""}

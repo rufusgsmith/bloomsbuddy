@@ -1,16 +1,12 @@
 import type { Metadata, Viewport } from "next";
-import { Geist, Geist_Mono } from "next/font/google";
+import { IBM_Plex_Sans } from "next/font/google";
 import "./globals.css";
-import { TabBar } from "./tab-bar";
+import { SideNav } from "./side-nav";
 
-const geistSans = Geist({
-  variable: "--font-geist-sans",
+const plexSans = IBM_Plex_Sans({
+  variable: "--font-plex-sans",
   subsets: ["latin"],
-});
-
-const geistMono = Geist_Mono({
-  variable: "--font-geist-mono",
-  subsets: ["latin"],
+  weight: ["400", "500", "600"],
 });
 
 export const metadata: Metadata = {
@@ -18,25 +14,20 @@ export const metadata: Metadata = {
   description: "Make the most of the gaps between your UCL lectures.",
 };
 
-// "cover" lets the tab bar sit under the iPhone home indicator, padded by safe-area-inset-bottom.
 export const viewport: Viewport = {
-  viewportFit: "cover",
-  // The phone's status bar matches the page background (see globals.css).
+  // The browser bar matches the phone's top bar (see globals.css).
   themeColor: [
     { media: "(prefers-color-scheme: light)", color: "#ffffff" },
-    { media: "(prefers-color-scheme: dark)", color: "#0a0a0a" },
+    { media: "(prefers-color-scheme: dark)", color: "#23282f" },
   ],
 };
 
 export default function RootLayout({ children }: LayoutProps<"/">) {
   return (
-    <html
-      lang="en"
-      className={`${geistSans.variable} ${geistMono.variable} h-full antialiased`}
-    >
-      <body className="min-h-full flex flex-col">
-        {children}
-        <TabBar />
+    <html lang="en" className={`${plexSans.variable} h-full antialiased`}>
+      <body className="flex min-h-full flex-col md:flex-row">
+        <SideNav />
+        <div className="flex min-w-0 flex-1 flex-col">{children}</div>
       </body>
     </html>
   );

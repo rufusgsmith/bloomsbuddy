@@ -77,7 +77,7 @@ export function SocietyPicker({ existing, onAdd }: { existing: Society[]; onAdd:
         <button
           type="submit"
           disabled={!link.trim() || lookup.status === "checking"}
-          className="min-h-11 shrink-0 rounded-full bg-emerald-600 px-4 text-sm font-medium text-white hover:bg-emerald-700 disabled:cursor-not-allowed disabled:opacity-40 dark:bg-emerald-500 dark:text-emerald-950 dark:hover:bg-emerald-400"
+          className="min-h-10 shrink-0 rounded-lg bg-primary px-4 text-sm font-medium text-on-primary hover:bg-primary-hover disabled:cursor-not-allowed disabled:opacity-40"
         >
           {lookup.status === "checking" ? "Checking…" : "Add"}
         </button>
@@ -87,7 +87,7 @@ export function SocietyPicker({ existing, onAdd }: { existing: Society[]; onAdd:
           {lookup.message}
         </p>
       ) : (
-        <p className="text-xs text-zinc-500">Open your society on studentsunionucl.org and paste the address.</p>
+        <p className="text-xs text-muted">Open your society on studentsunionucl.org and paste the address.</p>
       )}
     </div>
   );

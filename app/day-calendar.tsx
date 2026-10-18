@@ -9,6 +9,9 @@ import { useEffect, useRef, type ReactNode, type RefObject } from "react";
 import { formatWallTime } from "@/lib/london-time";
 import { EVENT_KINDS } from "@/lib/manual-events";
 import type { EventKind } from "@/lib/types";
+import { GAP, TONE, TONE_LABELS, type EventTone } from "./event-tones";
+
+export type { EventTone };
 
 export interface CalendarEvent {
   id: string;
@@ -53,50 +56,27 @@ export interface CalendarAllDay {
 // 96px an hour: a 15-minute block is 24px, enough for one line of text.
 const PX_PER_HOUR = 96;
 const PX_PER_MIN = PX_PER_HOUR / 60;
-const DEFAULT_START = 8 * 60;
-const DEFAULT_END = 22 * 60;
+// A fixed day, 06:30–23:00, whatever the time or the events: anything outside it is cut at the edges.
+const DAY_START = 6 * 60 + 30;
+const DAY_END = 23 * 60;
 const MIN_EVENT_PX = 24;
 /** Blocks this long or longer have room for a second line. */
 const TWO_LINE_MINS = 30;
 
-/**
- * Colour by where an event came from, not its type: the timetable (classes, and one-day edits of
- * them), the student's own events, society events, to-dos and exams. Emerald is kept for gaps,
- * so none is green; amber is kept for deadline flags.
- */
-export type EventTone = "timetable" | "mine" | "society" | "todo" | "exam";
-
-const TONE_CLASS: Record<EventTone, string> = {
-  timetable: "bg-indigo-600 text-white hover:bg-indigo-700 dark:bg-indigo-500 dark:hover:bg-indigo-600",
-  mine: "bg-fuchsia-600 text-white hover:bg-fuchsia-700 dark:bg-fuchsia-500 dark:hover:bg-fuchsia-600",
-  society: "bg-orange-500 text-orange-950 hover:bg-orange-600",
-  todo: "bg-sky-600 text-white hover:bg-sky-700 dark:bg-sky-500 dark:text-sky-950 dark:hover:bg-sky-600",
-  exam: "bg-rose-600 text-white hover:bg-rose-700 dark:bg-rose-500 dark:text-rose-950 dark:hover:bg-rose-600",
-};
-
-// The legend's dots: the same colour as each block's fill.
-const TONES: { tone: EventTone; label: string; dot: string }[] = [
-  { tone: "timetable", label: "Timetable", dot: "bg-indigo-600 dark:bg-indigo-500" },
-  { tone: "mine", label: "Your events", dot: "bg-fuchsia-600 dark:bg-fuchsia-500" },
-  { tone: "society", label: "Society", dot: "bg-orange-500" },
-  { tone: "todo", label: "To-do", dot: "bg-sky-600 dark:bg-sky-500" },
-  { tone: "exam", label: "Exam", dot: "bg-rose-600 dark:bg-rose-500" },
-];
-
 const KIND_LABEL = Object.fromEntries(EVENT_KINDS.map((k) => [k.value, k.label])) as Record<EventKind, string>;
 
-/** Which colour is which, as a small wrapped row of dots. */
+/** Which colour is which, as one quiet wrapped row of swatches. */
 export function KindLegend() {
   return (
-    <ul aria-label="Event colours" className="mt-2 flex flex-wrap gap-x-3 gap-y-1 text-xs text-zinc-600 dark:text-zinc-400">
-      {TONES.map((t) => (
+    <ul aria-label="Event colours" className="mt-3 flex flex-wrap gap-x-4 gap-y-1.5 text-xs text-muted">
+      {TONE_LABELS.map((t) => (
         <li key={t.tone} className="flex items-center gap-1.5">
-          <span aria-hidden className={`size-2.5 rounded-full ${t.dot}`} />
+          <span aria-hidden className={`size-2.5 rounded-[3px] ${TONE[t.tone].dot}`} />
           {t.label}
         </li>
       ))}
       <li className="flex items-center gap-1.5">
-        <span aria-hidden className="size-2.5 rounded-full border border-dashed border-emerald-500 bg-emerald-50 dark:bg-emerald-950" />
+        <span aria-hidden className="size-2.5 rounded-[3px] border border-dashed border-gap-ink" />
         Free gap
       </li>
       <li className="flex items-center gap-1.5">
@@ -116,7 +96,7 @@ export function minutesLabel(min: number): string {
  * Side-by-side columns for overlapping events: each gets a column and the column count of its cluster.
  * Every event in a cluster of 2+ columns overlaps at least one other, so cols > 1 means a clash.
  */
-function layoutColumns(events: CalendarEvent[]): Map<string, { col: number; cols: number }> {
+export function layoutColumns(events: CalendarEvent[]): Map<string, { col: number; cols: number }> {
   const sorted = [...events].sort((a, b) => a.startMin - b.startMin || b.endMin - a.endMin);
   const out = new Map<string, { col: number; cols: number }>();
   let cluster: { id: string; col: number }[] = [];
@@ -170,11 +150,10 @@ export function DayCalendar({
   /** Tap on empty space: the half hour that was tapped, in minutes since midnight. */
   onSlotTap?: (min: number) => void;
 }) {
-  const hasNow = nowMin != null;
-  // 08:00–22:00, widened to whole hours around anything outside it (and the now line).
-  const mins = [...events.flatMap((e) => [e.startMin, e.endMin]), ...markers.map((m) => m.min), ...(hasNow ? [nowMin] : [])];
-  const start = Math.min(DEFAULT_START, ...mins.map((m) => Math.floor(m / 60) * 60));
-  const end = Math.max(DEFAULT_END, ...mins.map((m) => Math.min(24 * 60, Math.ceil(m / 60) * 60)));
+  const start = DAY_START;
+  const end = DAY_END;
+  // The now line only shows inside the day (at 01:00 there's none).
+  const hasNow = nowMin != null && nowMin >= start && nowMin <= end;
 
   const columns = layoutColumns(events);
   const open = [...events, ...gaps, ...markers.map((m) => ({ id: m.id, endMin: m.min }))].find((x) => x.id === openId);
@@ -217,7 +196,7 @@ export function DayCalendar({
 
   return (
     // Padding so the first and last hour labels (centred on their lines) aren't cut off. A little
-    // more on top, so the first hour (usually 08:00) doesn't sit tight under the day pills.
+    // more on top, so the top of the day doesn't sit tight under the day pills.
     <div className="pb-2 pt-5">
       {allDay.length > 0 && (
         <ul aria-label="All day" className="mb-3 ml-[calc(3rem+0.25rem)] mr-1 flex flex-col gap-1">
@@ -227,10 +206,10 @@ export function DayCalendar({
                 type="button"
                 onClick={() => onAllDayTap?.(a.id)}
                 aria-expanded={openId === a.id}
-                className={`${TONE_CLASS.society} flex min-h-8 w-full items-center gap-1.5 rounded-lg px-2 py-1 text-left text-xs font-medium`}
+                className={`${TONE.society.block} flex min-h-8 w-full items-center gap-1.5 rounded-lg border px-2 py-1 text-left text-xs font-medium`}
               >
                 <span className="min-w-0 flex-1 truncate">{a.title}</span>
-                <span className="shrink-0 tabular-nums opacity-80">{a.label}</span>
+                <span className={`shrink-0 tabular-nums ${TONE.society.text}`}>{a.label}</span>
               </button>
             </li>
           ))}
@@ -250,7 +229,7 @@ export function DayCalendar({
               onClick={() => onGapTap?.(openGap.id)}
               aria-expanded
               aria-label={`Free ${minutesLabel(openGap.startMin)}–${minutesLabel(openGap.endMin)}, ${openGap.label}. Hide suggestions`}
-              className="flex w-full items-center justify-between gap-2 rounded-t-2xl border-2 border-b-0 border-emerald-500 bg-emerald-100 px-3 pb-0.5 pt-1.5 text-left text-sm font-medium text-emerald-800 dark:border-emerald-500 dark:bg-emerald-950/70 dark:text-emerald-200"
+              className={`flex w-full items-center justify-between gap-2 rounded-t-xl border border-b-0 px-3 pb-0.5 pt-1.5 text-left text-sm font-medium ${GAP.open} ${GAP.text}`}
             >
               <span className="truncate">
                 <span className="tabular-nums">
@@ -327,18 +306,18 @@ function Segment({
           <div key={m}>
             <span
               aria-hidden
-              className="absolute left-0 w-11 -translate-y-1/2 pr-2 text-right text-xs tabular-nums text-zinc-500"
+              className="absolute left-0 w-11 -translate-y-1/2 pr-2 text-right text-xs tabular-nums text-muted"
               style={{ top: y(m) }}
             >
               {minutesLabel(m)}
             </span>
-            <div aria-hidden className="absolute left-12 right-0 border-t border-zinc-200 dark:border-zinc-800" style={{ top: y(m) }} />
+            <div aria-hidden className="absolute left-12 right-0 border-t border-line" style={{ top: y(m) }} />
           </div>
         ) : (
           <div
             key={m}
             aria-hidden
-            className="absolute left-12 right-0 border-t border-dashed border-zinc-100 dark:border-zinc-900"
+            className="absolute left-12 right-0 border-t border-dashed border-line/60"
             style={{ top: y(m) }}
           />
         ),
@@ -369,7 +348,7 @@ function Segment({
                 <div
                   key={g.id}
                   aria-hidden
-                  className="absolute inset-x-1 rounded-lg border-2 border-dashed border-emerald-400 bg-emerald-50 dark:border-emerald-700 dark:bg-emerald-950/40"
+                  className={`absolute inset-x-1 rounded-lg border ${GAP.plain}`}
                   style={{ top: top + 1, height: height - 2 }}
                 />
               );
@@ -383,14 +362,12 @@ function Segment({
                 onClick={() => onGapTap?.(g.id)}
                 aria-expanded={isOpen}
                 aria-label={`Free ${time}, ${g.label}. ${isOpen ? "Hide" : "Show"} suggestions`}
-                className={`absolute inset-x-1 flex flex-col justify-center overflow-hidden rounded-lg border-2 border-dashed px-2 text-left text-sm transition-colors ${
-                  isOpen
-                    ? "border-emerald-500 bg-emerald-100 dark:border-emerald-500 dark:bg-emerald-950/70"
-                    : "border-emerald-400 bg-emerald-50 hover:bg-emerald-100 dark:border-emerald-700 dark:bg-emerald-950/40 dark:hover:bg-emerald-950/70"
+                className={`absolute inset-x-1 flex flex-col justify-center overflow-hidden rounded-lg border px-2 text-left text-sm transition-colors ${
+                  isOpen ? GAP.open : GAP.block
                 }`}
                 style={{ top: top + 2, height: Math.max(MIN_EVENT_PX, height - 4) }}
               >
-                <span className="flex items-center justify-between gap-2 font-medium text-emerald-800 dark:text-emerald-200">
+                <span className={`flex items-center justify-between gap-2 font-medium ${GAP.text}`}>
                   <span className="truncate">
                     <span className="tabular-nums">{time}</span> · {g.label}
                   </span>
@@ -399,7 +376,7 @@ function Segment({
                   </span>
                 </span>
                 {g.endMin - g.startMin >= 60 && !isOpen && (
-                  <span className="truncate text-xs text-emerald-700 dark:text-emerald-300">Tap for suggestions</span>
+                  <span className={`truncate text-xs opacity-80 ${GAP.text}`}>Tap for suggestions</span>
                 )}
               </button>
             );
@@ -416,9 +393,10 @@ function Segment({
             const second = [time, e.detail].filter(Boolean).join(" · ");
             // Under 30 minutes there's room for one line only: centre it with no vertical padding.
             const pad = e.endMin - e.startMin < TWO_LINE_MINS ? "justify-center py-0" : "py-1";
-            const className = `absolute flex flex-col overflow-hidden rounded-lg px-2 ${pad} text-left text-sm leading-tight transition-colors ${TONE_CLASS[e.tone ?? "timetable"]} ${
+            const tone = TONE[e.tone ?? "timetable"];
+            const className = `absolute flex flex-col overflow-hidden rounded-lg border px-2 ${pad} text-left text-sm leading-tight text-foreground transition-colors ${tone.block} ${
               e.invalid ? "ring-2 ring-red-500 ring-offset-1 ring-offset-white dark:ring-offset-zinc-950" : ""
-            } ${e.id === openId ? "ring-2 ring-zinc-900 ring-offset-1 ring-offset-white dark:ring-zinc-100 dark:ring-offset-zinc-950" : ""}`;
+            } ${e.id === openId ? "ring-2 ring-zinc-900 ring-offset-1 ring-offset-background dark:ring-zinc-100" : ""}`;
             const style = {
               top: top + 1,
               height: height - 2,
@@ -427,11 +405,11 @@ function Segment({
             };
             const body = (
               <>
-                <span className="truncate font-semibold">
-                  {clashes && <span aria-hidden className="font-bold">! </span>}
+                <span className="truncate font-medium">
+                  {clashes && <span aria-hidden className={`font-bold ${tone.text}`}>! </span>}
                   {e.title}
                 </span>
-                {e.endMin - e.startMin >= TWO_LINE_MINS && <span className="truncate text-xs opacity-90 tabular-nums">{second}</span>}
+                {e.endMin - e.startMin >= TWO_LINE_MINS && <span className={`truncate text-xs font-medium tabular-nums ${tone.text}`}>{second}</span>}
               </>
             );
             const label = `${e.tone === "exam" ? "Exam" : KIND_LABEL[e.kind]}, ${e.title}, ${time}${e.detail ? `, ${e.detail}` : ""}${clashes ? ", clashes with another event" : ""}`;
@@ -467,7 +445,7 @@ function Segment({
                   onClick={() => onMarkerTap?.(m.id)}
                   aria-expanded={isOpen}
                   aria-label={`Deadline, ${m.label}`}
-                  className={`pointer-events-auto absolute right-1 max-w-[85%] -translate-y-1/2 truncate rounded-full bg-amber-400 px-2 py-0.5 text-xs font-semibold text-amber-950 shadow-sm hover:bg-amber-300 ${
+                  className={`pointer-events-auto absolute right-1 max-w-[85%] -translate-y-1/2 truncate rounded-md border border-amber-300 bg-amber-50 px-1.5 py-0.5 text-xs font-medium text-amber-800 hover:bg-amber-100 dark:border-amber-500/50 dark:bg-amber-950 dark:text-amber-200 ${
                     isOpen ? "ring-2 ring-zinc-900 dark:ring-zinc-100" : ""
                   }`}
                 >
@@ -541,24 +519,20 @@ export function DayPills({
             onClick={() => onSelect(d.key)}
             aria-pressed={isActive}
             aria-current={d.current ? "date" : undefined}
-            className={`relative flex min-w-0 flex-1 flex-col items-center justify-center rounded-xl text-xs transition-colors ${
-              d.date === undefined ? "min-h-11 pb-1" : "min-h-14"
+            className={`relative flex min-w-0 flex-1 flex-col items-center justify-center rounded-lg border text-xs transition-colors sm:max-w-24 ${
+              d.date === undefined ? "min-h-10 pb-1" : "min-h-14"
             } ${
               isActive
-                ? "bg-zinc-900 text-white dark:bg-zinc-100 dark:text-zinc-900"
-                : `hover:bg-zinc-200 dark:hover:bg-zinc-800 ${
-                    d.weekend
-                      ? "bg-zinc-50 text-zinc-500 dark:bg-zinc-900/50 dark:text-zinc-500"
-                      : "bg-zinc-100 text-zinc-600 dark:bg-zinc-900 dark:text-zinc-400"
-                  }`
+                ? "border-indigo-300 bg-surface font-medium text-foreground ring-1 ring-indigo-300 dark:border-indigo-400/60 dark:ring-indigo-400/60"
+                : `border-line hover:bg-surface ${d.weekend ? "bg-background text-zinc-400" : "bg-zinc-100/70 text-muted dark:bg-zinc-900"}`
             }`}
           >
             <span>{d.weekday}</span>
-            {d.date !== undefined && <span className="text-base font-semibold">{d.date}</span>}
+            {d.date !== undefined && <span className="text-base font-semibold tabular-nums">{d.date}</span>}
             {d.dot && (
               <span
                 aria-hidden
-                className={`absolute bottom-1 size-1 rounded-full ${isActive ? "bg-emerald-400 dark:bg-emerald-600" : "bg-emerald-600 dark:bg-emerald-400"}`}
+                className="absolute bottom-1 size-1 rounded-full bg-emerald-600 dark:bg-emerald-400"
               />
             )}
           </button>
