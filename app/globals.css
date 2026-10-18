@@ -1,32 +1,282 @@
 @import "tailwindcss";
 
 :root {
-  --background: #ffffff;
-  --foreground: #171717;
-  --focus: #059669; /* emerald-600 */
+  --background: #f4f5f7; /* page and calendar column fill */
+  --surface: #ffffff; /* cards, sidebar, panels */
+  --line: #e7e9ed; /* borders and hour rules */
+  --foreground: #2c3340; /* titles and body text: soft ink, not black */
+  --muted: #6e7686; /* meta lines and hour labels */
+  --focus: #5b9a85; /* sage, the brand and free-gap colour */
+  /* Main buttons: a sage tint with dark sage text, not white on black. */
+  --primary: #dcebe4;
+  --primary-hover: #cfe3da;
+  --on-primary: #26574a;
+  /*
+   * Calendar categories (event-tones.ts): clear pastels, deliberately more colourful than the
+   * desaturated scales below, so each kind of block is easy to tell apart. Each has a fill, a hover
+   * fill, a border, an ink for the time and badge text, and a solid dot for the legend.
+   */
+  --timetable-fill: #edebfc;
+  --timetable-hover: #e3e0fa;
+  --timetable-line: #c9c2f4;
+  --timetable-ink: #4535d6;
+  --timetable-dot: #6a5cf0;
+  --mine-fill: #fbe9f6;
+  --mine-hover: #f7ddf0;
+  --mine-line: #edb6de;
+  --mine-ink: #a3248a;
+  --mine-dot: #d04fb5;
+  --society-fill: #fef1e2;
+  --society-hover: #fde6cd;
+  --society-line: #f7c99a;
+  --society-ink: #b4530a;
+  --society-dot: #f59e0b;
+  --todo-fill: #e5f3fb;
+  --todo-hover: #d6ebf8;
+  --todo-line: #a9d4ee;
+  --todo-ink: #0b6fa4;
+  --todo-dot: #38a3db;
+  --exam-fill: #fbe8ec;
+  --exam-hover: #f8dbe2;
+  --exam-line: #f2aab8;
+  --exam-ink: #c8143c;
+  --exam-dot: #e5375c;
+  --gap-fill: #e8f5ee;
+  --gap-hover: #dbefe4;
+  --gap-line: #a6d9bd;
+  --gap-ink: #1d8150;
+  --gap-dot: #2fb36e;
+  /* Height of the phone's top bar, so every page fills exactly the screen under it (0 with the sidebar). */
+  --nav-h: 3.5rem;
   /* Native controls (time/date inputs, selects, scrollbars) follow light/dark mode. */
   color-scheme: light dark;
 }
 
 @theme inline {
   --color-background: var(--background);
+  --color-surface: var(--surface);
+  --color-line: var(--line);
   --color-foreground: var(--foreground);
-  --font-sans: var(--font-geist-sans);
-  --font-mono: var(--font-geist-mono);
+  --color-muted: var(--muted);
+  --color-primary: var(--primary);
+  --color-primary-hover: var(--primary-hover);
+  --color-on-primary: var(--on-primary);
+  --color-timetable-fill: var(--timetable-fill);
+  --color-timetable-hover: var(--timetable-hover);
+  --color-timetable-line: var(--timetable-line);
+  --color-timetable-ink: var(--timetable-ink);
+  --color-timetable-dot: var(--timetable-dot);
+  --color-mine-fill: var(--mine-fill);
+  --color-mine-hover: var(--mine-hover);
+  --color-mine-line: var(--mine-line);
+  --color-mine-ink: var(--mine-ink);
+  --color-mine-dot: var(--mine-dot);
+  --color-society-fill: var(--society-fill);
+  --color-society-hover: var(--society-hover);
+  --color-society-line: var(--society-line);
+  --color-society-ink: var(--society-ink);
+  --color-society-dot: var(--society-dot);
+  --color-todo-fill: var(--todo-fill);
+  --color-todo-hover: var(--todo-hover);
+  --color-todo-line: var(--todo-line);
+  --color-todo-ink: var(--todo-ink);
+  --color-todo-dot: var(--todo-dot);
+  --color-exam-fill: var(--exam-fill);
+  --color-exam-hover: var(--exam-hover);
+  --color-exam-line: var(--exam-line);
+  --color-exam-ink: var(--exam-ink);
+  --color-exam-dot: var(--exam-dot);
+  --color-gap-fill: var(--gap-fill);
+  --color-gap-hover: var(--gap-hover);
+  --color-gap-line: var(--gap-line);
+  --color-gap-ink: var(--gap-ink);
+  --color-gap-dot: var(--gap-dot);
+  --font-sans: var(--font-plex-sans);
+}
+
+/*
+ * Zinc is the app's grey everywhere. Remapped to a cool, soft scale so every existing zinc
+ * class picks up the look; the dark end matches the dark-mode surfaces, so nothing is near-black.
+ * The colour scales the app uses are remapped the same way: same hues, much less saturation,
+ * so tones, badges and warnings read as dusty pastels instead of bright Tailwind colours.
+ */
+@theme {
+  --color-zinc-50: #f4f5f7;
+  --color-zinc-100: #eceef1;
+  --color-zinc-200: #e2e5ea;
+  --color-zinc-300: #cfd4db;
+  --color-zinc-400: #a0a8b5;
+  --color-zinc-500: #6e7686;
+  --color-zinc-600: #545c6b;
+  --color-zinc-700: #414856;
+  --color-zinc-800: #343a45;
+  --color-zinc-900: #262b33;
+  --color-zinc-950: #1c2026;
+  /* indigo: periwinkle */
+  --color-indigo-50: oklch(0.975 0.018 272);
+  --color-indigo-100: oklch(0.95 0.032 272);
+  --color-indigo-200: oklch(0.905 0.05 272);
+  --color-indigo-300: oklch(0.845 0.064 272);
+  --color-indigo-400: oklch(0.745 0.084 272);
+  --color-indigo-500: oklch(0.655 0.094 272);
+  --color-indigo-600: oklch(0.575 0.09 272);
+  --color-indigo-700: oklch(0.5 0.08 272);
+  --color-indigo-800: oklch(0.43 0.066 272);
+  --color-indigo-900: oklch(0.375 0.052 272);
+  --color-indigo-950: oklch(0.29 0.04 272);
+  /* violet: lilac */
+  --color-violet-50: oklch(0.975 0.016 295);
+  --color-violet-100: oklch(0.95 0.029 295);
+  --color-violet-200: oklch(0.905 0.045 295);
+  --color-violet-300: oklch(0.845 0.058 295);
+  --color-violet-400: oklch(0.745 0.076 295);
+  --color-violet-500: oklch(0.655 0.085 295);
+  --color-violet-600: oklch(0.575 0.081 295);
+  --color-violet-700: oklch(0.5 0.072 295);
+  --color-violet-800: oklch(0.43 0.059 295);
+  --color-violet-900: oklch(0.375 0.047 295);
+  --color-violet-950: oklch(0.29 0.036 295);
+  /* fuchsia: mauve */
+  --color-fuchsia-50: oklch(0.975 0.015 335);
+  --color-fuchsia-100: oklch(0.95 0.027 335);
+  --color-fuchsia-200: oklch(0.905 0.043 335);
+  --color-fuchsia-300: oklch(0.845 0.054 335);
+  --color-fuchsia-400: oklch(0.745 0.071 335);
+  --color-fuchsia-500: oklch(0.655 0.08 335);
+  --color-fuchsia-600: oklch(0.575 0.076 335);
+  --color-fuchsia-700: oklch(0.5 0.068 335);
+  --color-fuchsia-800: oklch(0.43 0.056 335);
+  --color-fuchsia-900: oklch(0.375 0.044 335);
+  --color-fuchsia-950: oklch(0.29 0.034 335);
+  /* orange: apricot */
+  --color-orange-50: oklch(0.975 0.016 52);
+  --color-orange-100: oklch(0.95 0.031 52);
+  --color-orange-200: oklch(0.905 0.048 52);
+  --color-orange-300: oklch(0.845 0.061 52);
+  --color-orange-400: oklch(0.745 0.08 52);
+  --color-orange-500: oklch(0.655 0.089 52);
+  --color-orange-600: oklch(0.575 0.085 52);
+  --color-orange-700: oklch(0.5 0.076 52);
+  --color-orange-800: oklch(0.43 0.063 52);
+  --color-orange-900: oklch(0.375 0.049 52);
+  --color-orange-950: oklch(0.29 0.038 52);
+  /* sky: dusty blue */
+  --color-sky-50: oklch(0.975 0.015 232);
+  --color-sky-100: oklch(0.95 0.027 232);
+  --color-sky-200: oklch(0.905 0.043 232);
+  --color-sky-300: oklch(0.845 0.054 232);
+  --color-sky-400: oklch(0.745 0.071 232);
+  --color-sky-500: oklch(0.655 0.08 232);
+  --color-sky-600: oklch(0.575 0.076 232);
+  --color-sky-700: oklch(0.5 0.068 232);
+  --color-sky-800: oklch(0.43 0.056 232);
+  --color-sky-900: oklch(0.375 0.044 232);
+  --color-sky-950: oklch(0.29 0.034 232);
+  /* rose: dusty rose */
+  --color-rose-50: oklch(0.975 0.016 10);
+  --color-rose-100: oklch(0.95 0.031 10);
+  --color-rose-200: oklch(0.905 0.048 10);
+  --color-rose-300: oklch(0.845 0.061 10);
+  --color-rose-400: oklch(0.745 0.08 10);
+  --color-rose-500: oklch(0.655 0.089 10);
+  --color-rose-600: oklch(0.575 0.085 10);
+  --color-rose-700: oklch(0.5 0.076 10);
+  --color-rose-800: oklch(0.43 0.063 10);
+  --color-rose-900: oklch(0.375 0.049 10);
+  --color-rose-950: oklch(0.29 0.038 10);
+  /* emerald: sage */
+  --color-emerald-50: oklch(0.975 0.015 165);
+  --color-emerald-100: oklch(0.95 0.025 165);
+  --color-emerald-200: oklch(0.905 0.04 165);
+  --color-emerald-300: oklch(0.845 0.051 165);
+  --color-emerald-400: oklch(0.745 0.067 165);
+  --color-emerald-500: oklch(0.655 0.075 165);
+  --color-emerald-600: oklch(0.575 0.072 165);
+  --color-emerald-700: oklch(0.5 0.064 165);
+  --color-emerald-800: oklch(0.43 0.053 165);
+  --color-emerald-900: oklch(0.375 0.042 165);
+  --color-emerald-950: oklch(0.29 0.032 165);
+  /* amber: ochre */
+  --color-amber-50: oklch(0.975 0.019 78);
+  --color-amber-100: oklch(0.95 0.033 78);
+  --color-amber-200: oklch(0.905 0.052 78);
+  --color-amber-300: oklch(0.845 0.067 78);
+  --color-amber-400: oklch(0.745 0.088 78);
+  --color-amber-500: oklch(0.655 0.099 78);
+  --color-amber-600: oklch(0.575 0.095 78);
+  --color-amber-700: oklch(0.5 0.084 78);
+  --color-amber-800: oklch(0.43 0.069 78);
+  --color-amber-900: oklch(0.375 0.055 78);
+  --color-amber-950: oklch(0.29 0.042 78);
+  /* red: brick, a little stronger so delete still reads as a warning */
+  --color-red-50: oklch(0.975 0.026 25);
+  --color-red-100: oklch(0.95 0.047 25);
+  --color-red-200: oklch(0.905 0.073 25);
+  --color-red-300: oklch(0.845 0.093 25);
+  --color-red-400: oklch(0.745 0.122 25);
+  --color-red-500: oklch(0.655 0.136 25);
+  --color-red-600: oklch(0.575 0.131 25);
+  --color-red-700: oklch(0.5 0.116 25);
+  --color-red-800: oklch(0.43 0.096 25);
+  --color-red-900: oklch(0.375 0.075 25);
+  --color-red-950: oklch(0.29 0.058 25);
 }
 
 @media (prefers-color-scheme: dark) {
   :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
-    --focus: #34d399; /* emerald-400 */
+    --background: #1c2026;
+    --surface: #23282f;
+    --line: #343a45;
+    --foreground: #d6dae1;
+    --muted: #9aa2b0;
+    --focus: #8cc2ae;
+    --primary: #2f4a42;
+    --primary-hover: #375750;
+    --on-primary: #cfe6dc;
+    --timetable-fill: #2c2a4a;
+    --timetable-hover: #353263;
+    --timetable-line: #5b52a8;
+    --timetable-ink: #b8b0ff;
+    --timetable-dot: #8073f5;
+    --mine-fill: #3d2638;
+    --mine-hover: #4a2d44;
+    --mine-line: #94508a;
+    --mine-ink: #f2addf;
+    --mine-dot: #d76bbf;
+    --society-fill: #3d2e1f;
+    --society-hover: #4a3824;
+    --society-line: #9a6a33;
+    --society-ink: #f7c48a;
+    --society-dot: #f5a524;
+    --todo-fill: #1d3342;
+    --todo-hover: #233d50;
+    --todo-line: #3f7aa0;
+    --todo-ink: #a3d6f4;
+    --todo-dot: #4fb0e3;
+    --exam-fill: #422329;
+    --exam-hover: #502a32;
+    --exam-line: #a04556;
+    --exam-ink: #f8a9b8;
+    --exam-dot: #ec5776;
+    --gap-fill: #1d3529;
+    --gap-hover: #224033;
+    --gap-line: #3f8a63;
+    --gap-ink: #a0e2bd;
+    --gap-dot: #3ec67f;
+  }
+}
+
+/* From md the nav is a sidebar, so pages take the full height. */
+@media (min-width: 768px) {
+  :root {
+    --nav-h: 0rem;
   }
 }
 
 body {
   background: var(--background);
   color: var(--foreground);
-  font-family: var(--font-geist-sans), system-ui, sans-serif;
+  font-family: var(--font-plex-sans), system-ui, sans-serif;
   -webkit-tap-highlight-color: transparent;
 }
 
@@ -34,6 +284,14 @@ body {
 :focus-visible {
   outline: 2px solid var(--focus);
   outline-offset: 2px;
+}
+
+/* The phone's tab strip scrolls sideways, with no scrollbar showing. */
+.no-scrollbar {
+  scrollbar-width: none;
+}
+.no-scrollbar::-webkit-scrollbar {
+  display: none;
 }
 
 @media (prefers-reduced-motion: reduce) {

@@ -41,8 +41,10 @@ function writeChat(messages: ChatMessage[]) {
   }
 }
 
-/** The chat button (above the "+" on Today) and the chat it opens. */
+/** The chat panel, opened by Today's "Ask Bloomsbuddy" button. */
 export function ChatAssistant({
+  open,
+  onClose,
   days,
   deadlines,
   societies,
@@ -50,6 +52,8 @@ export function ChatAssistant({
   todos,
   manualEvents,
 }: {
+  open: boolean;
+  onClose: () => void;
   days: Day[];
   deadlines?: Deadline[];
   societies?: Society[];
@@ -57,7 +61,6 @@ export function ChatAssistant({
   todos: Todo[];
   manualEvents: ManualEvent[];
 }) {
-  const [open, setOpen] = useState(false);
   // Only rendered in the browser (Home shows a skeleton on the server), so reading storage here is safe.
   const [messages, setMessages] = useState<ChatMessage[]>(readChat);
   const [status, setStatus] = useState<"idle" | "loading" | "error">("idle");
@@ -119,19 +122,6 @@ export function ChatAssistant({
 
   return (
     <>
-      <button
-        type="button"
-        onClick={() => setOpen(true)}
-        aria-label="Ask Bloomsbuddy"
-        aria-haspopup="dialog"
-        className="fixed bottom-[calc(9.5rem+env(safe-area-inset-bottom))] right-[max(1rem,calc(50%-14rem+1rem))] z-30 flex size-14 items-center justify-center rounded-full bg-emerald-600 text-2xl text-white shadow-lg hover:bg-emerald-700 dark:bg-emerald-500 dark:text-emerald-950 dark:hover:bg-emerald-400"
-      >
-        {/* Sparkle: the assistant. Not a speech bubble. */}
-        <svg aria-hidden viewBox="0 0 24 24" fill="currentColor" className="size-7">
-          <path d="M12 2.5l1.9 5.6 5.6 1.9-5.6 1.9L12 17.5l-1.9-5.6L4.5 10l5.6-1.9L12 2.5z" />
-          <path d="M18.5 14.5l.9 2.6 2.6.9-2.6.9-.9 2.6-.9-2.6-2.6-.9 2.6-.9.9-2.6z" />
-        </svg>
-      </button>
       {open && (
         <ChatSheet
           messages={messages}
@@ -145,7 +135,7 @@ export function ChatAssistant({
             setStatus("idle");
           }}
           onProposal={setProposalStatus}
-          onClose={() => setOpen(false)}
+          onClose={onClose}
         />
       )}
     </>
@@ -210,10 +200,10 @@ function ChatSheet({
         onClose();
       }}
       onClick={(e) => e.target === e.currentTarget && onClose()}
-      className="mb-0 mt-auto h-[min(92dvh,760px)] max-h-none w-full max-w-full overflow-hidden rounded-t-3xl bg-white p-0 text-zinc-900 shadow-xl backdrop:bg-black/50 backdrop:backdrop-blur-[2px] md:my-0 md:ml-auto md:mr-0 md:h-dvh md:max-w-sm md:rounded-none md:rounded-l-3xl dark:bg-zinc-950 dark:text-zinc-100"
+      className="mb-0 mt-auto h-[min(92dvh,760px)] max-h-none w-full max-w-full overflow-hidden rounded-t-2xl bg-surface p-0 text-zinc-900 shadow-xl backdrop:bg-zinc-900/30 md:my-0 md:ml-auto md:mr-0 md:h-dvh md:max-w-sm md:rounded-none md:rounded-l-2xl dark:text-zinc-100"
     >
       <div className="flex h-full flex-col">
-        <div className="border-b border-zinc-200 px-5 pt-3 dark:border-zinc-800">
+        <div className="border-b border-line px-5 pt-3">
           <div aria-hidden className="mx-auto mb-3 h-1.5 w-10 rounded-full bg-zinc-300 md:hidden dark:bg-zinc-700" />
           <div className="mb-3 flex items-start justify-between gap-3 md:mt-4">
             <div>
@@ -228,7 +218,7 @@ function ChatSheet({
                   type="button"
                   onClick={onClear}
                   disabled={status === "loading"}
-                  className="min-h-11 rounded-full px-3 text-sm text-zinc-600 hover:bg-zinc-100 disabled:opacity-40 dark:text-zinc-400 dark:hover:bg-zinc-900"
+                  className="min-h-10 rounded-lg px-3 text-sm text-zinc-600 hover:bg-zinc-100 disabled:opacity-40 dark:text-zinc-400 dark:hover:bg-zinc-900"
                 >
                   Clear
                 </button>
@@ -237,7 +227,7 @@ function ChatSheet({
                 type="button"
                 onClick={onClose}
                 aria-label="Close"
-                className="flex size-11 items-center justify-center rounded-full text-2xl leading-none text-zinc-500 hover:bg-zinc-100 dark:hover:bg-zinc-900"
+                className="flex size-11 items-center justify-center rounded-lg text-2xl leading-none text-muted hover:bg-zinc-100 dark:hover:bg-zinc-900"
               >
                 ×
               </button>
@@ -275,7 +265,7 @@ function ChatSheet({
               <button
                 type="button"
                 onClick={onRetry}
-                className="min-h-11 rounded-full bg-zinc-100 px-4 text-sm font-medium text-zinc-700 hover:bg-zinc-200 dark:bg-zinc-800 dark:text-zinc-200 dark:hover:bg-zinc-700"
+                className="min-h-10 rounded-lg bg-zinc-100 px-4 text-sm font-medium text-zinc-700 hover:bg-zinc-200 dark:bg-zinc-800 dark:text-zinc-200 dark:hover:bg-zinc-700"
               >
                 ↻ Retry
               </button>
@@ -285,7 +275,7 @@ function ChatSheet({
 
         <form
           onSubmit={submit}
-          className="flex items-end gap-2 border-t border-zinc-200 px-4 pb-[calc(1rem+env(safe-area-inset-bottom))] pt-3 dark:border-zinc-800"
+          className="flex items-end gap-2 border-t border-line px-4 pb-[calc(1rem+env(safe-area-inset-bottom))] pt-3"
         >
           <label htmlFor="chat-input" className="sr-only">
             Message
@@ -302,12 +292,12 @@ function ChatSheet({
             maxLength={2000}
             placeholder="Ask about any time…"
             // Empty box never scrolls (a wrapped placeholder made it scroll on iPhone).
-            className={`max-h-32 min-h-11 flex-1 resize-none rounded-2xl border border-zinc-300 bg-white px-3 py-2.5 text-base text-zinc-900 dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-100 sm:text-sm ${draft ? "" : "overflow-hidden"}`}
+            className={`max-h-32 min-h-10 flex-1 resize-none rounded-xl border border-zinc-300 bg-surface px-3 py-2.5 text-base text-zinc-900 dark:border-zinc-700 dark:text-zinc-100 sm:text-sm ${draft ? "" : "overflow-hidden"}`}
           />
           <button
             type="submit"
             disabled={status === "loading" || !draft.trim()}
-            className="min-h-11 shrink-0 rounded-full bg-emerald-600 px-5 text-sm font-medium text-white hover:bg-emerald-700 disabled:cursor-not-allowed disabled:opacity-40 dark:bg-emerald-500 dark:text-emerald-950 dark:hover:bg-emerald-400"
+            className="min-h-10 shrink-0 rounded-lg bg-primary px-5 text-sm font-medium text-on-primary hover:bg-primary-hover disabled:cursor-not-allowed disabled:opacity-40"
           >
             Send
           </button>
@@ -322,11 +312,11 @@ const plainText = (s: string) => s.replace(/\*\*(.+?)\*\*/g, "$1").replace(/^#+\
 
 function Bubble({ role, children }: { role: ChatMessage["role"]; children: ReactNode }) {
   return role === "user" ? (
-    <p className="max-w-[85%] self-end whitespace-pre-wrap rounded-2xl rounded-br-md bg-emerald-600 px-3.5 py-2 text-sm text-white dark:bg-emerald-500 dark:text-emerald-950">
+    <p className="max-w-[85%] self-end whitespace-pre-wrap rounded-xl rounded-br-md bg-primary px-3.5 py-2 text-sm text-on-primary">
       {children}
     </p>
   ) : (
-    <p className="max-w-[90%] self-start whitespace-pre-wrap rounded-2xl rounded-bl-md bg-zinc-100 px-3.5 py-2 text-sm text-zinc-900 dark:bg-zinc-900 dark:text-zinc-100">
+    <p className="max-w-[90%] self-start whitespace-pre-wrap rounded-xl rounded-bl-md bg-zinc-100 px-3.5 py-2 text-sm text-zinc-900 dark:bg-zinc-900 dark:text-zinc-100">
       {children}
     </p>
   );
@@ -337,7 +327,7 @@ function TypingIndicator() {
     <div
       role="status"
       aria-label="Bloomsbuddy is typing"
-      className="flex items-center gap-1 self-start rounded-2xl rounded-bl-md bg-zinc-100 px-4 py-3 dark:bg-zinc-900"
+      className="flex items-center gap-1 self-start rounded-xl rounded-bl-md bg-zinc-100 px-4 py-3 dark:bg-zinc-900"
     >
       {[0, 150, 300].map((delay) => (
         <span
@@ -405,8 +395,8 @@ function ProposalCard({
         ];
 
   return (
-    <div className="ml-2 rounded-2xl border border-zinc-200 bg-white p-3 dark:border-zinc-800 dark:bg-zinc-950">
-      <p className="text-xs font-medium text-zinc-500">{p.kind === "event" ? "Add to calendar" : "Add to to-do"}</p>
+    <div className="ml-2 rounded-xl border border-line bg-surface p-3">
+      <p className="text-xs font-medium text-muted">{p.kind === "event" ? "Add to calendar" : "Add to to-do"}</p>
       <p className="mt-0.5 font-semibold">{p.kind === "event" ? p.event.title : p.todo.title}</p>
       {(details.length > 0 || location) && (
         <p className="mt-0.5 text-sm tabular-nums text-zinc-600 dark:text-zinc-400">
@@ -426,14 +416,14 @@ function ProposalCard({
             <button
               type="button"
               onClick={() => setClash(null)}
-              className="min-h-11 rounded-full px-4 text-sm font-medium text-zinc-700 hover:bg-amber-100 dark:text-zinc-300 dark:hover:bg-amber-900/40"
+              className="min-h-10 rounded-lg px-4 text-sm font-medium text-zinc-700 hover:bg-amber-100 dark:text-zinc-300 dark:hover:bg-amber-900/40"
             >
               Cancel
             </button>
             <button
               type="button"
               onClick={() => add(true)}
-              className="min-h-11 rounded-full bg-zinc-900 px-5 text-sm font-medium text-white hover:bg-zinc-700 dark:bg-zinc-100 dark:text-zinc-900 dark:hover:bg-zinc-300"
+              className="min-h-10 rounded-lg bg-primary px-5 text-sm font-medium text-on-primary hover:bg-primary-hover"
             >
               Add anyway
             </button>
@@ -444,14 +434,14 @@ function ProposalCard({
           <button
             type="button"
             onClick={() => onDone("dismissed")}
-            className="min-h-11 rounded-full px-4 text-sm font-medium text-zinc-600 hover:bg-zinc-100 dark:text-zinc-400 dark:hover:bg-zinc-900"
+            className="min-h-10 rounded-lg px-4 text-sm font-medium text-zinc-600 hover:bg-zinc-100 dark:text-zinc-400 dark:hover:bg-zinc-900"
           >
             Dismiss
           </button>
           <button
             type="button"
             onClick={() => add()}
-            className="min-h-11 rounded-full bg-emerald-600 px-5 text-sm font-medium text-white hover:bg-emerald-700 dark:bg-emerald-500 dark:text-emerald-950 dark:hover:bg-emerald-400"
+            className="min-h-10 rounded-lg bg-primary px-5 text-sm font-medium text-on-primary hover:bg-primary-hover"
           >
             Add
           </button>

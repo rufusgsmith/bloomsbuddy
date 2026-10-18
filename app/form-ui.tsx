@@ -1,26 +1,45 @@
-import { useEffect, useState, type ReactNode } from "react";
+import { useEffect, useRef, useState, type ReactNode } from "react";
 import type { WallTime } from "@/lib/types";
 
 // UI pieces shared across the tabs, setup and the pickers.
 
 export const inputClass =
-  "min-h-11 w-full rounded-lg border border-zinc-300 bg-white px-2.5 text-base text-zinc-900 dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-100 sm:text-sm";
+  "min-h-10 w-full rounded-lg border border-zinc-300 bg-surface px-2.5 text-base text-foreground dark:border-zinc-700 sm:text-sm";
+
+/** The height of every page: the screen under the phone's top bar, or the full screen beside the sidebar (dvh, so mobile browser bars don't change it). */
+export const PAGE_HEIGHT = "h-[calc(100dvh-var(--nav-h))]";
+
+/** A white card on the grey page: the one container style for lists, forms and panels. */
+export const cardClass = "rounded-xl border border-line bg-surface";
 
 /**
- * The frame of every tab: exactly the screen above the tab bar (min-h-16 + its 1px border + the
- * safe area; dvh, so mobile browser bars don't change it). `top` stays put like the tab bar and
- * only the body scrolls, so the page itself never does.
+ * The frame of every tab: exactly the screen beside (or under) the nav. `top` stays put like the nav and
+ * only the body scrolls, so the page itself never does. `width` is the content column.
  */
-export function TabPage({ top, bodyClassName = "pb-6 pt-4", children }: { top: ReactNode; bodyClassName?: string; children: ReactNode }) {
+export function TabPage({
+  top,
+  bodyClassName = "pb-10 pt-5",
+  width = "max-w-3xl",
+  children,
+}: {
+  top: ReactNode;
+  bodyClassName?: string;
+  width?: string;
+  children: ReactNode;
+}) {
   return (
-    <main className="mx-auto flex h-dvh w-full max-w-md flex-col overflow-hidden pb-[calc(4rem+1px+env(safe-area-inset-bottom))]">
-      <div className="shrink-0 border-b border-zinc-200 px-4 pt-8 dark:border-zinc-800">{top}</div>
-      <div className={`min-h-0 flex-1 overflow-y-auto px-4 ${bodyClassName}`}>{children}</div>
+    <main className={`flex ${PAGE_HEIGHT} w-full flex-col overflow-hidden`}>
+      <div className="shrink-0 border-b border-line">
+        <div className={`mx-auto w-full ${width} px-4 pt-6 md:px-6`}>{top}</div>
+      </div>
+      <div className="min-h-0 flex-1 overflow-y-auto">
+        <div className={`mx-auto min-h-full w-full ${width} px-4 md:px-6 ${bodyClassName}`}>{children}</div>
+      </div>
     </main>
   );
 }
 
-/** The top of every page: the small "Bloomsbuddy" line (with an optional action on the right), then the title. */
+/** The top of every page: the title (and subtitle) on the left, an optional action on the right. */
 export function PageHeader({
   title,
   subtitle,
@@ -34,21 +53,64 @@ export function PageHeader({
 }) {
   return (
     <header className="mb-5">
-      <div className="flex items-center justify-between gap-2">
-        <p className="text-sm font-medium text-emerald-600 dark:text-emerald-400">Bloomsbuddy</p>
-        {action}
+      <div className="flex flex-wrap items-start justify-between gap-x-4 gap-y-2">
+        <div className="min-w-0">
+          <h1 className="text-[22px] font-semibold leading-tight tracking-tight">{title}</h1>
+          {subtitle && <p className="mt-1 text-sm text-muted">{subtitle}</p>}
+        </div>
+        {action && <div className="flex shrink-0 flex-wrap items-center gap-2">{action}</div>}
       </div>
-      <h1 className="text-3xl font-semibold tracking-tight">{title}</h1>
-      {subtitle && <p className="mt-1 text-sm text-zinc-600 dark:text-zinc-400">{subtitle}</p>}
       {children}
     </header>
+  );
+}
+
+/** A primary button (dark) and a quiet one (white with a border), sized for header actions. */
+export const primaryButtonClass =
+  "inline-flex min-h-10 items-center justify-center gap-1.5 rounded-lg bg-primary px-3.5 text-sm font-medium text-on-primary hover:bg-primary-hover disabled:opacity-50";
+export const secondaryButtonClass =
+  "inline-flex min-h-10 items-center justify-center gap-1.5 rounded-lg border border-line bg-surface px-3.5 text-sm font-medium text-foreground hover:bg-zinc-50 disabled:opacity-50 dark:hover:bg-zinc-800";
+
+/** A grey track with the chosen option as a white pill (Week / Day, Coursework / Exam). */
+export function Segmented<T extends string>({
+  options,
+  value,
+  onChange,
+  label,
+  className = "",
+}: {
+  options: { value: T; label: ReactNode }[];
+  value: T;
+  onChange: (v: T) => void;
+  label: string;
+  className?: string;
+}) {
+  return (
+    <div role="group" aria-label={label} className={`inline-flex gap-0.5 rounded-xl border border-line bg-background p-1 ${className}`}>
+      {options.map((o) => {
+        const on = o.value === value;
+        return (
+          <button
+            key={o.value}
+            type="button"
+            aria-pressed={on}
+            onClick={() => onChange(o.value)}
+            className={`flex min-h-8 flex-1 items-center justify-center gap-1.5 whitespace-nowrap rounded-lg px-3 text-sm font-medium transition-colors ${
+              on ? "bg-surface text-foreground shadow-[0_1px_3px_rgba(16,24,40,0.07)]" : "text-muted hover:text-foreground"
+            }`}
+          >
+            {o.label}
+          </button>
+        );
+      })}
+    </div>
   );
 }
 
 export function Field({ label, children }: { label: string; children: ReactNode }) {
   return (
     <label className="flex min-w-0 flex-col gap-1">
-      <span className="text-xs font-medium text-zinc-500">{label}</span>
+      <span className="text-xs font-medium text-muted">{label}</span>
       {children}
     </label>
   );
@@ -56,7 +118,63 @@ export function Field({ label, children }: { label: string; children: ReactNode 
 
 /** A form sheet's <dialog>: a bottom sheet on phones, a panel down the right on laptops (EventSheet, ClassSheet). */
 export const sheetDialogClass =
-  "mb-0 mt-auto h-[min(92dvh,760px)] max-h-none w-full max-w-full overflow-hidden rounded-t-3xl bg-white p-0 text-zinc-900 shadow-xl backdrop:bg-black/50 backdrop:backdrop-blur-[2px] md:my-0 md:ml-auto md:mr-0 md:h-dvh md:max-w-sm md:rounded-none md:rounded-l-3xl dark:bg-zinc-950 dark:text-zinc-100";
+  "mb-0 mt-auto h-[min(92dvh,760px)] max-h-none w-full max-w-full overflow-hidden rounded-t-2xl border-line bg-surface p-0 text-foreground shadow-[0_8px_32px_rgba(16,24,40,0.16)] backdrop:bg-zinc-900/30 md:my-0 md:ml-auto md:mr-0 md:h-dvh md:max-w-md md:rounded-none md:border-l";
+
+/**
+ * A read-only panel in the sheet's place (a bottom sheet on phones, down the right on laptops): Today's
+ * gap picks and the to-do / exam / deadline panels. Esc, the ×, or a click on the backdrop closes it.
+ * Closed via React state, not the "close" event: see HomeSheet for why.
+ */
+export function SidePanel({
+  title,
+  subtitle,
+  onClose,
+  children,
+}: {
+  title: ReactNode;
+  subtitle?: ReactNode;
+  onClose: () => void;
+  children: ReactNode;
+}) {
+  const ref = useRef<HTMLDialogElement>(null);
+  useEffect(() => {
+    const dialog = ref.current;
+    dialog?.showModal();
+    return () => dialog?.close();
+  }, []);
+  return (
+    <dialog
+      ref={ref}
+      aria-labelledby="side-panel-title"
+      onCancel={(e) => {
+        e.preventDefault();
+        onClose();
+      }}
+      onClick={(e) => e.target === e.currentTarget && onClose()}
+      className={sheetDialogClass}
+    >
+      <div className="flex h-full flex-col">
+        <div className="flex shrink-0 items-start justify-between gap-3 border-b border-line px-5 pb-3 pt-4">
+          <div className="min-w-0">
+            <h2 id="side-panel-title" className="text-base font-semibold leading-snug">
+              {title}
+            </h2>
+            {subtitle && <p className="mt-0.5 text-sm tabular-nums text-muted">{subtitle}</p>}
+          </div>
+          <button
+            type="button"
+            onClick={onClose}
+            aria-label="Close"
+            className="-mr-2 -mt-1 flex size-10 shrink-0 items-center justify-center rounded-lg text-xl leading-none text-muted hover:bg-zinc-100 dark:hover:bg-zinc-800"
+          >
+            ×
+          </button>
+        </div>
+        <div className="min-h-0 flex-1 overflow-y-auto px-5 pb-[calc(1.25rem+env(safe-area-inset-bottom))] pt-4">{children}</div>
+      </div>
+    </dialog>
+  );
+}
 
 /** How long an armed delete button waits for the second tap. */
 const ARM_MS = 3000;
@@ -72,7 +190,7 @@ export function DeleteButton({
   className,
   children,
   armedText = "Tap again to delete",
-  armedClassName = "min-h-11 shrink-0 whitespace-nowrap rounded-full bg-red-600 px-3 text-sm font-medium text-white hover:bg-red-700 dark:bg-red-500 dark:hover:bg-red-600",
+  armedClassName = "min-h-10 shrink-0 whitespace-nowrap rounded-lg bg-red-600 px-3 text-sm font-medium text-white hover:bg-red-700 dark:bg-red-500 dark:hover:bg-red-600",
 }: {
   onDelete: () => void;
   /** Accessible name when idle, e.g. "Remove ECON0019". */
@@ -115,7 +233,7 @@ export function TimeField({ label, value, onChange }: { label: string; value: Wa
   const minutes = FIVE_MINS.includes(mm) ? FIVE_MINS : [...FIVE_MINS, mm].sort();
   return (
     <fieldset className="flex min-w-0 flex-col gap-1">
-      <legend className="mb-1 text-xs font-medium text-zinc-500">{label}</legend>
+      <legend className="mb-1 text-xs font-medium text-muted">{label}</legend>
       <div className="flex items-center gap-1">
         <select aria-label={`${label} hour`} value={hh} onChange={(e) => onChange(`${e.target.value}:${mm}`)} className={inputClass}>
           {HOURS.map((h) => (
@@ -196,7 +314,7 @@ export function Switch({
 
 // One fixed width for every state ("Add to my calendar", "Added ✓", "Tap again to remove"), so
 // tapping it never changes the card's text column and makes the text beside it re-wrap.
-const SMALL_PILL = "min-h-8 w-36 shrink-0 whitespace-nowrap rounded-full px-2 text-center text-xs font-medium";
+const SMALL_PILL = "min-h-8 w-36 shrink-0 whitespace-nowrap rounded-lg border border-transparent px-2 text-center text-xs font-medium";
 
 /**
  * The small "Add to calendar" pill in the bottom-right of a card (society events, deadlines).
@@ -222,7 +340,7 @@ export function CalendarButton({
       armedText="Tap again to remove"
       label={`Added to your calendar. Remove ${title}`}
       armedClassName={`${SMALL_PILL} bg-red-600 text-white hover:bg-red-700 dark:bg-red-500 dark:hover:bg-red-600`}
-      className={`${SMALL_PILL} bg-emerald-100 text-emerald-800 hover:bg-emerald-200 dark:bg-emerald-950 dark:text-emerald-200 dark:hover:bg-emerald-900`}
+      className={`${SMALL_PILL} !border-emerald-200 bg-emerald-50 text-emerald-800 hover:bg-emerald-100 dark:!border-emerald-900 dark:bg-emerald-950 dark:text-emerald-200 dark:hover:bg-emerald-900`}
     >
       Added ✓
     </DeleteButton>
@@ -231,7 +349,7 @@ export function CalendarButton({
       type="button"
       onClick={onAdd}
       aria-label={`Add ${title} to your calendar`}
-      className={`${SMALL_PILL} bg-zinc-100 text-zinc-800 hover:bg-zinc-200 dark:bg-zinc-800 dark:text-zinc-100 dark:hover:bg-zinc-700`}
+      className={`${SMALL_PILL} !border-line bg-surface text-foreground hover:bg-zinc-50 dark:hover:bg-zinc-800`}
     >
       {children}
     </button>

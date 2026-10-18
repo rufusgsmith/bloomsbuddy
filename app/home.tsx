@@ -1,7 +1,7 @@
 "use client";
 
 import { useRouter } from "next/navigation";
-import { useEffect, useMemo, useSyncExternalStore } from "react";
+import { useEffect, useMemo, useState, useSyncExternalStore } from "react";
 import {
   calendarKey,
   deadlinesOn,
@@ -63,6 +63,8 @@ export function Home() {
     () => (raw !== null && !user && !firstVisit ? buildDemo(store, todos, shownDeadlines) : null),
     [raw, user, firstVisit, store, todos, shownDeadlines],
   );
+  // Lifted here so the chat stays open when Add saves an event and Today remounts.
+  const [chatOpen, setChatOpen] = useState(false);
   const router = useRouter();
   useEffect(() => {
     if (firstVisit) router.replace("/setup");
@@ -85,9 +87,17 @@ export function Home() {
           home={home}
           todos={todos}
           manualEvents={store.events}
+          onOpenChat={() => setChatOpen(true)}
         />
         {/* Outside the keyed timeline, so the chat stays open when Add saves an event. */}
-        <ChatAssistant days={demo.days} home={home} todos={todos} manualEvents={store.events} />
+        <ChatAssistant
+          open={chatOpen}
+          onClose={() => setChatOpen(false)}
+          days={demo.days}
+          home={home}
+          todos={todos}
+          manualEvents={store.events}
+        />
       </>
     );
   }
@@ -105,8 +115,11 @@ export function Home() {
         home={home}
         todos={todos}
         manualEvents={store.events}
+        onOpenChat={() => setChatOpen(true)}
       />
       <ChatAssistant
+        open={chatOpen}
+        onClose={() => setChatOpen(false)}
         days={userDays}
         deadlines={user.deadlines}
         societies={user.societies}
@@ -177,14 +190,12 @@ function pickInitialDay(days: Day[]): string {
 
 function Skeleton() {
   return (
-    <main aria-busy="true" className="mx-auto w-full max-w-md animate-pulse px-4 pb-28 pt-8">
-      <div className="mb-2 h-4 w-24 rounded bg-zinc-200 dark:bg-zinc-800" />
-      <div className="mb-6 h-9 w-56 rounded bg-zinc-200 dark:bg-zinc-800" />
-      <div className="mb-6 h-12 rounded-xl bg-zinc-100 dark:bg-zinc-900" />
-      <div className="flex flex-col gap-3">
-        <div className="h-24 rounded-2xl bg-zinc-100 dark:bg-zinc-900" />
-        <div className="h-24 rounded-2xl bg-zinc-100 dark:bg-zinc-900" />
+    <main aria-busy="true" className="mx-auto w-full max-w-7xl animate-pulse px-4 pt-5 md:px-6">
+      <div className="mb-4 flex items-center justify-between gap-4">
+        <div className="h-10 w-56 rounded-lg bg-zinc-200 dark:bg-zinc-800" />
+        <div className="hidden h-10 w-96 rounded-lg bg-zinc-100 md:block dark:bg-zinc-900" />
       </div>
+      <div className="h-[70dvh] rounded-xl border border-line bg-surface" />
     </main>
   );
 }
