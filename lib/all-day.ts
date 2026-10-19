@@ -33,11 +33,14 @@ export function coversDay(m: ManualEvent, dateKey: DateKey): boolean {
   return m.allDay === true && m.date <= dateKey && dateKey <= lastDayOf(m);
 }
 
-/** What the strip says on dateKey. A one-day all-day event has no real time: it's TBC. */
+/**
+ * What the strip says on dateKey. A one-day society event has no real time: it's TBC. One from a
+ * calendar file is a real whole-day event, and its 00:00 start and 23:59 end mean the whole day.
+ */
 export function allDayLabel(m: ManualEvent, dateKey: DateKey): string {
-  if (!m.endDate) return "Time TBC";
-  if (dateKey === m.date) return `From ${m.startTime}`;
-  if (dateKey === m.endDate) return `Until ${m.endTime}`;
+  if (!m.endDate) return m.societyEventId ? "Time TBC" : "All day";
+  if (dateKey === m.date && m.startTime !== "00:00") return `From ${m.startTime}`;
+  if (dateKey === m.endDate && m.endTime !== "23:59") return `Until ${m.endTime}`;
   return "All day";
 }
 

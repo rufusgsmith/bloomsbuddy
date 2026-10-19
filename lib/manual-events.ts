@@ -187,45 +187,76 @@ export const findSocietyAdd = (store: EventStore, societyEventId: string) =>
   store.events.find((m) => m.societyEventId === societyEventId);
 
 /**
+ * When a start–end happens, as manual event fields: a block on its start day (a late night out is
+ * cut at midnight), or an all-day strip when it has no time or runs into a later day past 06:00.
+ */
+export function whenFields(
+  start: string,
+  end: string,
+  timeTBC?: true,
+): Pick<ManualEvent, "date" | "startTime" | "endTime" | "endDate" | "allDay"> {
+  const date = londonDateKey(start);
+  const startMin = londonWeekdayAndMinutes(start).minutes;
+  if (isAllDaySociety({ start, end, timeTBC })) {
+    const endDate = londonDateKey(end);
+    const multiDay = !timeTBC && endDate > date;
+    return {
+      date,
+      startTime: multiDay ? wallTimeOf(startMin) : "00:00",
+      endTime: multiDay ? wallTimeOf(londonWeekdayAndMinutes(end).minutes) : "23:59",
+      ...(multiDay ? { endDate } : {}),
+      allDay: true,
+    };
+  }
+  const endMin = londonDateKey(end) === date ? londonWeekdayAndMinutes(end).minutes : 24 * 60;
+  return { date, startTime: wallTimeOf(startMin), endTime: wallTimeOf(Math.max(endMin, startMin + 1)) };
+}
+
+/**
  * A society event as a one-off manual event, linked back to it. A late night out is cut at
  * midnight. One with no time, or a trip over several days, becomes an all-day event (a strip).
  */
 export function manualFromSociety(e: SocietyEvent, id: string): ManualEvent {
-  const date = londonDateKey(e.start);
-  const startMin = londonWeekdayAndMinutes(e.start).minutes;
-  const place = {
-    ...(e.venue ? { room: e.venue } : {}),
-    ...(e.buildingId ? { location: { kind: "building" as const, buildingId: e.buildingId } } : {}),
-  };
-  if (isAllDaySociety(e)) {
-    const endDate = londonDateKey(e.end);
-    const multiDay = !e.timeTBC && endDate > date;
-    return {
-      id,
-      title: e.title.slice(0, MAX_TITLE),
-      societyEventId: e.id,
-      kind: "society",
-      date,
-      startTime: multiDay ? wallTimeOf(startMin) : "00:00",
-      endTime: multiDay ? wallTimeOf(londonWeekdayAndMinutes(e.end).minutes) : "23:59",
-      ...(multiDay ? { endDate } : {}),
-      allDay: true,
-      ...place,
-      weekly: false,
-    };
-  }
-  const endMin = londonDateKey(e.end) === date ? londonWeekdayAndMinutes(e.end).minutes : 24 * 60;
   return {
     id,
     title: e.title.slice(0, MAX_TITLE),
     societyEventId: e.id,
     kind: "society",
-    date,
-    startTime: wallTimeOf(startMin),
-    endTime: wallTimeOf(Math.max(endMin, startMin + 1)),
-    ...place,
+    ...whenFields(e.start, e.end, e.timeTBC),
+    ...(e.venue ? { room: e.venue } : {}),
+    ...(e.buildingId ? { location: { kind: "building" as const, buildingId: e.buildingId } } : {}),
     weekly: false,
   };
+}
+
+// ---------- Imported from a calendar file (.ics, see ics.ts) ----------
+
+const ICS_PREFIX = "ics:";
+
+/** One imported occurrence's id: the file's UID and the day it starts. */
+export const icsEventId = (uid: string, date: DateKey) => `${ICS_PREFIX}${uid}@${date}`;
+
+export const isImported = (m: Pick<ManualEvent, "id">) => m.id.startsWith(ICS_PREFIX);
+
+/** The UID part of an imported event's id. */
+const icsUidOf = (id: string) => id.slice(ICS_PREFIX.length, id.lastIndexOf("@"));
+
+/**
+ * Saves an import in one write. Earlier imports of the same UIDs from `from` on are replaced
+ * (so importing a file again doesn't double up, and a moved or cancelled week goes away).
+ */
+export function saveImport(events: ManualEvent[], uids: string[], from: DateKey): boolean {
+  const s = load();
+  const replaced = new Set(uids);
+  const kept = s.events.filter((e) => !(isImported(e) && e.date >= from && replaced.has(icsUidOf(e.id))));
+  const ids = new Set(events.map((e) => e.id));
+  return saveEvents({ ...s, events: [...kept.filter((e) => !ids.has(e.id)), ...events] });
+}
+
+/** Deletes every imported event. */
+export function deleteImported(): boolean {
+  const s = load();
+  return saveEvents({ ...s, events: s.events.filter((e) => !isImported(e)) });
 }
 
 // ---------- The form ----------

@@ -19,8 +19,9 @@ import { DayPills, KindLegend, type CalendarEvent, type CalendarGap, type Calend
 import { DayList } from "./day-list";
 import { EventSheet, type EventFormTarget } from "./event-form";
 import { PAGE_HEIGHT, primaryButtonClass, secondaryButtonClass, Segmented, SidePanel } from "./form-ui";
-import { HomeIcon, PlusIcon, SparkleIcon } from "./icons";
+import { HomeIcon, PlusIcon, SparkleIcon, UploadIcon } from "./icons";
 import { HomeSheet } from "./home-sheet";
+import { IcsImportSheet } from "./ics-import";
 import { RecommendationPanel, type RecState } from "./recommendation-card";
 import { WeekCalendar } from "./week-calendar";
 
@@ -201,6 +202,7 @@ export function TodayTimeline({
   const [recs, setRecs] = useState<Record<string, RecState>>({});
   const [homeSheetOpen, setHomeSheetOpen] = useState(false);
   const [eventForm, setEventForm] = useState<EventFormTarget | null>(null);
+  const [importOpen, setImportOpen] = useState(false);
   const [chosenView, setChosenView] = useState<View>(readView);
   const wide = useWide();
   const view: View = wide ? chosenView : "day";
@@ -437,6 +439,10 @@ export function TodayTimeline({
                   Edit timetable
                 </Link>
               )}
+              <button type="button" onClick={() => setImportOpen(true)} aria-haspopup="dialog" aria-label="Import .ics" className={secondaryButtonClass}>
+                <UploadIcon className="size-4" />
+                <span className="hidden sm:inline">Import .ics</span>
+              </button>
               <button type="button" onClick={onOpenChat} aria-haspopup="dialog" aria-label="Ask Bloomsbuddy" className={secondaryButtonClass}>
                 <SparkleIcon className="size-4 text-emerald-600 dark:text-emerald-400" />
                 {/* Icon only on a phone, so the header stays one row. */}
@@ -479,6 +485,14 @@ export function TodayTimeline({
       </div>
 
       {homeSheetOpen && <HomeSheet home={home} onClose={() => setHomeSheetOpen(false)} />}
+      {importOpen && (
+        <IcsImportSheet
+          eventsOn={(k) => days.find((d) => d.dateKey === k)?.events ?? []}
+          lastDay={days[days.length - 1]?.dateKey ?? ""}
+          manualEvents={manualEvents}
+          onClose={() => setImportOpen(false)}
+        />
+      )}
       {eventForm && (
         <EventSheet
           target={eventForm}

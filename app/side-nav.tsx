@@ -88,17 +88,6 @@ function TabIcon({ children, className = "" }: { children: ReactNode; className?
   );
 }
 
-/** A free slot between two blocks: the app's whole idea, as its mark. */
-function Mark() {
-  return (
-    <svg aria-hidden viewBox="0 0 20 20" className="size-5 shrink-0">
-      <rect x="2" y="2" width="16" height="4.5" rx="1.5" className="fill-indigo-300 dark:fill-indigo-400" />
-      <rect x="2.75" y="8.25" width="14.5" height="3.5" rx="1.25" fill="none" strokeDasharray="2 1.5" strokeWidth="1.5" className="stroke-emerald-500 dark:stroke-emerald-400" />
-      <rect x="2" y="13.5" width="16" height="4.5" rx="1.5" className="fill-rose-300 dark:fill-rose-400" />
-    </svg>
-  );
-}
-
 export function SideNav() {
   const pathname = usePathname();
   const tabsHidden = HIDDEN_ON.some((p) => isActive(pathname, p));
@@ -107,10 +96,11 @@ export function SideNav() {
     <>
       {/* Phone: a bar on top. */}
       <header className="sticky top-0 z-40 flex h-[var(--nav-h)] shrink-0 items-center gap-3 border-b border-line bg-surface px-4 md:hidden">
-        <Link href="/" aria-label="Bloomsbuddy" className="flex shrink-0 items-center gap-2 text-[15px] font-semibold tracking-tight">
-          <Mark />
-          {tabsHidden && <span>Bloomsbuddy</span>}
-        </Link>
+        {tabsHidden && (
+          <Link href="/" className="flex shrink-0 items-center text-[15px] font-semibold tracking-tight">
+            Bloomsbuddy
+          </Link>
+        )}
         {!tabsHidden && (
           <nav aria-label="Main" className="no-scrollbar min-w-0 overflow-x-auto">
             <ul className="flex w-max gap-1">
@@ -138,12 +128,9 @@ export function SideNav() {
       {/* md and up: a sidebar. */}
       {!tabsHidden && (
         <aside className="sticky top-0 hidden h-dvh w-[4.25rem] shrink-0 flex-col border-r border-line bg-surface px-3 py-5 md:flex lg:w-56">
-          <Link
-            href="/"
-            className="mb-7 flex min-h-9 items-center gap-2.5 px-2 text-[15px] font-semibold tracking-tight"
-          >
-            <Mark />
-            <span className="hidden lg:inline">Bloomsbuddy</span>
+          {/* Wordmark only where there's room for it; on md the sidebar is icons only. */}
+          <Link href="/" className="mb-7 hidden min-h-9 items-center px-2 text-[15px] font-semibold tracking-tight lg:flex">
+            Bloomsbuddy
           </Link>
           <nav aria-label="Main">
             <ul className="flex flex-col gap-1">
