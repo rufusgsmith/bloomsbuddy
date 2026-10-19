@@ -173,3 +173,12 @@ export function PlusIcon({ className }: { className?: string }) {
     </Icon>
   );
 }
+
+export function UploadIcon({ className }: { className?: string }) {
+  return (
+    <Icon className={className}>
+      <path d="M12 15V4M7.5 8.5 12 4l4.5 4.5" />
+      <path d="M5 14v4.5A1.5 1.5 0 0 0 6.5 20h11a1.5 1.5 0 0 0 1.5-1.5V14" />
+    </Icon>
+  );
+}

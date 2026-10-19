@@ -180,11 +180,12 @@ function makeTools(
   return [...tools, getHome];
 }
 
-const OPTION_SCHEMA = {
+/** One pick. "home" is only in the type enum when going home is worth it, so Claude can't pick it otherwise. */
+const optionSchema = (types: readonly string[]) => ({
   type: "object",
   properties: {
     title: { type: "string" },
-    type: { type: "string", enum: RECOMMENDATION_TYPES },
+    type: { type: "string", enum: types },
     place: { type: "string" },
     travelMins: { type: "integer" },
     travelMode: { type: "string", enum: ["walk", "tube"] },
@@ -195,17 +196,20 @@ const OPTION_SCHEMA = {
   },
   required: ["title", "type", "place", "travelMins", "travelMode", "reason", "relatedId", "libraryId", "todoId"],
   additionalProperties: false,
-} as const;
+});
 
-const OUTPUT_SCHEMA = {
-  type: "object",
-  properties: {
-    top: OPTION_SCHEMA,
-    alternatives: { type: "array", items: OPTION_SCHEMA },
-  },
-  required: ["top", "alternatives"],
-  additionalProperties: false,
-};
+function outputSchema(homeAllowed: boolean) {
+  const option = optionSchema(RECOMMENDATION_TYPES.filter((t) => homeAllowed || t !== "home"));
+  return {
+    type: "object",
+    properties: {
+      top: option,
+      alternatives: { type: "array", items: option },
+    },
+    required: ["top", "alternatives"],
+    additionalProperties: false,
+  };
+}
 
 
 function describeGap(gap: Gap, dayGaps: Gap[], home?: HomeLocation, todos?: Todo[], allDay?: string[]): string {
@@ -311,6 +315,10 @@ export async function recommendForGap(
   // Done one-offs out, repeating ones only when they come up in this gap.
   const todos = opts.todos ? todosForGap(opts.todos, gap) : undefined;
   const seen = newSeen();
+  // Worked out here, from where the student is, as get_home would: the prompt's "only when worthIt" rule
+  // isn't always followed, so when home isn't worth it the schema leaves "home" out altogether.
+  if (opts.home && gap.usableMins >= SHORT_GAP_MINS) homeRow(gap, opts.home, gap.locationId, seen);
+  const homeAllowed = seen.homeWorthIt === true;
 
   const runner = client.beta.messages.toolRunner({
     model: MODEL,
@@ -319,7 +327,7 @@ export async function recommendForGap(
     system: SYSTEM_PROMPT,
     tools: makeTools(gap, seen, dayGaps, opts.deadlines, opts.societies, opts.home, todos, new Set(opts.addedEventIds)),
     // "low" effort keeps thinking (billed as output) short: picking 3 options doesn't need deep reasoning.
-    output_config: { effort: "low", format: { type: "json_schema", schema: OUTPUT_SCHEMA } },
+    output_config: { effort: "low", format: { type: "json_schema", schema: outputSchema(homeAllowed) } },
     messages: [
       {
         role: "user",
