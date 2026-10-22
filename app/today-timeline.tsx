@@ -11,10 +11,12 @@ import { homeLabel } from "@/lib/home";
 import { readRec, recFingerprint, saveRec } from "@/lib/rec-cache";
 import { requestContext } from "@/lib/request-context";
 import { addDays, dayOfWeek, formatTime, londonWeekdayAndMinutes, mondayOf } from "@/lib/london-time";
+import { demoRecommendation } from "@/lib/mock/recommendations";
 import { blankDraft, deleteManualEvent, draftFromClass, draftFromManual, nextHalfHour } from "@/lib/manual-events";
 import { saveTodos } from "@/lib/todos";
 import type { Deadline, Gap, Home, ManualEvent, Recommendation, Society, TimetableEvent, Todo } from "@/lib/types";
 import { allDayText, type AllDayItem } from "@/lib/all-day";
+import { useClaudeConnected } from "./claude-status";
 import { DayPills, KindLegend, type CalendarEvent, type CalendarGap, type CalendarMarker } from "./day-calendar";
 import { DayList } from "./day-list";
 import { EventSheet, type EventFormTarget } from "./event-form";
@@ -48,6 +50,8 @@ const londonDayMonth = new Intl.DateTimeFormat("en-GB", {
 const londonWeekdayLong = new Intl.DateTimeFormat("en-GB", { timeZone: "Europe/London", weekday: "long" });
 
 const time = formatTime;
+/** How long a demo gap "thinks" before its ready-made picks appear, so a couple of Checking… lines show. */
+const DEMO_THINKING_MS = 3200;
 // Midday UTC is always the same calendar day in London, whatever the season.
 const dayDate = (dateKey: string) => new Date(`${dateKey}T12:00:00Z`);
 const place = (id: keyof typeof BUILDINGS) => BUILDINGS[id].shortName;
@@ -206,6 +210,9 @@ export function TodayTimeline({
   const [chosenView, setChosenView] = useState<View>(readView);
   const wide = useWide();
   const view: View = wide ? chosenView : "day";
+  const connected = useClaudeConnected();
+  // The demo week is the same for everyone: nothing in it can be added, edited or removed.
+  const readOnly = mode === "demo";
 
   const day = days.find((d) => d.dateKey === dateKey);
 
@@ -280,6 +287,7 @@ export function TodayTimeline({
     if (!on || !e) return;
     // A to-do or exam block opens a small panel under it instead of the event form.
     if (e.todoId || e.deadlineId) return setOpenId(openId === id ? null : id);
+    if (readOnly) return;
     const manual = e.manualId ? manualEvents.find((m) => m.id === e.manualId) : undefined;
     setEventForm(
       manual
@@ -291,6 +299,19 @@ export function TodayTimeline({
   async function loadRec(gap: Gap, dayGaps: Gap[], on: Day | undefined = day) {
     setRecs((r) => ({ ...r, [gap.id]: { status: "loading" } }));
     let next: RecState;
+    if (mode === "demo") {
+      // The demo week never calls Claude: its picks are written in advance (lib/mock/recommendations.ts).
+      // The pause plays the same "Checking…" lines a real answer would.
+      await new Promise((resolve) => setTimeout(resolve, DEMO_THINKING_MS));
+      const rec = demoRecommendation(gap);
+      next = rec ? { status: "ok", rec } : { status: "offline" };
+      setRecs((r) => ({ ...r, [gap.id]: next }));
+      return;
+    }
+    if (!connected) {
+      setRecs((r) => ({ ...r, [gap.id]: { status: "offline" } }));
+      return;
+    }
     try {
       const res = await fetch("/api/recommend", {
         method: "POST",
@@ -303,6 +324,10 @@ export function TodayTimeline({
           ...requestContext({ deadlines, societies, home, todos, manualEvents }),
         }),
       });
+      if (res.status === 503) {
+        setRecs((r) => ({ ...r, [gap.id]: { status: "offline" } }));
+        return;
+      }
       if (!res.ok) throw new Error(`HTTP ${res.status}`);
       const rec = (await res.json()) as Recommendation;
       saveRec(recFingerprint(gap, cacheKey), rec);
@@ -322,7 +347,7 @@ export function TodayTimeline({
     }
     setOpenId(gap.id);
     if (recs[gap.id] || !on) return;
-    const saved = readRec(recFingerprint(gap, cacheKey));
+    const saved = mode === "user" ? readRec(recFingerprint(gap, cacheKey)) : undefined;
     if (saved) setRecs((r) => ({ ...r, [gap.id]: { status: "ok", rec: saved } }));
     else void loadRec(gap, on.gaps, on);
   }
@@ -346,7 +371,7 @@ export function TodayTimeline({
         ? {
             title: openTodo.title,
             subtitle: `${time(openTodo.start)}–${time(openTodo.end)} · To-do`,
-            body: <ItemPanel href="/todo" tab="To-do" onRemove={removeFromToday} />,
+            body: <ItemPanel href="/todo" tab="To-do" onRemove={readOnly ? undefined : removeFromToday} readOnly={readOnly} />,
           }
         : openExam
           ? {
@@ -358,19 +383,19 @@ export function TodayTimeline({
               ]
                 .filter(Boolean)
                 .join(" · "),
-              body: <ItemPanel href="/deadlines" tab="Deadlines" />,
+              body: <ItemPanel href="/deadlines" tab="Deadlines" readOnly={readOnly} />,
             }
           : openAllDay
             ? {
                 title: openAllDay.title,
                 subtitle: `${openAllDay.label} · Society`,
-                body: <ItemPanel href="/societies" tab="Societies" onRemove={removeFromToday} />,
+                body: <ItemPanel href="/societies" tab="Societies" onRemove={readOnly ? undefined : removeFromToday} readOnly={readOnly} />,
               }
             : openDeadline
               ? {
                   title: [openDeadline.moduleCode, openDeadline.title].filter(Boolean).join(" "),
                   subtitle: `Due ${time(openDeadline.due)} · Deadline`,
-                  body: <ItemPanel href="/deadlines" tab="Deadlines" onRemove={removeFromToday} />,
+                  body: <ItemPanel href="/deadlines" tab="Deadlines" onRemove={readOnly ? undefined : removeFromToday} readOnly={readOnly} />,
                 }
               : null;
 
@@ -433,22 +458,24 @@ export function TodayTimeline({
                   ]}
                 />
               )}
-              <HomeButton home={home} onClick={() => setHomeSheetOpen(true)} />
+              <HomeButton home={home} onClick={readOnly ? undefined : () => setHomeSheetOpen(true)} />
               {mode === "user" && (
                 <Link href="/timetable" className={secondaryButtonClass}>
                   Edit timetable
                 </Link>
               )}
-              <button type="button" onClick={() => setImportOpen(true)} aria-haspopup="dialog" aria-label="Import .ics" className={secondaryButtonClass}>
-                <UploadIcon className="size-4" />
-                <span className="hidden sm:inline">Import .ics</span>
-              </button>
+              {!readOnly && (
+                <button type="button" onClick={() => setImportOpen(true)} aria-haspopup="dialog" aria-label="Import .ics" className={secondaryButtonClass}>
+                  <UploadIcon className="size-4" />
+                  <span className="hidden sm:inline">Import .ics</span>
+                </button>
+              )}
               <button type="button" onClick={onOpenChat} aria-haspopup="dialog" aria-label="Ask Bloomsbuddy" className={secondaryButtonClass}>
                 <SparkleIcon className="size-4 text-emerald-600 dark:text-emerald-400" />
                 {/* Icon only on a phone, so the header stays one row. */}
                 <span className="hidden sm:inline">Ask Bloomsbuddy</span>
               </button>
-              {day && (
+              {day && !readOnly && (
                 <button type="button" onClick={addEvent} aria-haspopup="dialog" className={primaryButtonClass}>
                   <PlusIcon className="size-4" />
                   Add event
@@ -459,7 +486,7 @@ export function TodayTimeline({
 
           {mode === "demo" && (
             <p className="mb-4 flex flex-wrap items-center justify-between gap-x-3 gap-y-1 rounded-lg border border-emerald-200 bg-emerald-50 px-3 py-2 text-sm text-emerald-900 dark:border-emerald-500/40 dark:bg-emerald-500/10 dark:text-emerald-100">
-              <span>This is a demo week. Snap your timetable and Moodle to make it yours.</span>
+              <span>This is a demo week, so it&apos;s read-only. Tap a free gap to see what Bloomsbuddy suggests, or set up your own week.</span>
               <Link href="/setup" className="font-medium underline underline-offset-2 hover:no-underline">
                 Set up my week
               </Link>
@@ -531,7 +558,7 @@ export function TodayTimeline({
               onGapTap={(k, id) => tapOn(k, id, (d) => tapGap(d, id))}
               onMarkerTap={(k, id) => tapOn(k, id)}
               onAllDayTap={(k, id) => tapOn(k, id)}
-              onSlotTap={(k, min) => setEventForm({ kind: "new", draft: blankDraft(k, min) })}
+              onSlotTap={readOnly ? undefined : (k, min) => setEventForm({ kind: "new", draft: blankDraft(k, min) })}
             />
           ) : (
             day && (
@@ -545,7 +572,7 @@ export function TodayTimeline({
                 onGapTap={(id) => tapGap(day, id)}
                 onMarkerTap={(id) => setOpenId(openId === id ? null : id)}
                 onAllDayTap={(id) => setOpenId(openId === id ? null : id)}
-                onAdd={addEvent}
+                onAdd={readOnly ? undefined : addEvent}
               />
             )
           )}
@@ -615,7 +642,7 @@ function GapPanel({ gap, rec, onReload }: { gap: Gap; rec: RecState | undefined;
  * The side panel for a to-do block, exam block or deadline flag: a way to take it off Today, and
  * its tab. An exam is fixed, so it has no onRemove: it's edited in the Deadlines tab instead.
  */
-function ItemPanel({ href, tab, onRemove }: { href: string; tab: string; onRemove?: () => void }) {
+function ItemPanel({ href, tab, onRemove, readOnly }: { href: string; tab: string; onRemove?: () => void; readOnly?: boolean }) {
   return (
     <div>
       <div className="flex flex-wrap items-center gap-2">
@@ -629,21 +656,34 @@ function ItemPanel({ href, tab, onRemove }: { href: string; tab: string; onRemov
         </Link>
       </div>
       <p className="mt-3 text-sm text-muted">
-        {onRemove ? `It stays in ${tab}, and you can add it back there.` : `Edit or delete it in ${tab}.`}
+        {readOnly
+          ? "The demo week is read-only. Set up your own week to change it."
+          : onRemove
+            ? `It stays in ${tab}, and you can add it back there.`
+            : `Edit or delete it in ${tab}.`}
       </p>
     </div>
   );
 }
 
 /** Opens the Home sheet. Shows where home is, or invites the student to add it. */
-function HomeButton({ home, onClick }: { home: Home | null; onClick: () => void }) {
+function HomeButton({ home, onClick }: { home: Home | null; onClick?: () => void }) {
   return (
     <button
       type="button"
       onClick={onClick}
-      aria-haspopup="dialog"
-      aria-label={home ? `Home: ${homeLabel(home)}. Change` : "Add your home, so I know when a gap's long enough to pop back"}
-      className={`${secondaryButtonClass} max-w-56`}
+      // No onClick in the demo week: it shows the demo home but can't change it.
+      aria-disabled={!onClick}
+      title={onClick ? undefined : "The demo week's home. Set up your own week to change it."}
+      aria-haspopup={onClick ? "dialog" : undefined}
+      aria-label={
+        !onClick && home
+          ? `Home: ${homeLabel(home)} (demo)`
+          : home
+            ? `Home: ${homeLabel(home)}. Change`
+            : "Add your home, so I know when a gap's long enough to pop back"
+      }
+      className={`${secondaryButtonClass} max-w-56 ${onClick ? "" : "cursor-default hover:bg-surface dark:hover:bg-surface"}`}
     >
       <HomeIcon className={`size-4 shrink-0 ${home ? "text-muted" : "text-emerald-600 dark:text-emerald-400"}`} />
       <span className={`hidden truncate sm:inline ${home?.kind === "none" ? "text-muted" : ""}`}>{home ? homeLabel(home) : "Add your home"}</span>

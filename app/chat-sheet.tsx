@@ -12,6 +12,7 @@ import { allDayText } from "@/lib/all-day";
 import { requestContext } from "@/lib/request-context";
 import { parseTodos, readRawTodos, saveTodos } from "@/lib/todos";
 import type { ChatMessage, ChatProposal, DateKey, Deadline, Home, ManualEvent, Society, TimetableEvent, Todo } from "@/lib/types";
+import { NotConnectedNote, useClaudeConnected } from "./claude-status";
 import type { Day } from "./today-timeline";
 
 // The chat assistant on Today. Session-only: the conversation lives in sessionStorage, so it survives
@@ -51,6 +52,7 @@ export function ChatAssistant({
   home,
   todos,
   manualEvents,
+  offline: demoOffline = false,
 }: {
   open: boolean;
   onClose: () => void;
@@ -60,7 +62,13 @@ export function ChatAssistant({
   home: Home | null;
   todos: Todo[];
   manualEvents: ManualEvent[];
+  /** True in the demo week: it never calls Claude. */
+  offline?: boolean;
 }) {
+  const connected = useClaudeConnected();
+  // Also set when the server says the key is missing, in case the page was built with one.
+  const [noKey, setNoKey] = useState(false);
+  const offline = demoOffline || !connected || noKey;
   // Only rendered in the browser (Home shows a skeleton on the server), so reading storage here is safe.
   const [messages, setMessages] = useState<ChatMessage[]>(readChat);
   const [status, setStatus] = useState<"idle" | "loading" | "error">("idle");
@@ -92,6 +100,11 @@ export function ChatAssistant({
           ...requestContext({ deadlines, societies, home, todos, manualEvents }),
         }),
       });
+      if (res.status === 503) {
+        setNoKey(true);
+        setStatus("idle");
+        return;
+      }
       if (!res.ok) throw new Error(`HTTP ${res.status}`);
       const data = (await res.json()) as { reply: string; proposals: ChatProposal[] };
       setMessages([...turns, { role: "assistant", content: data.reply, proposals: data.proposals }]);
@@ -124,6 +137,7 @@ export function ChatAssistant({
     <>
       {open && (
         <ChatSheet
+          offline={offline}
           messages={messages}
           status={status}
           todayKey={todayKey}
@@ -147,6 +161,7 @@ export function ChatAssistant({
  * A native <dialog> with showModal() gives Esc to close, a focus trap and the top layer.
  */
 function ChatSheet({
+  offline,
   messages,
   status,
   todayKey,
@@ -157,6 +172,7 @@ function ChatSheet({
   onProposal,
   onClose,
 }: {
+  offline: boolean;
   messages: ChatMessage[];
   status: "idle" | "loading" | "error";
   todayKey: DateKey;
@@ -236,7 +252,13 @@ function ChatSheet({
         </div>
 
         <div ref={scrollRef} aria-live="polite" className="flex min-h-0 flex-1 flex-col gap-3 overflow-y-auto px-5 py-4">
-          {messages.length === 0 && (
+          {offline && (
+            <NotConnectedNote>
+              The chat needs a live Claude call for every answer, so it&apos;s off here. Tap a free gap on the demo week to
+              see the kind of picks Bloomsbuddy makes.
+            </NotConnectedNote>
+          )}
+          {!offline && messages.length === 0 && (
             <Bubble role="assistant">
               Hiya! Ask me about any bit of your week: a gap, an evening, your Saturday afternoon. I can add things to
               your calendar or to-do list too.
@@ -273,35 +295,37 @@ function ChatSheet({
           )}
         </div>
 
-        <form
-          onSubmit={submit}
-          className="flex items-end gap-2 border-t border-line px-4 pb-[calc(1rem+env(safe-area-inset-bottom))] pt-3"
-        >
-          <label htmlFor="chat-input" className="sr-only">
-            Message
-          </label>
-          <textarea
-            id="chat-input"
-            value={draft}
-            onChange={(e) => setDraft(e.target.value)}
-            onKeyDown={(e) => {
-              // Enter sends, Shift+Enter adds a line.
-              if (e.key === "Enter" && !e.shiftKey && !e.nativeEvent.isComposing) submit(e);
-            }}
-            rows={1}
-            maxLength={2000}
-            placeholder="Ask about any time…"
-            // Empty box never scrolls (a wrapped placeholder made it scroll on iPhone).
-            className={`max-h-32 min-h-10 flex-1 resize-none rounded-xl border border-zinc-300 bg-surface px-3 py-2.5 text-base text-zinc-900 dark:border-zinc-700 dark:text-zinc-100 sm:text-sm ${draft ? "" : "overflow-hidden"}`}
-          />
-          <button
-            type="submit"
-            disabled={status === "loading" || !draft.trim()}
-            className="min-h-10 shrink-0 rounded-lg bg-primary px-5 text-sm font-medium text-on-primary hover:bg-primary-hover disabled:cursor-not-allowed disabled:opacity-40"
+        {!offline && (
+          <form
+            onSubmit={submit}
+            className="flex items-end gap-2 border-t border-line px-4 pb-[calc(1rem+env(safe-area-inset-bottom))] pt-3"
           >
-            Send
-          </button>
-        </form>
+            <label htmlFor="chat-input" className="sr-only">
+              Message
+            </label>
+            <textarea
+              id="chat-input"
+              value={draft}
+              onChange={(e) => setDraft(e.target.value)}
+              onKeyDown={(e) => {
+                // Enter sends, Shift+Enter adds a line.
+                if (e.key === "Enter" && !e.shiftKey && !e.nativeEvent.isComposing) submit(e);
+              }}
+              rows={1}
+              maxLength={2000}
+              placeholder="Ask about any time…"
+              // Empty box never scrolls (a wrapped placeholder made it scroll on iPhone).
+              className={`max-h-32 min-h-10 flex-1 resize-none rounded-xl border border-zinc-300 bg-surface px-3 py-2.5 text-base text-zinc-900 dark:border-zinc-700 dark:text-zinc-100 sm:text-sm ${draft ? "" : "overflow-hidden"}`}
+            />
+            <button
+              type="submit"
+              disabled={status === "loading" || !draft.trim()}
+              className="min-h-10 shrink-0 rounded-lg bg-primary px-5 text-sm font-medium text-on-primary hover:bg-primary-hover disabled:cursor-not-allowed disabled:opacity-40"
+            >
+              Send
+            </button>
+          </form>
+        )}
       </div>
     </dialog>
   );

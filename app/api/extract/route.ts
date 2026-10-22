@@ -53,7 +53,7 @@ export async function POST(request: Request) {
 
   if (!process.env.ANTHROPIC_API_KEY) {
     console.error("[extract] ANTHROPIC_API_KEY is not set");
-    return Response.json({ error: "Reading timetables is unavailable right now" }, { status: 502 });
+    return Response.json({ error: "Claude isn't connected (no API key)", code: "no_key" }, { status: 503 });
   }
 
   try {

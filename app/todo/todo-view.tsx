@@ -1,11 +1,14 @@
 "use client";
 
+import Link from "next/link";
 import { useMemo, useState, useSyncExternalStore, type FormEvent, type ReactNode } from "react";
 import { DeleteButton, inputClass, PageHeader, Switch, TabPage, TimeField } from "../form-ui";
 import { TODO_DEFAULT_MINS } from "@/lib/calendar-items";
 import { formatDurationShort } from "@/lib/duration";
 import { locationLabel } from "@/lib/location";
 import { londonTodayKey, relativeDayLabel } from "@/lib/london-time";
+import { mockTodos } from "@/lib/mock";
+import { parseUserData, readRawUserData, subscribeUserData } from "@/lib/storage";
 import {
   byDueThenEstimate,
   draftMinutes,
@@ -32,7 +35,8 @@ import type { DateKey, Todo, Weekday } from "@/lib/types";
 import { LocationPicker } from "../location-picker";
 import { resolveLocation } from "../postcode-lookup";
 
-// The To-do tab. Saved straight to localStorage on every change, in the demo week too.
+// The To-do tab. Saved straight to localStorage on every change. Without a saved timetable it shows
+// the demo week's to-dos read-only (the demo is the same for everyone, see lib/mock/todos.ts).
 // Open to-dos are sent with each recommendation request, so Claude can slot one into a gap.
 // Everything here is plain form controls checked in code: no Claude calls.
 
@@ -65,6 +69,8 @@ export function TodoView() {
   // "" = checked, nothing saved. null = not checked yet (server render / hydration).
   const raw = useSyncExternalStore(subscribeTodos, () => readRawTodos() ?? "", () => null);
   const todos = useMemo(() => parseTodos(raw), [raw]);
+  const rawUser = useSyncExternalStore(subscribeUserData, () => readRawUserData() ?? "", () => null);
+  const demo = rawUser !== null && !parseUserData(rawUser);
   const [saveFailed, setSaveFailed] = useState(false);
 
   function persist(next: Todo[]) {
@@ -73,8 +79,10 @@ export function TodoView() {
 
   return (
     <TabPage top={<PageHeader title="To-do" subtitle="Add a time estimate and I'll squeeze these into your gaps." />}>
-      {raw === null ? (
+      {raw === null || rawUser === null ? (
         <Skeleton />
+      ) : demo ? (
+        <DemoTodos />
       ) : (
         <>
           {saveFailed && (
@@ -179,6 +187,33 @@ export function TodoEditor({
         </details>
       )}
     </div>
+  );
+}
+
+/** The demo week's to-do list, read-only. */
+function DemoTodos() {
+  // Built in the browser only (after the skeleton), so the server never moves the demo week.
+  const [{ today, todos }] = useState(() => ({ today: londonTodayKey(), todos: mockTodos().sort(byDueThenEstimate) }));
+  return (
+    <>
+      <Link
+        href="/setup"
+        className="mb-5 flex items-center justify-between gap-3 rounded-lg border border-emerald-200 bg-emerald-50 px-3 py-2 text-sm text-emerald-900 hover:bg-emerald-100 dark:border-emerald-500/40 dark:bg-emerald-500/10 dark:text-emerald-100"
+      >
+        <span>
+          <span className="font-medium">These are demo to-dos.</span>{" "}
+          <span>Set up your week to keep your own list.</span>
+        </span>
+        <span className="shrink-0 font-medium underline underline-offset-2">Set up</span>
+      </Link>
+      <ul className="flex flex-col gap-2">
+        {todos.map((t) => (
+          <li key={t.id}>
+            <TodoRow todo={t} today={today} done={false} allowTick={false} />
+          </li>
+        ))}
+      </ul>
+    </>
   );
 }
 
@@ -659,9 +694,10 @@ function TodoRow({
   today: DateKey;
   done: boolean;
   allowTick: boolean;
-  onToggle: () => void;
-  onEdit: () => void;
-  onRemove: () => void;
+  onToggle?: () => void;
+  /** Left out (with onRemove) for the read-only demo to-dos. */
+  onEdit?: () => void;
+  onRemove?: () => void;
 }) {
   const body = (
     <>
@@ -687,15 +723,17 @@ function TodoRow({
       ) : (
         <div className="flex min-h-14 min-w-0 flex-1 items-center gap-3 py-2 pl-4">{body}</div>
       )}
-      <button
-        type="button"
-        onClick={onEdit}
-        aria-label={`Edit ${t.title}`}
-        className="flex size-11 shrink-0 items-center justify-center rounded-lg text-muted hover:bg-zinc-100 hover:text-zinc-800 dark:hover:bg-zinc-900 dark:hover:text-zinc-200"
-      >
-        <PencilIcon />
-      </button>
-      {!allowTick && (
+      {onEdit && (
+        <button
+          type="button"
+          onClick={onEdit}
+          aria-label={`Edit ${t.title}`}
+          className="flex size-11 shrink-0 items-center justify-center rounded-lg text-muted hover:bg-zinc-100 hover:text-zinc-800 dark:hover:bg-zinc-900 dark:hover:text-zinc-200"
+        >
+          <PencilIcon />
+        </button>
+      )}
+      {!allowTick && onRemove && (
         <DeleteButton
           onDelete={onRemove}
           label={`Remove ${t.title}`}

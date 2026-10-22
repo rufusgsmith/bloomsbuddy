@@ -3,6 +3,7 @@
 import { useEffect, useState, type ReactNode } from "react";
 import type { BusynessLevel, Recommendation, RecommendationOption, RecommendationType } from "@/lib/types";
 import { travelLabel } from "@/lib/buildings";
+import { NotConnectedNote } from "./claude-status";
 import { BookIcon, CupIcon, HomeIcon, MoonIcon, PeopleIcon } from "./icons";
 
 // One icon tile per pick type, in the same card language as Today's day list.
@@ -14,7 +15,8 @@ const TYPE_ICON: Record<RecommendationType, (p: { className?: string }) => React
   food: CupIcon,
 };
 
-export type RecState = { status: "loading" } | { status: "ok"; rec: Recommendation } | { status: "error" };
+/** offline: Claude isn't connected (no API key), so there are no picks to show. */
+export type RecState = { status: "loading" } | { status: "ok"; rec: Recommendation } | { status: "error" } | { status: "offline" };
 
 const LOADING_LINES = [
   "Checking library busyness…",
@@ -24,11 +26,11 @@ const LOADING_LINES = [
   "Checking your to-do list…",
 ];
 
-
 /** onReload asks Claude again, skipping the cached picks: "Try again" after an error, "↻ Redo" after picks. */
 export function RecommendationPanel({ state, onReload }: { state: RecState; onReload: () => void }) {
   if (state.status === "loading") return <Loading />;
   if (state.status === "error") return <Fallback onRetry={onReload} />;
+  if (state.status === "offline") return <NotConnectedNote>The demo week&apos;s gaps still have picks.</NotConnectedNote>;
 
   const { top, alternatives } = state.rec;
   return (

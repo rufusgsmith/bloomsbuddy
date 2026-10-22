@@ -202,7 +202,7 @@ function Demo({ calendar }: { calendar: Calendar }) {
           </li>
         ))}
       </ul>
-      <EventList events={events} now={clock.now} today={clock.today} stillLoading={0} calendar={calendar} />
+      <EventList events={events} now={clock.now} today={clock.today} stillLoading={0} calendar={calendar} readOnly />
     </>
   );
 }
@@ -259,12 +259,15 @@ function EventList({
   today,
   stillLoading,
   calendar,
+  readOnly = false,
 }: {
   events: SocietyEvent[];
   now: number;
   today: DateKey;
   stillLoading: number;
   calendar: Calendar;
+  /** The demo week: events can't be added to the calendar. */
+  readOnly?: boolean;
 }) {
   const days = useMemo(() => {
     const upcoming = [...new Map(events.map((e) => [e.id, e])).values()]
@@ -286,7 +289,7 @@ function EventList({
           <ul className="flex flex-col gap-2">
             {dayEvents.map((e) => (
               <li key={e.id}>
-                <EventCard event={e} calendar={calendar} />
+                <EventCard event={e} calendar={calendar} readOnly={readOnly} />
               </li>
             ))}
           </ul>
@@ -325,7 +328,7 @@ function timeLabel(e: SocietyEvent): string {
   return `${start}–${formatTime(e.end)}`;
 }
 
-function EventCard({ event: e, calendar }: { event: SocietyEvent; calendar: Calendar }) {
+function EventCard({ event: e, calendar, readOnly }: { event: SocietyEvent; calendar: Calendar; readOnly: boolean }) {
   // Only what the page actually said: no cost tag when it didn't mention cost.
   const tags: { label: string; tone: string }[] = [];
   if (e.membersOnly) tags.push({ label: "Members only", tone: "bg-violet-100 text-violet-800 dark:bg-violet-950 dark:text-violet-200" });
@@ -369,9 +372,11 @@ function EventCard({ event: e, calendar }: { event: SocietyEvent; calendar: Cale
             </div>
           )}
         </div>
-        <CalendarButton added={cal.added} onAdd={() => cal.add(false)} onRemove={cal.remove} title={e.title}>
-          Add to my calendar
-        </CalendarButton>
+        {!readOnly && (
+          <CalendarButton added={cal.added} onAdd={() => cal.add(false)} onRemove={cal.remove} title={e.title}>
+            Add to my calendar
+          </CalendarButton>
+        )}
       </div>
       {cal.clash && (
         <div role="alert" className="mt-3 rounded-xl border border-amber-300 bg-amber-50 p-3 dark:border-amber-800 dark:bg-amber-950/40">
