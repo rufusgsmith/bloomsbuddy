@@ -7,7 +7,7 @@ import { TODO_DEFAULT_MINS } from "@/lib/calendar-items";
 import { formatDurationShort } from "@/lib/duration";
 import { locationLabel } from "@/lib/location";
 import { londonTodayKey, relativeDayLabel } from "@/lib/london-time";
-import { mockTodos } from "@/lib/mock";
+import { demoTodayKey, mockTodos } from "@/lib/mock";
 import { parseUserData, readRawUserData, subscribeUserData } from "@/lib/storage";
 import {
   byDueThenEstimate,
@@ -193,7 +193,7 @@ export function TodoEditor({
 /** The demo week's to-do list, read-only. */
 function DemoTodos() {
   // Built in the browser only (after the skeleton), so the server never moves the demo week.
-  const [{ today, todos }] = useState(() => ({ today: londonTodayKey(), todos: mockTodos().sort(byDueThenEstimate) }));
+  const [{ today, todos }] = useState(() => ({ today: demoTodayKey(), todos: mockTodos().sort(byDueThenEstimate) }));
   return (
     <>
       <Link

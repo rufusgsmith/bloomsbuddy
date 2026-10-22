@@ -16,7 +16,7 @@ import { findGaps, findShortGaps } from "@/lib/gaps";
 import { parseHome, readRawHome, subscribeHome } from "@/lib/home";
 import { addDays, londonTodayKey } from "@/lib/london-time";
 import { dayEventsFor, parseEvents, readRawEvents, subscribeEvents, type EventStore } from "@/lib/manual-events";
-import { DEMO_HOME, demoMonday, mockDeadlines, mockTimetable, mockTodos } from "@/lib/mock";
+import { DEMO_HOME, demoMonday, demoTodayKey, mockDeadlines, mockTimetable, mockTodos } from "@/lib/mock";
 import { parseUserData, readRawUserData, subscribeUserData } from "@/lib/storage";
 import { parseTodos, readRawTodos, subscribeTodos } from "@/lib/todos";
 import { expandWeekly } from "@/lib/timetable";
@@ -132,7 +132,7 @@ interface CalendarDeadlines {
 const DEMO_SHOWN_DEADLINES: CalendarDeadlines = { shown: ["dl-stat0002-quiz3", "dl-econ0019-ps2"], hiddenExams: [] };
 
 /**
- * The mock week, Monday–Sunday (always the current one). Opens on today, or on Monday at the weekend.
+ * The mock week, Monday–Sunday, always 19–25 Oct 2026. Opens on the day with today's real weekday.
  * Built only from mock data, never the visitor's saved events, to-dos or home: its gaps must match
  * the ready-made picks in lib/mock/recommendations.ts.
  */
@@ -141,13 +141,13 @@ function buildDemo(): { days: Day[]; initialDateKey: string; todos: Todo[] } {
   const deadlines = mockDeadlines();
   const todos = mockTodos();
   const store: EventStore = { events: [], hidden: [] };
-  const today = londonTodayKey();
-  const monday = demoMonday(today);
+  const monday = demoMonday();
   const dateKeys = Array.from({ length: 7 }, (_, i) => addDays(monday, i));
   const days = dateKeys.map((dateKey) =>
     buildDay(dateKey, dayEventsFor(timetable, store, dateKey), todos, deadlines, DEMO_SHOWN_DEADLINES, store),
   );
-  return { days, initialDateKey: dateKeys.includes(today) ? today : monday, todos };
+  // Opens on the day with today's real weekday (the demo week is always 19–25 Oct 2026).
+  return { days, initialDateKey: demoTodayKey(), todos };
 }
 
 /** Every day of term, Monday–Sunday, weekends included. */

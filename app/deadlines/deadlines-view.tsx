@@ -17,7 +17,7 @@ import { blankDraft, deadlineProblem, fromDraft, toDraft, type DraftDeadline } f
 import { londonDateKey } from "@/lib/gaps";
 import { locationLabel } from "@/lib/location";
 import { addDays, formatTime, formatTimeRange, londonTodayKey, mondayOf } from "@/lib/london-time";
-import { mockDeadlines } from "@/lib/mock";
+import { demoNow, demoTodayKey, mockDeadlines } from "@/lib/mock";
 import { prepareImage } from "@/lib/prepare-image";
 import { parseUserData, readRawUserData, saveUserData, subscribeUserData } from "@/lib/storage";
 import type { DateKey, Deadline, UserData } from "@/lib/types";
@@ -334,7 +334,10 @@ function Groups({
   const rawHidden = useSyncExternalStore(subscribeCalendarDeadlines, () => readRawHiddenExams() ?? "", () => null);
   const hiddenExams = useMemo(() => parseDeadlineIds(rawHidden), [rawHidden]);
   // Read the clock once on mount. Switching tabs remounts, which is fresh enough for days-left.
-  const [{ now, today }] = useState(() => ({ now: Date.now(), today: londonTodayKey() }));
+  // The demo deadlines use the demo week's clock (today's weekday and time in 19–25 Oct 2026).
+  const [{ now, today }] = useState(() =>
+    readOnly ? { now: demoNow(), today: demoTodayKey() } : { now: Date.now(), today: londonTodayKey() },
+  );
   const sunday = addDays(mondayOf(today), 6);
   const sorted = [...deadlines].sort(byDue);
 
