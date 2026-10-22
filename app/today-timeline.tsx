@@ -24,7 +24,7 @@ import { PAGE_HEIGHT, primaryButtonClass, secondaryButtonClass, Segmented, SideP
 import { HomeIcon, PlusIcon, SparkleIcon, UploadIcon } from "./icons";
 import { HomeSheet } from "./home-sheet";
 import { IcsImportSheet } from "./ics-import";
-import { RecommendationPanel, type RecState } from "./recommendation-card";
+import { DEMO_STEP_MS, DEMO_THINKING_MS, RecommendationPanel, type RecState } from "./recommendation-card";
 import { WeekCalendar } from "./week-calendar";
 
 export interface Day {
@@ -50,8 +50,6 @@ const londonDayMonth = new Intl.DateTimeFormat("en-GB", {
 const londonWeekdayLong = new Intl.DateTimeFormat("en-GB", { timeZone: "Europe/London", weekday: "long" });
 
 const time = formatTime;
-/** How long a demo gap "thinks" before its ready-made picks appear, so a couple of Checking… lines show. */
-const DEMO_THINKING_MS = 3200;
 // Midday UTC is always the same calendar day in London, whatever the season.
 const dayDate = (dateKey: string) => new Date(`${dateKey}T12:00:00Z`);
 const place = (id: keyof typeof BUILDINGS) => BUILDINGS[id].shortName;
@@ -297,11 +295,11 @@ export function TodayTimeline({
   }
 
   async function loadRec(gap: Gap, dayGaps: Gap[], on: Day | undefined = day) {
-    setRecs((r) => ({ ...r, [gap.id]: { status: "loading" } }));
+    setRecs((r) => ({ ...r, [gap.id]: mode === "demo" ? { status: "loading", stepMs: DEMO_STEP_MS } : { status: "loading" } }));
     let next: RecState;
     if (mode === "demo") {
       // The demo week never calls Claude: its picks are written in advance (lib/mock/recommendations.ts).
-      // The pause plays the same "Checking…" lines a real answer would.
+      // The pause runs through each "Checking…" line once, quickly, like a real answer would.
       await new Promise((resolve) => setTimeout(resolve, DEMO_THINKING_MS));
       const rec = demoRecommendation(gap);
       next = rec ? { status: "ok", rec } : { status: "offline" };

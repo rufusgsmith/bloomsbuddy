@@ -16,19 +16,27 @@ const TYPE_ICON: Record<RecommendationType, (p: { className?: string }) => React
 };
 
 /** offline: Claude isn't connected (no API key), so there are no picks to show. */
-export type RecState = { status: "loading" } | { status: "ok"; rec: Recommendation } | { status: "error" } | { status: "offline" };
+export type RecState = { status: "loading"; stepMs?: number } | { status: "ok"; rec: Recommendation } | { status: "error" } | { status: "offline" };
 
 const LOADING_LINES = [
   "Checking library busyness…",
   "Checking society events…",
   "Checking your deadlines…",
+  "Checking walking times…",
   "Checking travel time home…",
   "Checking your to-do list…",
 ];
 
+/** How long each line shows while Claude answers (usually several seconds). */
+const STEP_MS = 1500;
+/** The demo week's ready-made picks: each line once, quickly, then the picks. */
+export const DEMO_STEP_MS = 550;
+// A touch under the full run, so the list never wraps back to its first line before the picks appear.
+export const DEMO_THINKING_MS = DEMO_STEP_MS * LOADING_LINES.length - 50;
+
 /** onReload asks Claude again, skipping the cached picks: "Try again" after an error, "↻ Redo" after picks. */
 export function RecommendationPanel({ state, onReload }: { state: RecState; onReload: () => void }) {
-  if (state.status === "loading") return <Loading />;
+  if (state.status === "loading") return <Loading stepMs={state.stepMs ?? STEP_MS} />;
   if (state.status === "error") return <Fallback onRetry={onReload} />;
   if (state.status === "offline") return <NotConnectedNote>The demo week&apos;s gaps still have picks.</NotConnectedNote>;
 
@@ -55,12 +63,12 @@ export function RecommendationPanel({ state, onReload }: { state: RecState; onRe
   );
 }
 
-function Loading() {
+function Loading({ stepMs }: { stepMs: number }) {
   const [line, setLine] = useState(0);
   useEffect(() => {
-    const id = setInterval(() => setLine((i) => (i + 1) % LOADING_LINES.length), 1500);
+    const id = setInterval(() => setLine((i) => (i + 1) % LOADING_LINES.length), stepMs);
     return () => clearInterval(id);
-  }, []);
+  }, [stepMs]);
 
   return (
     <div aria-busy="true">
