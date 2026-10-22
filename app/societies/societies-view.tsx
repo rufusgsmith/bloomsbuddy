@@ -21,7 +21,7 @@ import {
 } from "@/lib/manual-events";
 import { CalendarButton, PageHeader, TabPage } from "../form-ui";
 import { PeopleIcon } from "../icons";
-import { mockDeadlines, mockSocietyEvents, mockTimetable } from "@/lib/mock";
+import { demoNow, demoTodayKey, mockDeadlines, mockSocietyEvents, mockTimetable } from "@/lib/mock";
 import { parseUserData, readRawUserData, saveUserData, subscribeUserData } from "@/lib/storage";
 import { termEndKey } from "@/lib/term";
 import { expandWeekly } from "@/lib/timetable";
@@ -176,8 +176,9 @@ function Mine({ user, calendar }: { user: UserData; calendar: Calendar }) {
 
 /** No saved timetable: the demo week's societies and events, read-only. */
 function Demo({ calendar }: { calendar: Calendar }) {
-  const [clock] = useState(() => ({ now: Date.now(), today: londonTodayKey() }));
-  // Built in the browser only, so the server never moves the demo week with its own clock.
+  // The demo week's clock: today's real weekday and time placed in 19–25 Oct 2026.
+  const [clock] = useState(() => ({ now: demoNow(), today: demoTodayKey() }));
+  // Built in the browser only, like the rest of the demo.
   const events = useMemo(() => mockSocietyEvents(), []);
   const names = [...new Set(events.map((e) => e.society))].sort();
 

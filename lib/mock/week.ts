@@ -1,19 +1,31 @@
-// Moves the mock data to the current week, so demo mode never runs out of days.
-// The mock files are written as the week of Mon 12 Oct 2026 (easy to read and edit). Each call
-// shifts them by whole weeks to the demo week below. Recomputed on every call, so a long-running
-// server or an open tab doesn't get stuck on an old week.
+// The demo week is always Mon 19 – Sun 25 Oct 2026, whatever the real date, so its deadlines and
+// to-dos never go overdue. The mock files are written as the week of Mon 12 Oct 2026 and moved here
+// by toDemoWeek. "Now" in the demo is the real London weekday and time placed in that week
+// (demoNow), so a visitor on a Thursday at 14:05 sees Thursday 22 Oct at 14:05.
 
-import { addDays, dayOfWeek, londonIso, londonTodayKey, mondayOf } from "../london-time";
+import { addDays, londonIso, londonWeekdayAndMinutes } from "../london-time";
 import type { DateKey, IsoDateTime } from "../types";
 
 /** The Monday the mock files are written against. */
 const BASE_MONDAY = "2026-10-12";
 
-/** This week's Monday in London. At the weekend, next week's: a finished week isn't much use. */
-export function demoMonday(today: DateKey = londonTodayKey()): DateKey {
-  const monday = mondayOf(today);
-  return dayOfWeek(today) > 5 ? addDays(monday, 7) : monday;
+/** The demo week's Monday. Fixed: the ready-made picks and their weekday wording are written for it. */
+export const DEMO_MONDAY: DateKey = "2026-10-19";
+
+export const demoMonday = (): DateKey => DEMO_MONDAY;
+
+const pad = (n: number) => String(n).padStart(2, "0");
+
+/** The real London weekday and time of `real` (ms), moved into the demo week, in ms. */
+export function demoNow(real: number = Date.now()): number {
+  const { weekday, minutes } = londonWeekdayAndMinutes(new Date(real).toISOString());
+  const at = londonIso(addDays(DEMO_MONDAY, weekday - 1), `${pad(Math.floor(minutes / 60))}:${pad(minutes % 60)}`);
+  return Date.parse(at) + (real % 60_000);
 }
+
+/** The demo week's "today": the day with the real weekday. */
+export const demoTodayKey = (real: number = Date.now()): DateKey =>
+  addDays(DEMO_MONDAY, londonWeekdayAndMinutes(new Date(real).toISOString()).weekday - 1);
 
 /**
  * A mock instant moved into the demo week. Mock instants are written in London's own offset,

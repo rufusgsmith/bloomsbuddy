@@ -11,6 +11,7 @@ import { homeLabel } from "@/lib/home";
 import { readRec, recFingerprint, saveRec } from "@/lib/rec-cache";
 import { requestContext } from "@/lib/request-context";
 import { addDays, dayOfWeek, formatTime, londonWeekdayAndMinutes, mondayOf } from "@/lib/london-time";
+import { demoNow } from "@/lib/mock";
 import { demoRecommendation } from "@/lib/mock/recommendations";
 import { blankDraft, deleteManualEvent, draftFromClass, draftFromManual, nextHalfHour } from "@/lib/manual-events";
 import { saveTodos } from "@/lib/todos";
@@ -256,7 +257,9 @@ export function TodayTimeline({
     const next = sameWeekday ?? fallback;
     if (next) selectDay(next.dateKey);
   }
-  const now = useNow();
+  const realNow = useNow();
+  // The demo week is always 19–25 Oct 2026: "now" is today's real weekday and time placed in it.
+  const now = mode === "demo" ? demoNow(realNow) : realNow;
   const nowIso = new Date(now).toISOString();
   const todayKey = londonDateKey(nowIso);
   const openGap = day?.gaps.find((g) => g.id === openId);

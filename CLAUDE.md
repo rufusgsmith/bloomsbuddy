@@ -69,7 +69,7 @@ Every data source sits behind a **provider interface** with a `mock` and a `real
 - `lib/config.ts`: `isDemoMode()`
 - `lib/term.ts`: `termEndKey(user)`, the end of term (the timetable's last week, else UCL's Term 1 end). The Societies tab lists events up to it
 - `lib/prepare-image.ts`: shrinks a screenshot before `/api/extract` (setup and the Deadlines tab's "Re-scan Moodle screenshot")
-- `lib/mock/`: one realistic student week, written as Mon 12 – Fri 16 Oct 2026 and moved to the current London week on every call (`week.ts`; at the weekend, next week)
+- `lib/mock/`: one realistic student week, written as Mon 12 – Fri 16 Oct 2026 and moved to the fixed demo week, Mon 19 – Sun 25 Oct 2026 (`DEMO_MONDAY` in `week.ts`), so demo deadlines and to-dos never go overdue. The demo's "now" is today's real London weekday and time placed in that week (`demoNow` / `demoTodayKey`): Today's red line, day titles, and the To-do, Deadlines and Societies demo views use it
 - `lib/providers/`: provider interfaces + mocks; `societies.ts` is the real SU events provider (scraped on every request, no cache; parallel requests share one in-flight scrape per society)
 - `app/library/`: the Library tab, the live UCL seat page in an iframe (`USE_IFRAME` flag; fallback card on failure)
 - `lib/library-busyness.ts`: library busyness estimates (not a provider; Claude and the UI only see the level, never seat numbers)
