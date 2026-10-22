@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { useMemo, useRef, useState, useSyncExternalStore, type ReactNode } from "react";
+import { useClaudeConnected } from "../claude-status";
 import { CalendarButton, DeleteButton, Field, inputClass, PageHeader, TabPage } from "../form-ui";
 import { CameraIcon, FlagIcon, PenIcon } from "../icons";
 import {
@@ -139,7 +140,7 @@ export function DeadlinesView() {
               Set up
             </span>
           </Link>
-          <Groups deadlines={demo ?? []} />
+          <Groups deadlines={demo ?? []} readOnly />
         </>
       )}
     </TabPage>
@@ -148,6 +149,8 @@ export function DeadlinesView() {
 
 /** The saved deadlines, editable. One form open at a time: a row being edited, or a new one. */
 function Editor({ user }: { user: UserData }) {
+  // Re-scanning is a Claude call: hidden when the site has no API key (adding by hand still works).
+  const connected = useClaudeConnected();
   const [draft, setDraft] = useState<DraftDeadline | null>(null);
   const [isNew, setIsNew] = useState(false);
   const [saveFailed, setSaveFailed] = useState(false);
@@ -209,7 +212,7 @@ function Editor({ user }: { user: UserData }) {
           >
             + Add deadline
           </button>
-          <RescanButton onScanned={addScanned} />
+          {connected && <RescanButton onScanned={addScanned} />}
         </div>
       )}
       {user.deadlines.length === 0 && !draft ? (
@@ -314,8 +317,11 @@ function Groups({
   deadlines,
   formFor = () => null,
   onEdit,
+  readOnly = false,
 }: {
   deadlines: Deadline[];
+  /** The demo deadlines: no editing and no calendar pills. */
+  readOnly?: boolean;
   /** The edit form, shown in place of the row while that deadline is being edited. */
   formFor?: (d: Deadline) => ReactNode;
   /** Tapping a row edits it. Left out for the read-only demo deadlines. */
@@ -355,6 +361,7 @@ function Groups({
                       past={g.title === "Past"}
                       onEdit={onEdit && (() => onEdit(d))}
                       added={d.exam ? !hiddenExams.includes(d.id) : onCalendar.includes(d.id)}
+                      readOnly={readOnly}
                     />
                   )}
                 </li>
@@ -376,12 +383,14 @@ function DeadlineRow({
   past,
   onEdit,
   added,
+  readOnly,
 }: {
   deadline: Deadline;
   today: DateKey;
   past: boolean;
   onEdit?: () => void;
   added: boolean;
+  readOnly: boolean;
 }) {
   const title = [d.moduleCode, d.title].filter(Boolean).join(" ");
   return (
@@ -427,7 +436,7 @@ function DeadlineRow({
           <DaysLeft days={daysBetween(today, londonDateKey(d.due))} past={past} />
         </span>
         {/* Coursework: a flag on Today at the due time. Exams: their block, on until taken off. Not for past ones. */}
-        {!past && (
+        {!past && !readOnly && (
           <CalendarButton
             added={added}
             onAdd={() => (d.exam ? setExamOnCalendar : setDeadlineOnCalendar)(d.id, true)}

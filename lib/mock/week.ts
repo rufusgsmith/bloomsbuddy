@@ -24,3 +24,7 @@ export function toDemoWeek(iso: IsoDateTime, monday: DateKey = demoMonday()): Is
   const shift = Math.round((Date.parse(monday) - Date.parse(BASE_MONDAY)) / 86_400_000);
   return londonIso(addDays(iso.slice(0, 10), shift), iso.slice(11, 16));
 }
+
+/** A mock London day ("2026-10-15") moved into the demo week. */
+export const toDemoDay = (dateKey: DateKey, monday: DateKey = demoMonday()): DateKey =>
+  toDemoWeek(`${dateKey}T12:00:00+01:00`, monday).slice(0, 10);

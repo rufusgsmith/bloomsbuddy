@@ -49,7 +49,8 @@ export function DayList({
   onGapTap: (id: string) => void;
   onMarkerTap: (id: string) => void;
   onAllDayTap: (id: string) => void;
-  onAdd: () => void;
+  /** Left out when the day is read-only (the demo week). */
+  onAdd?: () => void;
 }) {
   const rows: Row[] = [
     ...events.map((item): Row => ({ kind: "event", at: item.startMin, item })),
@@ -61,10 +62,12 @@ export function DayList({
     return (
       <div className="flex flex-col items-start gap-3 rounded-xl border border-dashed border-zinc-300 bg-surface p-6 dark:border-zinc-700">
         <p className="text-sm text-muted">Nothing scheduled.</p>
-        <button type="button" onClick={onAdd} className={secondaryButtonClass}>
-          <PlusIcon className="size-4" />
-          Add event
-        </button>
+        {onAdd && (
+          <button type="button" onClick={onAdd} className={secondaryButtonClass}>
+            <PlusIcon className="size-4" />
+            Add event
+          </button>
+        )}
       </div>
     );
   }

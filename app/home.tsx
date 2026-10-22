@@ -1,7 +1,6 @@
 "use client";
 
-import { useRouter } from "next/navigation";
-import { useEffect, useMemo, useState, useSyncExternalStore } from "react";
+import { useMemo, useState, useSyncExternalStore } from "react";
 import {
   calendarKey,
   deadlinesOn,
@@ -17,8 +16,8 @@ import { findGaps, findShortGaps } from "@/lib/gaps";
 import { parseHome, readRawHome, subscribeHome } from "@/lib/home";
 import { addDays, londonTodayKey } from "@/lib/london-time";
 import { dayEventsFor, parseEvents, readRawEvents, subscribeEvents, type EventStore } from "@/lib/manual-events";
-import { demoMonday, mockDeadlines, mockTimetable } from "@/lib/mock";
-import { onboardingSkipped, parseUserData, readRawUserData, subscribeUserData } from "@/lib/storage";
+import { DEMO_HOME, demoMonday, mockDeadlines, mockTimetable, mockTodos } from "@/lib/mock";
+import { parseUserData, readRawUserData, subscribeUserData } from "@/lib/storage";
 import { parseTodos, readRawTodos, subscribeTodos } from "@/lib/todos";
 import { expandWeekly } from "@/lib/timetable";
 import type { Deadline, Todo, UserData } from "@/lib/types";
@@ -27,7 +26,8 @@ import { TodayTimeline, type Day } from "./today-timeline";
 
 /**
  * Shows the student's own timetable when they've saved one, otherwise the demo week.
- * A first-time visitor (nothing saved, onboarding not skipped) is sent to /setup instead.
+ * A first-time visitor lands on the demo week too (never sent to /setup), so a shared link opens
+ * straight on it. The demo banner links to setup.
  * localStorage only exists in the browser, so the server renders a skeleton and the
  * real content appears right after hydration (no flash of the demo week).
  */
@@ -58,45 +58,36 @@ export function Home() {
   const userDays = useMemo(() => (user ? buildDays(user, store, todos, shownDeadlines) : null), [user, store, todos, shownDeadlines]);
   // Only built in the browser, once we know there's no usable saved timetable, so the server
   // never renders a week from its own clock.
-  const firstVisit = raw === "" && !onboardingSkipped();
-  const demo = useMemo(
-    () => (raw !== null && !user && !firstVisit ? buildDemo(store, todos, shownDeadlines) : null),
-    [raw, user, firstVisit, store, todos, shownDeadlines],
-  );
+  const demo = useMemo(() => (raw !== null && !user ? buildDemo() : null), [raw, user]);
   // Lifted here so the chat stays open when Add saves an event and Today remounts.
   const [chatOpen, setChatOpen] = useState(false);
-  const router = useRouter();
-  useEffect(() => {
-    if (firstVisit) router.replace("/setup");
-  }, [firstVisit, router]);
 
-  if (raw === null || firstVisit) return <Skeleton />;
+  if (raw === null) return <Skeleton />;
   // Everything besides the timetable that changes the gaps or the picks. Also keys the saved picks.
   const inputsKey = `${rawHome ?? ""}|${rawEvents ?? ""}|${todoKey}|${rawHiddenExams ?? ""}`;
   if (!user || !userDays) {
     if (!demo) return <Skeleton />;
     return (
       <>
+        {/* Fixed and read-only, so it never reads the visitor's saved home, events or to-dos. */}
         <TodayTimeline
-          // Remount when home or events change, so cached recommendations for old gaps are dropped.
-          key={inputsKey}
-          cacheKey={inputsKey}
+          cacheKey="demo"
           days={demo.days}
           initialDateKey={demo.initialDateKey}
           mode="demo"
-          home={home}
-          todos={todos}
-          manualEvents={store.events}
+          home={DEMO_HOME}
+          todos={demo.todos}
           onOpenChat={() => setChatOpen(true)}
         />
-        {/* Outside the keyed timeline, so the chat stays open when Add saves an event. */}
+        {/* The demo week never calls Claude, so the chat only explains that. */}
         <ChatAssistant
           open={chatOpen}
           onClose={() => setChatOpen(false)}
           days={demo.days}
-          home={home}
-          todos={todos}
-          manualEvents={store.events}
+          home={DEMO_HOME}
+          todos={demo.todos}
+          manualEvents={[]}
+          offline
         />
       </>
     );
@@ -131,21 +122,32 @@ export function Home() {
   );
 }
 
-/** The mock week, Monday–Sunday (always the current one). Opens on today, or on Monday at the weekend. */
 /** Which deadlines are flagged on the calendar, and which exams were taken off it. */
 interface CalendarDeadlines {
   shown: string[];
   hiddenExams: string[];
 }
 
-function buildDemo(store: EventStore, todos: Todo[], shown: CalendarDeadlines): { days: Day[]; initialDateKey: string } {
+/** Deadline flags shown on the demo week (each one's due time on its day). */
+const DEMO_SHOWN_DEADLINES: CalendarDeadlines = { shown: ["dl-stat0002-quiz3", "dl-econ0019-ps2"], hiddenExams: [] };
+
+/**
+ * The mock week, Monday–Sunday (always the current one). Opens on today, or on Monday at the weekend.
+ * Built only from mock data, never the visitor's saved events, to-dos or home: its gaps must match
+ * the ready-made picks in lib/mock/recommendations.ts.
+ */
+function buildDemo(): { days: Day[]; initialDateKey: string; todos: Todo[] } {
   const timetable = mockTimetable();
   const deadlines = mockDeadlines();
+  const todos = mockTodos();
+  const store: EventStore = { events: [], hidden: [] };
   const today = londonTodayKey();
   const monday = demoMonday(today);
   const dateKeys = Array.from({ length: 7 }, (_, i) => addDays(monday, i));
-  const days = dateKeys.map((dateKey) => buildDay(dateKey, dayEventsFor(timetable, store, dateKey), todos, deadlines, shown, store));
-  return { days, initialDateKey: dateKeys.includes(today) ? today : monday };
+  const days = dateKeys.map((dateKey) =>
+    buildDay(dateKey, dayEventsFor(timetable, store, dateKey), todos, deadlines, DEMO_SHOWN_DEADLINES, store),
+  );
+  return { days, initialDateKey: dateKeys.includes(today) ? today : monday, todos };
 }
 
 /** Every day of term, Monday–Sunday, weekends included. */

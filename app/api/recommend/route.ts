@@ -38,7 +38,7 @@ export async function POST(request: Request) {
 
   if (!process.env.ANTHROPIC_API_KEY) {
     console.error("[recommend] ANTHROPIC_API_KEY is not set");
-    return Response.json({ error: "Recommendations are unavailable right now" }, { status: 502 });
+    return Response.json({ error: "Claude isn't connected (no API key)", code: "no_key" }, { status: 503 });
   }
 
   try {

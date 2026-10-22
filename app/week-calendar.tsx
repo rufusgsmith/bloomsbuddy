@@ -64,7 +64,8 @@ export function WeekCalendar({
   onMarkerTap: (dateKey: string, id: string) => void;
   onAllDayTap: (dateKey: string, id: string) => void;
   /** Tap on empty space: the half hour that was tapped. */
-  onSlotTap: (dateKey: string, min: number) => void;
+  /** Left out when the calendar is read-only (the demo week). */
+  onSlotTap?: (dateKey: string, min: number) => void;
 }) {
   const start = DAY_START;
   const end = DAY_END;
@@ -165,14 +166,16 @@ export function WeekCalendar({
                 <div key={m} aria-hidden className="absolute inset-x-0 border-t border-line/70" style={{ top: y(m) }} />
               ))}
               {/* Behind everything, so only taps on empty space reach it. */}
-              <div
-                aria-hidden
-                className="absolute inset-0 cursor-pointer"
-                onClick={(ev) => {
-                  const offset = ev.clientY - ev.currentTarget.getBoundingClientRect().top;
-                  onSlotTap(d.dateKey, Math.max(start, Math.floor((start + offset / PX_PER_MIN) / 30) * 30));
-                }}
-              />
+              {onSlotTap && (
+                <div
+                  aria-hidden
+                  className="absolute inset-0 cursor-pointer"
+                  onClick={(ev) => {
+                    const offset = ev.clientY - ev.currentTarget.getBoundingClientRect().top;
+                    onSlotTap(d.dateKey, Math.max(start, Math.floor((start + offset / PX_PER_MIN) / 30) * 30));
+                  }}
+                />
+              )}
 
               {d.gaps.filter((g) => inRange(g.startMin, g.endMin)).map((g) => {
                 const top = y(Math.max(start, g.startMin));

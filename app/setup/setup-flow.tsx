@@ -18,6 +18,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useEffect, useRef, useState, useSyncExternalStore, type ReactNode } from "react";
 import { BUILDINGS } from "@/lib/buildings";
+import { NotConnectedNote, useClaudeConnected } from "../claude-status";
 import { DayCalendar, DayPills } from "../day-calendar";
 import { DeleteButton, Field, inputClass, PageHeader, sheetDialogClass } from "../form-ui";
 import { HomePicker } from "../home-picker";
@@ -155,7 +156,7 @@ function Editor({ mode, initial }: { mode: SetupMode; initial: UserData | null }
 
   function useDemo() {
     clearUserData();
-    markOnboardingSkipped(); // otherwise Today would send them straight back to onboarding
+    markOnboardingSkipped();
     router.push("/");
   }
 
@@ -1164,8 +1165,12 @@ function Uploader<K extends "timetable" | "deadlines">({
     if (await extract("text", async () => ({ text: trimmed }))) setText("");
   }
 
+  // Reading screenshots and text is a Claude call: off when the site has no API key.
+  const connected = useClaudeConnected();
+
   // Pasting a screenshot (Cmd/Ctrl+V) works too: handy on a laptop.
   useEffect(() => {
+    if (!connected) return;
     function onPaste(e: ClipboardEvent) {
       const item = [...(e.clipboardData?.items ?? [])].find((i) => i.type.startsWith("image/"));
       if (item) void handleFile(item.getAsFile());
@@ -1175,6 +1180,8 @@ function Uploader<K extends "timetable" | "deadlines">({
   });
 
   const reading = state.status === "reading";
+
+  if (!connected) return <NotConnectedNote>Add your {many} by hand below instead.</NotConnectedNote>;
 
   return (
     <div className="flex flex-col gap-3">
