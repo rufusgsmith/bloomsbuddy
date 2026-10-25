@@ -6,6 +6,18 @@ import type { WallTime } from "@/lib/types";
 export const inputClass =
   "min-h-10 w-full rounded-lg border border-zinc-300 bg-surface px-2.5 text-base text-foreground dark:border-zinc-700 sm:text-sm";
 
+/**
+ * Spread on every form and text box so the browser and password managers don't offer names,
+ * emails or addresses (e.g. "Email tutor…" in a to-do title looked like an email field).
+ */
+export const noAutofill = {
+  autoComplete: "off",
+  "data-1p-ignore": true,
+  "data-lpignore": "true",
+  "data-bwignore": true,
+  "data-form-type": "other",
+} as const;
+
 /** The height of every page: the screen under the phone's top bar, or the full screen beside the sidebar (dvh, so mobile browser bars don't change it). */
 export const PAGE_HEIGHT = "h-[calc(100dvh-var(--nav-h))]";
 

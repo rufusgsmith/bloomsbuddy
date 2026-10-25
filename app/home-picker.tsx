@@ -4,7 +4,7 @@ import { useMemo, useState, type FormEvent, type ReactNode } from "react";
 import { BUILDINGS, getBuilding, HALL_IDS, searchBuildings, travelLabel, travelTime, type Area, type BuildingId } from "@/lib/buildings";
 import { isPostcodeShape } from "@/lib/postcode";
 import type { Home } from "@/lib/types";
-import { inputClass } from "./form-ui";
+import { inputClass, noAutofill } from "./form-ui";
 import { BuildingIcon, HomeIcon, SlashIcon } from "./icons";
 import { lookupPostcode } from "./postcode-lookup";
 
@@ -93,7 +93,7 @@ export function HomePicker({
   }
 
   return (
-    <form onSubmit={onSubmit} className="flex min-h-0 flex-1 flex-col">
+    <form {...noAutofill} onSubmit={onSubmit} className="flex min-h-0 flex-1 flex-col">
       <div role="radiogroup" aria-label="Where do you live?" className="flex min-h-0 flex-1 flex-col gap-2 overflow-y-auto">
         <OptionCard
           selected={choice === "hall"}
@@ -102,7 +102,7 @@ export function HomePicker({
           title="UCL hall"
           subtitle={hallId && choice === "hall" ? BUILDINGS[hallId].name : "Including intercollegiate halls"}
         >
-          <input
+          <input {...noAutofill}
             type="search"
             className={inputClass}
             value={query}
@@ -142,7 +142,7 @@ export function HomePicker({
         >
           <label className="flex flex-col gap-1.5">
             <span className="text-sm font-medium">Your postcode</span>
-            <input
+            <input {...noAutofill}
               className={`${inputClass} uppercase placeholder:normal-case aria-invalid:border-red-500`}
               value={postcode}
               onChange={(e) => setPostcode(e.target.value)}

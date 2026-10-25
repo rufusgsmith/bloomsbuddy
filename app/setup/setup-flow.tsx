@@ -20,7 +20,7 @@ import { useEffect, useRef, useState, useSyncExternalStore, type ReactNode } fro
 import { BUILDINGS } from "@/lib/buildings";
 import { NotConnectedNote, useClaudeConnected } from "../claude-status";
 import { DayCalendar, DayPills } from "../day-calendar";
-import { DeleteButton, Field, inputClass, PageHeader, sheetDialogClass } from "../form-ui";
+import { DeleteButton, Field, inputClass, PageHeader, sheetDialogClass, noAutofill } from "../form-ui";
 import { HomePicker } from "../home-picker";
 import { CameraIcon } from "../icons";
 import { LocationPicker } from "../location-picker";
@@ -458,7 +458,7 @@ function TimetableStep({
         <h3 className="font-semibold">How long does it repeat?</h3>
         <div className="mt-3 grid grid-cols-2 gap-3">
           <Field label="First week starts">
-            <input
+            <input {...noAutofill}
               type="date"
               value={termStart}
               onChange={(e) => isDateKey(e.target.value) && setTermStart(mondayOf(e.target.value))}
@@ -466,7 +466,7 @@ function TimetableStep({
             />
           </Field>
           <Field label="Number of weeks">
-            <input
+            <input {...noAutofill}
               type="number"
               inputMode="numeric"
               min={1}
@@ -612,7 +612,7 @@ function ClassFields({ value: c, onChange }: { value: WeeklyClass; onChange: (pa
     <>
       <div className="grid grid-cols-[7rem_1fr] gap-2">
         <Field label="Module">
-          <input
+          <input {...noAutofill}
             value={c.moduleCode}
             onChange={(e) => onChange({ moduleCode: e.target.value })}
             placeholder="ECON0013"
@@ -620,7 +620,7 @@ function ClassFields({ value: c, onChange }: { value: WeeklyClass; onChange: (pa
           />
         </Field>
         <Field label="Name">
-          <input
+          <input {...noAutofill}
             value={c.title}
             onChange={(e) => onChange({ title: e.target.value })}
             placeholder="Microeconomics"
@@ -652,15 +652,15 @@ function ClassFields({ value: c, onChange }: { value: WeeklyClass; onChange: (pa
           </select>
         </Field>
         <Field label="Starts">
-          <input type="time" value={c.startTime} onChange={(e) => onChange({ startTime: e.target.value })} className={inputClass} />
+          <input {...noAutofill} type="time" value={c.startTime} onChange={(e) => onChange({ startTime: e.target.value })} className={inputClass} />
         </Field>
         <Field label="Ends">
-          <input type="time" value={c.endTime} onChange={(e) => onChange({ endTime: e.target.value })} className={inputClass} />
+          <input {...noAutofill} type="time" value={c.endTime} onChange={(e) => onChange({ endTime: e.target.value })} className={inputClass} />
         </Field>
       </div>
       <div className="mt-2">
         <Field label="Room">
-          <input
+          <input {...noAutofill}
             value={c.room}
             onChange={(e) => onChange({ room: e.target.value })}
             placeholder="Roberts G06"
@@ -775,7 +775,7 @@ function DeadlineRow({
       <DeadlineKindToggle value={d} onChange={onChange} />
       <div className="grid grid-cols-[7rem_1fr] gap-2">
         <Field label="Module">
-          <input
+          <input {...noAutofill}
             value={d.moduleCode}
             onChange={(e) => onChange({ moduleCode: e.target.value })}
             placeholder="ECON0019"
@@ -783,7 +783,7 @@ function DeadlineRow({
           />
         </Field>
         <Field label={d.exam ? "What's the exam" : "What's due"}>
-          <input
+          <input {...noAutofill}
             value={d.title}
             onChange={(e) => onChange({ title: e.target.value })}
             placeholder={d.exam ? "Midterm" : "Problem Set 2"}
@@ -795,19 +795,19 @@ function DeadlineRow({
       <div className="mt-2 grid grid-cols-[1fr_1fr_4.5rem] gap-2">
         <div className={d.exam ? "col-span-3" : "contents"}>
           <Field label={d.exam ? "Date" : "Due date"}>
-            <input type="date" value={d.date} onChange={(e) => onChange({ date: e.target.value })} className={inputClass} />
+            <input {...noAutofill} type="date" value={d.date} onChange={(e) => onChange({ date: e.target.value })} className={inputClass} />
           </Field>
         </div>
         <Field label={d.exam ? "Starts" : "Time"}>
-          <input type="time" value={d.time} onChange={(e) => onChange({ time: e.target.value })} className={inputClass} />
+          <input {...noAutofill} type="time" value={d.time} onChange={(e) => onChange({ time: e.target.value })} className={inputClass} />
         </Field>
         {d.exam && (
           <Field label="Ends (optional)">
-            <input type="time" value={d.endTime} onChange={(e) => onChange({ endTime: e.target.value })} className={inputClass} />
+            <input {...noAutofill} type="time" value={d.endTime} onChange={(e) => onChange({ endTime: e.target.value })} className={inputClass} />
           </Field>
         )}
         <Field label="Weight %">
-          <input
+          <input {...noAutofill}
             type="number"
             inputMode="decimal"
             min={0}
@@ -1230,7 +1230,7 @@ function Uploader<K extends "timetable" | "deadlines">({
         <label htmlFor={`${kind}-text`} className="sr-only">
           Paste or type your {many}
         </label>
-        <textarea
+        <textarea {...noAutofill}
           id={`${kind}-text`}
           rows={4}
           value={text}

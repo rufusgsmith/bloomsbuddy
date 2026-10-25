@@ -15,7 +15,7 @@ import {
   type EventDraft,
 } from "@/lib/manual-events";
 import type { DateKey, EventKind, ManualEvent, TimetableEvent } from "@/lib/types";
-import { DeleteButton, Field, inputClass, sheetDialogClass, Switch, TimeField } from "./form-ui";
+import { DeleteButton, Field, inputClass, sheetDialogClass, Switch, TimeField, noAutofill } from "./form-ui";
 import { LocationPicker } from "./location-picker";
 import { resolveLocation } from "./postcode-lookup";
 
@@ -131,7 +131,7 @@ export function EventSheet({
       onClick={(e) => e.target === e.currentTarget && onClose()}
       className={sheetDialogClass}
     >
-      <form
+      <form {...noAutofill}
         className="flex h-full flex-col"
         noValidate
         onSubmit={(e) => {
@@ -165,7 +165,7 @@ export function EventSheet({
 
         <div className="flex min-h-0 flex-1 flex-col gap-3 overflow-y-auto px-5 pb-4">
           <Field label="Title">
-            <input
+            <input {...noAutofill}
               value={draft.title}
               onChange={(e) => set({ title: e.target.value })}
               placeholder="Office hours with Dr Patel"
@@ -186,7 +186,7 @@ export function EventSheet({
               </select>
             </Field>
             <Field label="Date">
-              <input type="date" value={draft.date} onChange={(e) => set({ date: e.target.value })} className={inputClass} />
+              <input {...noAutofill} type="date" value={draft.date} onChange={(e) => set({ date: e.target.value })} className={inputClass} />
             </Field>
           </div>
 
@@ -196,7 +196,7 @@ export function EventSheet({
           </div>
 
           <Field label="Room (optional)">
-            <input value={draft.room} onChange={(e) => set({ room: e.target.value })} placeholder="Roberts 309" className={inputClass} />
+            <input {...noAutofill} value={draft.room} onChange={(e) => set({ room: e.target.value })} placeholder="Roberts 309" className={inputClass} />
           </Field>
 
           <fieldset className="flex min-w-0 flex-col gap-1">

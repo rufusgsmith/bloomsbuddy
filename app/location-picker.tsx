@@ -3,7 +3,7 @@
 import { useState } from "react";
 import { ALL_BUILDING_IDS, BUILDINGS, searchBuildings, type BuildingId } from "@/lib/buildings";
 import type { LocationDraft } from "@/lib/location";
-import { inputClass } from "./form-ui";
+import { inputClass, noAutofill } from "./form-ui";
 import { PickRow } from "./home-picker";
 
 // Pick where something happens: type to filter UCL buildings and libraries (same search as the
@@ -46,7 +46,7 @@ export function LocationPicker({
 
   return (
     <div className="flex flex-col gap-2">
-      <input
+      <input {...noAutofill}
         type="search"
         value={query}
         onChange={(e) => setQuery(e.target.value)}
@@ -98,7 +98,7 @@ export function LocationPicker({
         )}
       </ul>
       {value.locationChoice === "postcode" && !buildingOnly && (
-        <input
+        <input {...noAutofill}
           value={value.postcode}
           onChange={(e) => onChange({ postcode: e.target.value })}
           placeholder="Postcode, e.g. WC1E 6BT"

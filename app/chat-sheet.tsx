@@ -13,6 +13,7 @@ import { requestContext } from "@/lib/request-context";
 import { parseTodos, readRawTodos, saveTodos } from "@/lib/todos";
 import type { ChatMessage, ChatProposal, DateKey, Deadline, Home, ManualEvent, Society, TimetableEvent, Todo } from "@/lib/types";
 import { NotConnectedNote, useClaudeConnected } from "./claude-status";
+import { noAutofill } from "./form-ui";
 import type { Day } from "./today-timeline";
 
 // The chat assistant on Today. Session-only: the conversation lives in sessionStorage, so it survives
@@ -296,14 +297,14 @@ function ChatSheet({
         </div>
 
         {!offline && (
-          <form
+          <form {...noAutofill}
             onSubmit={submit}
             className="flex items-end gap-2 border-t border-line px-4 pb-[calc(1rem+env(safe-area-inset-bottom))] pt-3"
           >
             <label htmlFor="chat-input" className="sr-only">
               Message
             </label>
-            <textarea
+            <textarea {...noAutofill}
               id="chat-input"
               value={draft}
               onChange={(e) => setDraft(e.target.value)}

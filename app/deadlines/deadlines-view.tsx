@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { useMemo, useRef, useState, useSyncExternalStore, type ReactNode } from "react";
 import { useClaudeConnected } from "../claude-status";
-import { CalendarButton, DeleteButton, Field, inputClass, PageHeader, TabPage } from "../form-ui";
+import { CalendarButton, DeleteButton, Field, inputClass, PageHeader, TabPage, noAutofill } from "../form-ui";
 import { CameraIcon, FlagIcon, PenIcon } from "../icons";
 import {
   parseDeadlineIds,
@@ -497,7 +497,7 @@ function DeadlineForm({
   const [saveError, setSaveError] = useState<string | null>(null);
 
   return (
-    <form
+    <form {...noAutofill}
       onSubmit={async (e) => {
         e.preventDefault();
         if (problem || busy) return;
@@ -510,7 +510,7 @@ function DeadlineForm({
       <DeadlineKindToggle value={d} onChange={onChange} />
       <div className="grid grid-cols-[7rem_1fr] gap-2">
         <Field label="Module">
-          <input
+          <input {...noAutofill}
             value={d.moduleCode}
             onChange={(e) => onChange({ moduleCode: e.target.value })}
             placeholder="ECON0019"
@@ -518,7 +518,7 @@ function DeadlineForm({
           />
         </Field>
         <Field label={d.exam ? "What's the exam" : "What's due"}>
-          <input
+          <input {...noAutofill}
             value={d.title}
             onChange={(e) => onChange({ title: e.target.value })}
             placeholder={d.exam ? "Midterm" : "Problem Set 2"}
@@ -531,15 +531,15 @@ function DeadlineForm({
       <div className="mt-2 grid grid-cols-[1fr_1fr_4.5rem] gap-2">
         <div className={d.exam ? "col-span-3" : "contents"}>
           <Field label={d.exam ? "Date" : "Due date"}>
-            <input type="date" value={d.date} onChange={(e) => onChange({ date: e.target.value })} className={inputClass} />
+            <input {...noAutofill} type="date" value={d.date} onChange={(e) => onChange({ date: e.target.value })} className={inputClass} />
           </Field>
         </div>
         <Field label={d.exam ? "Starts" : "Time"}>
-          <input type="time" value={d.time} onChange={(e) => onChange({ time: e.target.value })} className={inputClass} />
+          <input {...noAutofill} type="time" value={d.time} onChange={(e) => onChange({ time: e.target.value })} className={inputClass} />
         </Field>
         {d.exam && (
           <Field label="Ends (optional)">
-            <input
+            <input {...noAutofill}
               type="time"
               value={d.endTime}
               onChange={(e) => onChange({ endTime: e.target.value })}
@@ -548,7 +548,7 @@ function DeadlineForm({
           </Field>
         )}
         <Field label="Weight %">
-          <input
+          <input {...noAutofill}
             type="number"
             inputMode="decimal"
             min={0}

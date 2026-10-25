@@ -3,7 +3,7 @@
 import { useState } from "react";
 import { slugFromLink } from "@/lib/societies/slug";
 import type { Society } from "@/lib/types";
-import { Field, inputClass } from "./form-ui";
+import { Field, inputClass, noAutofill } from "./form-ui";
 
 // Paste a society's SU page link, check the page exists, and hand back { slug, name }.
 // The name comes from the page itself, so nothing is guessed. Used by setup (step 3) and the Societies tab.
@@ -50,7 +50,7 @@ export function SocietyPicker({ existing, onAdd }: { existing: Society[]; onAdd:
 
   return (
     <div className="flex flex-col gap-2">
-      <form
+      <form {...noAutofill}
         className="flex items-end gap-2"
         onSubmit={(e) => {
           e.preventDefault();
@@ -59,7 +59,7 @@ export function SocietyPicker({ existing, onAdd }: { existing: Society[]; onAdd:
       >
         <div className="flex-1">
           <Field label="SU page link">
-            <input
+            <input {...noAutofill}
               className={inputClass}
               inputMode="url"
               value={link}
@@ -68,7 +68,6 @@ export function SocietyPicker({ existing, onAdd }: { existing: Society[]; onAdd:
                 if (lookup.status === "error") setLookup({ status: "idle" });
               }}
               placeholder="studentsunionucl.org/clubs-societies/…"
-              autoComplete="off"
               autoCapitalize="off"
               spellCheck={false}
             />
