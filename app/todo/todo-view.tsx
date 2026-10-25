@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useMemo, useState, useSyncExternalStore, type FormEvent, type ReactNode } from "react";
-import { DeleteButton, inputClass, PageHeader, Switch, TabPage, TimeField } from "../form-ui";
+import { DeleteButton, inputClass, PageHeader, Switch, TabPage, TimeField, noAutofill } from "../form-ui";
 import { TODO_DEFAULT_MINS } from "@/lib/calendar-items";
 import { formatDurationShort } from "@/lib/duration";
 import { locationLabel } from "@/lib/location";
@@ -276,14 +276,14 @@ function TodoForm({
   }
 
   return (
-    <form
+    <form {...noAutofill}
       onSubmit={submit}
       className={`rounded-xl border bg-surface transition-colors ${
         expanded ? "border-emerald-400 dark:border-emerald-700" : "border-zinc-200 dark:border-zinc-800"
       }`}
     >
       <div className="p-2">
-        <input
+        <input {...noAutofill}
           value={draft.title}
           onChange={(e) => set({ title: e.target.value })}
           maxLength={MAX_TITLE}
@@ -301,7 +301,7 @@ function TodoForm({
           {draft.freq === "none" && (
             <Section label="Do before" hint="Optional">
               <div className="flex gap-2">
-                <input
+                <input {...noAutofill}
                   type="date"
                   value={draft.doBefore}
                   min={today}
@@ -395,7 +395,7 @@ function OnTodayField({
         <div className="mt-2 grid grid-cols-2 gap-2">
           <fieldset className="flex min-w-0 flex-col gap-1">
             <legend className="mb-1 text-xs font-medium text-muted">Day</legend>
-            <input
+            <input {...noAutofill}
               type="date"
               value={draft.placeDate}
               min={today}
@@ -528,7 +528,7 @@ function Stepper({
         <button type="button" onClick={onDec} disabled={!canDec} aria-label={`Less (${label.toLowerCase()})`} className={btn}>
           −
         </button>
-        <input
+        <input {...noAutofill}
           type="number"
           inputMode="numeric"
           min={0}
@@ -638,7 +638,7 @@ function RepeatField({
           <label className="flex flex-col gap-1">
             <span className="text-xs font-medium text-muted">At a time · Optional</span>
             <div className="flex gap-2">
-              <input
+              <input {...noAutofill}
                 type="time"
                 value={draft.time}
                 // A set time replaces the part of day.
