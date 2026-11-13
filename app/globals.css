@@ -1,51 +1,61 @@
 @import "tailwindcss";
 
 :root {
-  --background: #f4f5f7; /* page and calendar column fill */
-  --surface: #ffffff; /* cards, sidebar, panels */
-  --line: #e7e9ed; /* borders and hour rules */
-  --foreground: #2c3340; /* titles and body text: soft ink, not black */
-  --muted: #6e7686; /* meta lines and hour labels */
-  --focus: #5b9a85; /* sage, the brand and free-gap colour */
-  /* Main buttons: a sage tint with dark sage text, not white on black. */
-  --primary: #dcebe4;
-  --primary-hover: #cfe3da;
-  --on-primary: #26574a;
+  /* A light calendar app: grey-blue page, white panels, one blue accent. */
+  --background: #f8fafd; /* the page, the sidebar and the nav rail */
+  --surface: #ffffff; /* the calendar panel, cards, sheets */
+  --line: #dde3ea; /* borders and hour rules */
+  --foreground: #1f1f1f;
+  --muted: #5f6368; /* meta lines and hour labels */
+  --focus: #0b57d0; /* keyboard focus ring */
+  /* Today's date circle and the weekday over it. */
+  --accent: #0b57d0;
+  --on-accent: #ffffff;
+  /* Main buttons and the selected nav item: a blue tint with dark blue text, not white on black. */
+  --primary: #d3e3fd;
+  --primary-hover: #c2d7fb;
+  --on-primary: #041e49;
+  /* Deadline flags: a solid yellow with dark text (white on yellow is too faint to read). */
+  --deadline: #f6bf26;
+  --deadline-hover: #e9ae0b;
+  --deadline-ink: #3c2f00;
   /*
-   * Calendar categories (event-tones.ts): clear pastels, deliberately more colourful than the
-   * desaturated scales below, so each kind of block is easy to tell apart. Each has a fill, a hover
-   * fill, a border, an ink for the time and badge text, and a solid dot for the legend.
+   * Calendar categories (event-tones.ts). `dot` is the category's solid colour: calendar blocks are
+   * filled with it (white text) and the legend shows it; `hover` is a darker shade for blocks. Each
+   * solid is dark enough for white 12px text. `fill`, `line` and `ink` are a pastel version for the
+   * Day list's icon tiles and kind badges on white cards.
    */
-  --timetable-fill: #edebfc;
-  --timetable-hover: #e3e0fa;
-  --timetable-line: #c9c2f4;
-  --timetable-ink: #4535d6;
-  --timetable-dot: #6a5cf0;
-  --mine-fill: #fbe9f6;
-  --mine-hover: #f7ddf0;
-  --mine-line: #edb6de;
-  --mine-ink: #a3248a;
-  --mine-dot: #d04fb5;
-  --society-fill: #fef1e2;
-  --society-hover: #fde6cd;
-  --society-line: #f7c99a;
-  --society-ink: #b4530a;
-  --society-dot: #f59e0b;
-  --todo-fill: #e5f3fb;
-  --todo-hover: #d6ebf8;
-  --todo-line: #a9d4ee;
-  --todo-ink: #0b6fa4;
-  --todo-dot: #38a3db;
-  --exam-fill: #fbe8ec;
-  --exam-hover: #f8dbe2;
-  --exam-line: #f2aab8;
-  --exam-ink: #c8143c;
-  --exam-dot: #e5375c;
-  --gap-fill: #e8f5ee;
-  --gap-hover: #dbefe4;
-  --gap-line: #a6d9bd;
-  --gap-ink: #1d8150;
-  --gap-dot: #2fb36e;
+  --timetable-fill: #e8eaf6;
+  --timetable-hover: #303f9f;
+  --timetable-line: #c5cae9;
+  --timetable-ink: #3f51b5;
+  --timetable-dot: #3f51b5;
+  --mine-fill: #f3e5f5;
+  --mine-hover: #7b1fa2;
+  --mine-line: #e1bee7;
+  --mine-ink: #8e24aa;
+  --mine-dot: #8e24aa;
+  --society-fill: #fbe9e7;
+  --society-hover: #b23c0d;
+  --society-line: #ffccbc;
+  --society-ink: #c2410c;
+  --society-dot: #d0460f;
+  --todo-fill: #e1f5fe;
+  --todo-hover: #01659f;
+  --todo-line: #b3e5fc;
+  --todo-ink: #0277bd;
+  --todo-dot: #0277bd;
+  --exam-fill: #fce8e6;
+  --exam-hover: #b00000;
+  --exam-line: #f6aea9;
+  --exam-ink: #c5221f;
+  --exam-dot: #d50000;
+  /* Free gaps stay pastel and dashed: they're empty time, not events. */
+  --gap-fill: #e6f4ea;
+  --gap-hover: #ceead6;
+  --gap-line: #81c995;
+  --gap-ink: #137333;
+  --gap-dot: #34a853;
   /* Height of the phone's top bar, so every page fills exactly the screen under it (0 with the sidebar). */
   --nav-h: 3.5rem;
   /* Native controls (time/date inputs, selects, scrollbars) follow light/dark mode. */
@@ -61,6 +71,11 @@
   --color-primary: var(--primary);
   --color-primary-hover: var(--primary-hover);
   --color-on-primary: var(--on-primary);
+  --color-accent: var(--accent);
+  --color-on-accent: var(--on-accent);
+  --color-deadline: var(--deadline);
+  --color-deadline-hover: var(--deadline-hover);
+  --color-deadline-ink: var(--deadline-ink);
   --color-timetable-fill: var(--timetable-fill);
   --color-timetable-hover: var(--timetable-hover);
   --color-timetable-line: var(--timetable-line);
@@ -95,23 +110,24 @@
 }
 
 /*
- * Zinc is the app's grey everywhere. Remapped to a cool, soft scale so every existing zinc
- * class picks up the look; the dark end matches the dark-mode surfaces, so nothing is near-black.
+ * Zinc is the app's grey everywhere. Remapped to a neutral, slightly cool scale so every existing zinc
+ * class picks up the look; the dark end matches the dark-mode surfaces.
  * The colour scales the app uses are remapped the same way: same hues, much less saturation,
  * so tones, badges and warnings read as dusty pastels instead of bright Tailwind colours.
+ * Emerald is the exception: it's the app's accent class, so it's remapped to the accent blue.
  */
 @theme {
-  --color-zinc-50: #f4f5f7;
-  --color-zinc-100: #eceef1;
-  --color-zinc-200: #e2e5ea;
-  --color-zinc-300: #cfd4db;
-  --color-zinc-400: #a0a8b5;
-  --color-zinc-500: #6e7686;
-  --color-zinc-600: #545c6b;
-  --color-zinc-700: #414856;
-  --color-zinc-800: #343a45;
-  --color-zinc-900: #262b33;
-  --color-zinc-950: #1c2026;
+  --color-zinc-50: #f8fafd;
+  --color-zinc-100: #f0f4f9;
+  --color-zinc-200: #e1e5ea;
+  --color-zinc-300: #c4c7c5;
+  --color-zinc-400: #8e918f;
+  --color-zinc-500: #747775;
+  --color-zinc-600: #5f6368;
+  --color-zinc-700: #444746;
+  --color-zinc-800: #303134;
+  --color-zinc-900: #1e1f20;
+  --color-zinc-950: #131314;
   /* indigo: periwinkle */
   --color-indigo-50: oklch(0.975 0.018 272);
   --color-indigo-100: oklch(0.95 0.032 272);
@@ -184,18 +200,18 @@
   --color-rose-800: oklch(0.43 0.063 10);
   --color-rose-900: oklch(0.375 0.049 10);
   --color-rose-950: oklch(0.29 0.038 10);
-  /* emerald: sage */
-  --color-emerald-50: oklch(0.975 0.015 165);
-  --color-emerald-100: oklch(0.95 0.025 165);
-  --color-emerald-200: oklch(0.905 0.04 165);
-  --color-emerald-300: oklch(0.845 0.051 165);
-  --color-emerald-400: oklch(0.745 0.067 165);
-  --color-emerald-500: oklch(0.655 0.075 165);
-  --color-emerald-600: oklch(0.575 0.072 165);
-  --color-emerald-700: oklch(0.5 0.064 165);
-  --color-emerald-800: oklch(0.43 0.053 165);
-  --color-emerald-900: oklch(0.375 0.042 165);
-  --color-emerald-950: oklch(0.29 0.032 165);
+  /* emerald: the accent (banners, switches, selections), remapped to the accent blue. Free gaps keep their own green tokens. */
+  --color-emerald-50: oklch(0.975 0.012 262);
+  --color-emerald-100: oklch(0.95 0.025 262);
+  --color-emerald-200: oklch(0.905 0.05 262);
+  --color-emerald-300: oklch(0.84 0.075 262);
+  --color-emerald-400: oklch(0.74 0.11 262);
+  --color-emerald-500: oklch(0.63 0.15 262);
+  --color-emerald-600: oklch(0.53 0.18 262);
+  --color-emerald-700: oklch(0.47 0.17 262);
+  --color-emerald-800: oklch(0.4 0.14 262);
+  --color-emerald-900: oklch(0.34 0.11 262);
+  --color-emerald-950: oklch(0.27 0.08 262);
   /* amber: ochre */
   --color-amber-50: oklch(0.975 0.019 78);
   --color-amber-100: oklch(0.95 0.033 78);
@@ -224,40 +240,33 @@
 
 @media (prefers-color-scheme: dark) {
   :root {
-    --background: #1c2026;
-    --surface: #23282f;
-    --line: #343a45;
-    --foreground: #d6dae1;
-    --muted: #9aa2b0;
-    --focus: #8cc2ae;
-    --primary: #2f4a42;
-    --primary-hover: #375750;
-    --on-primary: #cfe6dc;
+    --background: #131314;
+    --surface: #1e1f20;
+    --line: #3c4043;
+    --foreground: #e3e3e3;
+    --muted: #9aa0a6;
+    --focus: #a8c7fa;
+    --accent: #a8c7fa;
+    --on-accent: #062e6f;
+    --primary: #004a77;
+    --primary-hover: #0a5a8c;
+    --on-primary: #c2e7ff;
+    /* The solid category colours (dot, hover) and the deadline yellow are the same as in light mode. */
     --timetable-fill: #2c2a4a;
-    --timetable-hover: #353263;
     --timetable-line: #5b52a8;
     --timetable-ink: #b8b0ff;
-    --timetable-dot: #8073f5;
     --mine-fill: #3d2638;
-    --mine-hover: #4a2d44;
     --mine-line: #94508a;
     --mine-ink: #f2addf;
-    --mine-dot: #d76bbf;
     --society-fill: #3d2e1f;
-    --society-hover: #4a3824;
     --society-line: #9a6a33;
     --society-ink: #f7c48a;
-    --society-dot: #f5a524;
     --todo-fill: #1d3342;
-    --todo-hover: #233d50;
     --todo-line: #3f7aa0;
     --todo-ink: #a3d6f4;
-    --todo-dot: #4fb0e3;
     --exam-fill: #422329;
-    --exam-hover: #502a32;
     --exam-line: #a04556;
     --exam-ink: #f8a9b8;
-    --exam-dot: #ec5776;
     --gap-fill: #1d3529;
     --gap-hover: #224033;
     --gap-line: #3f8a63;

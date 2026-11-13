@@ -1,4 +1,4 @@
-// Reads timetable and Moodle screenshots (Claude vision) or pasted/typed text. Server-side only
+// Reads timetable, Moodle and to-do list screenshots (Claude vision) or pasted/typed text. Server-side only
 // (uses ANTHROPIC_API_KEY).
 //
 // One request per screenshot or text, no tools. The answer is constrained by a JSON schema
@@ -7,8 +7,9 @@
 
 import { BUILDINGS, type BuildingId } from "../buildings";
 import { askClaudeJson } from "../claude-json";
-import { isDateKey, isWallTime, londonIso } from "../london-time";
-import type { ClassKind, DateKey, Deadline, WeeklyClass } from "../types";
+import { dayOfWeek, isDateKey, isWallTime, londonIso } from "../london-time";
+import { EST_STEP, isTodo, MAX_EST_MINS, MAX_TITLE, migrateTodo } from "../todos";
+import type { ClassKind, DateKey, Deadline, PartOfDay, Todo, WeeklyClass } from "../types";
 
 const BUILDING_IDS = Object.keys(BUILDINGS) as BuildingId[];
 const KINDS: ClassKind[] = ["lecture", "seminar", "lab", "tutorial"];
@@ -207,4 +208,91 @@ export async function extractDeadlines(input: ExtractInput, todayKey: DateKey): 
   });
 
   return deadlines.sort((a, b) => Date.parse(a.due) - Date.parse(b.due));
+}
+
+// ---------- To-dos ----------
+
+const PARTS: PartOfDay[] = ["morning", "afternoon", "evening"];
+const WEEKDAY_NAMES = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"];
+
+const TODO_SCHEMA = {
+  type: "object",
+  properties: {
+    title: { type: "string", description: "Short and clear, e.g. Email tutor about extension" },
+    estMinutes: { anyOf: [{ type: "integer", description: "How long it takes, in minutes" }, { type: "null" }] },
+    doBefore: { anyOf: [{ type: "string", description: "YYYY-MM-DD, the day to get it done by" }, { type: "null" }] },
+    repeat: { type: "string", enum: ["none", "daily", "weekly", "monthly"] },
+    days: { type: "array", items: { type: "integer", enum: [1, 2, 3, 4, 5, 6, 7] }, description: "Weekly only. 1 = Monday … 7 = Sunday" },
+    dayOfMonth: { anyOf: [{ type: "integer", description: "Monthly only, 1–31" }, { type: "null" }] },
+    time: { anyOf: [{ type: "string", description: "Repeating only: 24-hour HH:MM" }, { type: "null" }] },
+    partOfDay: { anyOf: [{ type: "string", enum: PARTS }, { type: "null" }] },
+    buildingId: { anyOf: [{ type: "string", enum: BUILDING_IDS }, { type: "null" }] },
+  },
+  required: ["title", "estMinutes", "doBefore", "repeat", "days", "dayOfMonth", "time", "partOfDay", "buildingId"],
+  additionalProperties: false,
+} as const;
+
+const TODOS_SCHEMA = {
+  type: "object",
+  properties: { todos: { type: "array", items: TODO_SCHEMA } },
+  required: ["todos"],
+  additionalProperties: false,
+};
+
+function todosPrompt(input: ExtractInput, todayKey: DateKey): string {
+  const intro = isText(input)
+    ? `Above is text a UCL student pasted or typed: their to-do list, written any way (a list, a brain dump, notes copied from another app, e.g. "email tutor, read ch 4 before thurs (1h), gym mon/wed/fri mornings").`
+    : "This is a screenshot or photo of a UCL student's to-do list (a notes app, another to-do app, or handwritten).";
+  return `${intro}
+
+Today is ${todayKey} (London, ${WEEKDAY_NAMES[dayOfWeek(todayKey) - 1]}). List every task in it, one entry each.
+
+Rules:
+- title: the task itself, tidied up, without the time estimate or date in it. Keep the student's wording where it's clear.
+- estMinutes: only if a duration is given ("1h", "30 mins", "half an hour"); otherwise null. Never guess one.
+- doBefore: only if a day to get it done by is given. Resolve relative days ("thurs", "tomorrow", "end of the week" = this Sunday) against today, to the first such day on or after today. Otherwise null.
+- repeat: "daily", "weekly" (days lists the weekdays, 1 = Monday … 7 = Sunday; "weekdays" = 1–5) or "monthly" (dayOfMonth) only if the task is said to repeat ("every", "each", "daily"). Otherwise "none", with days empty and dayOfMonth null. A repeating task has doBefore null.
+- time (24-hour HH:MM) or partOfDay (morning, afternoon, evening): only for a repeating task that says when; never both. Otherwise null.
+- buildingId: only if the task has to be done at one of these UCL places; otherwise null. Don't guess.
+${BUILDING_LIST}
+- Skip headings, ticked-off or crossed-out items, and anything that isn't a task.
+- Only include what is actually in the ${isText(input) ? "text" : "image"}. Never invent tasks. If there are none, return an empty list.`;
+}
+
+/** Rounds to the form's 5-minute steps, within 5 minutes – 12 hours. */
+const estimate = (x: unknown) =>
+  typeof x === "number" && x > 0 ? Math.min(MAX_EST_MINS, Math.max(EST_STEP, Math.round(x / EST_STEP) * EST_STEP)) : undefined;
+
+export async function extractTodos(input: ExtractInput, todayKey: DateKey): Promise<Todo[]> {
+  const parsed = (await askClaude("todos", input, todosPrompt(input, todayKey), TODOS_SCHEMA)) as { todos?: unknown };
+  const raw = Array.isArray(parsed.todos) ? parsed.todos : [];
+
+  const todos: Todo[] = [];
+  raw.forEach((item, i) => {
+    const t = item as Record<string, unknown>;
+    const freq = t.repeat;
+    const time = normaliseTime(t.time);
+    const doBefore = str(t.doBefore);
+    const repeat =
+      freq === "daily" || freq === "weekly" || freq === "monthly"
+        ? {
+            freq,
+            ...(freq === "weekly" ? { days: t.days } : {}),
+            ...(freq === "monthly" ? { dayOfMonth: t.dayOfMonth } : {}),
+            ...(isWallTime(time) ? { time } : PARTS.includes(t.partOfDay as PartOfDay) ? { partOfDay: t.partOfDay } : {}),
+          }
+        : undefined;
+    // migrateTodo tidies the repeat and isTodo drops anything still malformed, same as saved to-dos.
+    const todo = migrateTodo({
+      id: `todo-${Date.now().toString(36)}-${i}`,
+      title: str(t.title).slice(0, MAX_TITLE),
+      done: false,
+      ...(estimate(t.estMinutes) ? { estMinutes: estimate(t.estMinutes) } : {}),
+      ...(isDateKey(doBefore) && doBefore >= todayKey ? { doBefore } : {}),
+      ...(repeat ? { repeat } : {}),
+      ...(isBuildingId(t.buildingId) ? { location: { kind: "building", buildingId: t.buildingId } } : {}),
+    });
+    if (isTodo(todo)) todos.push(todo);
+  });
+  return todos;
 }

@@ -26,7 +26,8 @@ export const cardClass = "rounded-xl border border-line bg-surface";
 
 /**
  * The frame of every tab: exactly the screen beside (or under) the nav. `top` stays put like the nav and
- * only the body scrolls, so the page itself never does. `width` is the content column.
+ * only the body scrolls, so the page itself never does. `width` is the content column. From md the tab
+ * is a white rounded panel on the grey page, like Today's calendar.
  */
 export function TabPage({
   top,
@@ -40,12 +41,14 @@ export function TabPage({
   children: ReactNode;
 }) {
   return (
-    <main className={`flex ${PAGE_HEIGHT} w-full flex-col overflow-hidden`}>
-      <div className="shrink-0 border-b border-line">
-        <div className={`mx-auto w-full ${width} px-4 pt-6 md:px-6`}>{top}</div>
-      </div>
-      <div className="min-h-0 flex-1 overflow-y-auto">
-        <div className={`mx-auto min-h-full w-full ${width} px-4 md:px-6 ${bodyClassName}`}>{children}</div>
+    <main className={`flex ${PAGE_HEIGHT} w-full flex-col overflow-hidden md:py-2 md:pl-2`}>
+      <div className="flex min-h-0 flex-1 flex-col overflow-hidden md:rounded-2xl md:bg-surface">
+        <div className="shrink-0 border-b border-line">
+          <div className={`mx-auto w-full ${width} px-4 pt-6 md:px-6`}>{top}</div>
+        </div>
+        <div className="min-h-0 flex-1 overflow-y-auto">
+          <div className={`mx-auto min-h-full w-full ${width} px-4 md:px-6 ${bodyClassName}`}>{children}</div>
+        </div>
       </div>
     </main>
   );
@@ -77,13 +80,13 @@ export function PageHeader({
   );
 }
 
-/** A primary button (dark) and a quiet one (white with a border), sized for header actions. */
+/** A primary button (blue tint) and a quiet one (outlined), both pill-shaped, sized for header actions. */
 export const primaryButtonClass =
-  "inline-flex min-h-10 items-center justify-center gap-1.5 rounded-lg bg-primary px-3.5 text-sm font-medium text-on-primary hover:bg-primary-hover disabled:opacity-50";
+  "inline-flex min-h-10 items-center justify-center gap-1.5 rounded-full bg-primary px-4 text-sm font-medium text-on-primary hover:bg-primary-hover disabled:opacity-50";
 export const secondaryButtonClass =
-  "inline-flex min-h-10 items-center justify-center gap-1.5 rounded-lg border border-line bg-surface px-3.5 text-sm font-medium text-foreground hover:bg-zinc-50 disabled:opacity-50 dark:hover:bg-zinc-800";
+  "inline-flex min-h-10 items-center justify-center gap-1.5 rounded-full border border-zinc-300 bg-transparent px-4 text-sm font-medium text-foreground hover:bg-zinc-100 disabled:opacity-50 dark:border-zinc-700 dark:hover:bg-zinc-800";
 
-/** A grey track with the chosen option as a white pill (Week / Day, Coursework / Exam). */
+/** An outlined pill split into options, the chosen one tinted blue (Week / Day, Coursework / Exam). */
 export function Segmented<T extends string>({
   options,
   value,
@@ -98,7 +101,7 @@ export function Segmented<T extends string>({
   className?: string;
 }) {
   return (
-    <div role="group" aria-label={label} className={`inline-flex gap-0.5 rounded-xl border border-line bg-background p-1 ${className}`}>
+    <div role="group" aria-label={label} className={`inline-flex overflow-hidden rounded-full border border-zinc-300 dark:border-zinc-700 ${className}`}>
       {options.map((o) => {
         const on = o.value === value;
         return (
@@ -107,8 +110,8 @@ export function Segmented<T extends string>({
             type="button"
             aria-pressed={on}
             onClick={() => onChange(o.value)}
-            className={`flex min-h-8 flex-1 items-center justify-center gap-1.5 whitespace-nowrap rounded-lg px-3 text-sm font-medium transition-colors ${
-              on ? "bg-surface text-foreground shadow-[0_1px_3px_rgba(16,24,40,0.07)]" : "text-muted hover:text-foreground"
+            className={`flex min-h-9 flex-1 items-center justify-center gap-1.5 whitespace-nowrap px-4 text-sm font-medium transition-colors border-l border-zinc-300 first:border-l-0 dark:border-zinc-700 ${
+              on ? "bg-primary text-on-primary" : "text-foreground hover:bg-zinc-100 dark:hover:bg-zinc-800"
             }`}
           >
             {o.label}

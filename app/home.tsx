@@ -197,7 +197,7 @@ function Skeleton() {
         <div className="h-10 w-56 rounded-lg bg-zinc-200 dark:bg-zinc-800" />
         <div className="hidden h-10 w-96 rounded-lg bg-zinc-100 md:block dark:bg-zinc-900" />
       </div>
-      <div className="h-[70dvh] rounded-xl border border-line bg-surface" />
+      <div className="h-[70dvh] rounded-2xl bg-surface" />
     </main>
   );
 }

@@ -34,11 +34,13 @@ import {
 import type { DateKey, Todo, Weekday } from "@/lib/types";
 import { LocationPicker } from "../location-picker";
 import { resolveLocation } from "../postcode-lookup";
+import { Uploader } from "../uploader";
 
 // The To-do tab. Saved straight to localStorage on every change. Without a saved timetable it shows
 // the demo week's to-dos read-only (the demo is the same for everyone, see lib/mock/todos.ts).
 // Open to-dos are sent with each recommendation request, so Claude can slot one into a gap.
-// Everything here is plain form controls checked in code: no Claude calls.
+// The form is plain controls checked in code. The one Claude call is the Uploader at the top: Claude
+// reads pasted text or a screenshot into to-dos (/api/extract), added straight to the list to check.
 
 const MS_PER_DAY = 86_400_000;
 
@@ -149,18 +151,26 @@ export function TodoEditor({
 
   return (
     <div className="flex flex-col gap-6">
-      <AddTodo today={today} onAdd={(t) => onChange([...todos, t])} />
-      {open.length === 0 ? (
-        <p className="rounded-xl border border-dashed border-zinc-300 p-6 text-center text-sm text-zinc-600 dark:border-zinc-700 dark:text-zinc-400">
-          {done.length ? "All done" : "No to-dos yet. Add one above."}
-        </p>
-      ) : (
+      <Uploader
+        kind="todos"
+        nouns={["to-do", "to-dos"]}
+        placeholder="Paste your list, or type e.g. email tutor; read ch. 4 before Thu, 1h; gym Mon, Wed, Fri mornings"
+        existingCount={todos.length}
+        onResult={(rows, mode) => {
+          const found = rows.map((t) => ({ ...t, id: crypto.randomUUID() }));
+          onChange(mode === "replace" ? found : [...todos, ...found]);
+        }}
+      />
+      {open.length > 0 ? (
         <ul className="flex flex-col gap-2">
           {open.map((t) => (
             <li key={t.id}>{row(t)}</li>
           ))}
         </ul>
+      ) : (
+        done.length > 0 && <p className="text-center text-sm text-muted">All done</p>
       )}
+      <AddTodo today={today} onAdd={(t) => onChange([...todos, t])} />
       {done.length > 0 && (
         <details className="group">
           <summary className="flex min-h-10 cursor-pointer list-none items-center gap-2 text-sm font-semibold text-zinc-600 dark:text-zinc-400">
@@ -217,27 +227,33 @@ function DemoTodos() {
   );
 }
 
-/** Collapsed: just a title box. Typing in it opens the full form underneath. */
+/** "+ Add a to-do by hand" (same dashed button as the setup deadlines step), which opens the full form. */
 function AddTodo({ today, onAdd }: { today: DateKey; onAdd: (t: Todo) => void }) {
-  // Bumped after each add so the form starts fresh.
-  const [formKey, setFormKey] = useState(0);
+  const [adding, setAdding] = useState(false);
+  if (!adding) {
+    return (
+      <button
+        type="button"
+        onClick={() => setAdding(true)}
+        className="min-h-10 rounded-xl border-2 border-dashed border-zinc-300 text-sm font-medium text-zinc-600 hover:border-zinc-400 hover:bg-zinc-50 dark:border-zinc-700 dark:text-zinc-400 dark:hover:bg-zinc-900"
+      >
+        + Add a to-do by hand
+      </button>
+    );
+  }
   return (
     <TodoForm
-      key={formKey}
       today={today}
       onSubmit={(t) => {
         onAdd({ ...t, id: crypto.randomUUID() });
-        setFormKey((k) => k + 1);
+        setAdding(false);
       }}
-      onCancel={() => setFormKey((k) => k + 1)}
+      onCancel={() => setAdding(false)}
     />
   );
 }
 
-/**
- * The one form for adding and editing. Adding: only the title shows until the student starts
- * typing. Editing (initial set): everything shows, with Save and Delete.
- */
+/** The one form for adding and editing. Editing (initial set) adds Delete. */
 function TodoForm({
   initial,
   today,
@@ -261,7 +277,6 @@ function TodoForm({
   const touch = (k: keyof typeof touched) => setTouched((t) => ({ ...t, [k]: true }));
 
   const { todo, errors } = validateTodoDraft(draft, today, initial ?? { id: "", done: false });
-  const expanded = editing || draft.title.length > 0;
 
   async function submit(e: FormEvent) {
     e.preventDefault();
@@ -278,9 +293,7 @@ function TodoForm({
   return (
     <form {...noAutofill}
       onSubmit={submit}
-      className={`rounded-xl border bg-surface transition-colors ${
-        expanded ? "border-emerald-400 dark:border-emerald-700" : "border-zinc-200 dark:border-zinc-800"
-      }`}
+      className="rounded-xl border border-emerald-400 bg-surface dark:border-emerald-700"
     >
       <div className="p-2">
         <input {...noAutofill}
@@ -289,73 +302,71 @@ function TodoForm({
           maxLength={MAX_TITLE}
           placeholder="Email tutor, read ch. 4, weekly shop…"
           aria-label={editing ? "Title" : "New to-do"}
-          autoFocus={editing}
+          autoFocus
           className={`${inputClass} border-0 bg-transparent px-2 text-base font-medium dark:bg-transparent`}
         />
       </div>
 
-      {expanded && (
-        <div className="flex flex-col gap-5 border-t border-line p-4">
-          <DurationField draft={draft} set={set} error={touched.duration ? errors.duration : undefined} onTouch={() => touch("duration")} />
+      <div className="flex flex-col gap-5 border-t border-line p-4">
+        <DurationField draft={draft} set={set} error={touched.duration ? errors.duration : undefined} onTouch={() => touch("duration")} />
 
-          {draft.freq === "none" && (
-            <Section label="Do before" hint="Optional">
-              <div className="flex gap-2">
-                <input {...noAutofill}
-                  type="date"
-                  value={draft.doBefore}
-                  min={today}
-                  onChange={(e) => {
-                    set({ doBefore: e.target.value });
-                    touch("doBefore");
-                  }}
-                  aria-label="Do before"
-                  aria-invalid={touched.doBefore && !!errors.doBefore}
-                  className={inputClass}
-                />
-                {draft.doBefore && (
-                  <button type="button" onClick={() => set({ doBefore: "" })} className={chipClass(false)}>
-                    Clear
-                  </button>
-                )}
-              </div>
-              {touched.doBefore && <FieldError>{errors.doBefore}</FieldError>}
-            </Section>
-          )}
-
-          <RepeatField draft={draft} set={set} error={touched.repeat ? errors.repeat : undefined} onTouch={() => touch("repeat")} />
-
-          <OnTodayField draft={draft} set={set} today={today} error={touched.onToday ? errors.onToday : undefined} onTouch={() => touch("onToday")} />
-
-          <Section label="Where?" hint="Optional">
-            <LocationPicker
-              value={draft}
-              onChange={(patch) => {
-                set(patch);
-                setSaveError(null);
-              }}
-            />
-            <FieldError>{(touched.location && errors.location) || saveError}</FieldError>
+        {draft.freq === "none" && (
+          <Section label="Do before" hint="Optional">
+            <div className="flex gap-2">
+              <input {...noAutofill}
+                type="date"
+                value={draft.doBefore}
+                min={today}
+                onChange={(e) => {
+                  set({ doBefore: e.target.value });
+                  touch("doBefore");
+                }}
+                aria-label="Do before"
+                aria-invalid={touched.doBefore && !!errors.doBefore}
+                className={inputClass}
+              />
+              {draft.doBefore && (
+                <button type="button" onClick={() => set({ doBefore: "" })} className={chipClass(false)}>
+                  Clear
+                </button>
+              )}
+            </div>
+            {touched.doBefore && <FieldError>{errors.doBefore}</FieldError>}
           </Section>
+        )}
 
-          <div className="flex items-center gap-2">
-            {onDelete && (
-              <DeleteButton
-                onDelete={onDelete}
-                className="min-h-10 rounded-lg px-3 text-sm font-medium text-red-600 hover:bg-red-50 dark:text-red-400 dark:hover:bg-red-950"
-              >
-                Delete
-              </DeleteButton>
-            )}
-            <button type="button" onClick={onCancel} className={`ml-auto ${secondaryButton}`}>
-              Cancel
-            </button>
-            <button type="submit" disabled={!!errors.title || busy} className={primaryButton}>
-              {busy ? "Saving…" : editing ? "Save" : "Add"}
-            </button>
-          </div>
+        <RepeatField draft={draft} set={set} error={touched.repeat ? errors.repeat : undefined} onTouch={() => touch("repeat")} />
+
+        <OnTodayField draft={draft} set={set} today={today} error={touched.onToday ? errors.onToday : undefined} onTouch={() => touch("onToday")} />
+
+        <Section label="Where?" hint="Optional">
+          <LocationPicker
+            value={draft}
+            onChange={(patch) => {
+              set(patch);
+              setSaveError(null);
+            }}
+          />
+          <FieldError>{(touched.location && errors.location) || saveError}</FieldError>
+        </Section>
+
+        <div className="flex items-center gap-2">
+          {onDelete && (
+            <DeleteButton
+              onDelete={onDelete}
+              className="min-h-10 rounded-lg px-3 text-sm font-medium text-red-600 hover:bg-red-50 dark:text-red-400 dark:hover:bg-red-950"
+            >
+              Delete
+            </DeleteButton>
+          )}
+          <button type="button" onClick={onCancel} className={`ml-auto ${secondaryButton}`}>
+            Cancel
+          </button>
+          <button type="submit" disabled={!!errors.title || busy} className={primaryButton}>
+            {busy ? "Saving…" : editing ? "Save" : "Add"}
+          </button>
         </div>
-      )}
+        </div>
     </form>
   );
 }

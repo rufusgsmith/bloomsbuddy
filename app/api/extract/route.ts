@@ -1,9 +1,9 @@
-// POST /api/extract  body: { kind: "timetable" | "deadlines", image: { mediaType, data } }
+// POST /api/extract  body: { kind: "timetable" | "deadlines" | "todos", image: { mediaType, data } }
 //                     or: { kind, text } for pasted/typed text
-//   → { classes: WeeklyClass[] } or { deadlines: Deadline[] }
+//   → { classes: WeeklyClass[] }, { deadlines: Deadline[] } or { todos: Todo[] }
 // data is base64 without the "data:" prefix. The client shrinks screenshots before sending,
 // so this stays well under Vercel's 4.5MB request limit.
-import { extractDeadlines, extractTimetable, type ExtractInput, type ImageInput } from "@/lib/extract/extract";
+import { extractDeadlines, extractTimetable, extractTodos, type ExtractInput, type ImageInput } from "@/lib/extract/extract";
 import { londonTodayKey } from "@/lib/london-time";
 
 const MEDIA_TYPES = ["image/jpeg", "image/png", "image/gif", "image/webp"];
@@ -29,8 +29,8 @@ export async function POST(request: Request) {
   } catch {
     return Response.json({ error: "Body must be JSON: { kind, image } or { kind, text }" }, { status: 400 });
   }
-  if (body.kind !== "timetable" && body.kind !== "deadlines") {
-    return Response.json({ error: "`kind` must be timetable or deadlines" }, { status: 400 });
+  if (body.kind !== "timetable" && body.kind !== "deadlines" && body.kind !== "todos") {
+    return Response.json({ error: "`kind` must be timetable, deadlines or todos" }, { status: 400 });
   }
 
   let input: ExtractInput;
@@ -59,6 +59,9 @@ export async function POST(request: Request) {
   try {
     if (body.kind === "timetable") {
       return Response.json({ classes: await extractTimetable(input) });
+    }
+    if (body.kind === "todos") {
+      return Response.json({ todos: await extractTodos(input, londonTodayKey()) });
     }
     return Response.json({ deadlines: await extractDeadlines(input, londonTodayKey()) });
   } catch (err) {

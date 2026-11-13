@@ -1,6 +1,6 @@
 "use client";
 
-// Today's week view: seven day columns side by side on one hour axis, inside a white card. Events,
+// Today's week view: seven day columns split by hairlines on one hour axis, on Today's white panel. Events,
 // free gaps, deadline flags and the now line are placed by minutes since London midnight, like
 // DayCalendar. Nothing opens inline here: taps go up, and Today shows the panel at the side.
 
@@ -24,7 +24,6 @@ export interface WeekColumn {
   /** Day of the month. */
   date: number;
   isToday: boolean;
-  weekend: boolean;
   events: CalendarEvent[];
   gaps: CalendarGap[];
   markers: CalendarMarker[];
@@ -40,6 +39,11 @@ const DAY_END = 23 * 60;
 const MIN_BLOCK_PX = 18;
 
 const KIND_LABEL = Object.fromEntries(EVENT_KINDS.map((k) => [k.value, k.label])) as Record<EventKind, string>;
+
+const londonZone = new Intl.DateTimeFormat("en-GB", { timeZone: "Europe/London", timeZoneName: "short" });
+/** "BST" or "GMT" on that day, for the gutter over the hour labels. */
+const zoneOn = (dateKey: string) =>
+  londonZone.formatToParts(new Date(`${dateKey}T12:00:00Z`)).find((p) => p.type === "timeZoneName")?.value ?? "";
 
 export function WeekCalendar({
   days,
@@ -76,7 +80,6 @@ export function WeekCalendar({
   const y = (min: number) => (min - start) * PX_PER_MIN;
   const hours: number[] = [];
   for (let m = Math.ceil(start / 60) * 60; m <= end; m += 60) hours.push(m);
-  const anyAllDay = days.some((d) => d.allDay.length > 0);
 
   // Open on the now line (today), else on the first hour.
   const nowRef = useRef<HTMLDivElement>(null);
@@ -84,49 +87,48 @@ export function WeekCalendar({
     if (hasToday) nowRef.current?.scrollIntoView({ block: "center" });
   }, [hasToday]);
 
-  const cols = "grid grid-cols-[2.75rem_repeat(7,minmax(0,1fr))] gap-x-1.5 lg:gap-x-2";
+  const cols = "grid grid-cols-[2.75rem_repeat(7,minmax(0,1fr))]";
 
   return (
-    <div className="rounded-xl border border-line bg-surface px-2 pb-3 lg:px-3">
-      {/* Weekday headers stay in view while the hours scroll under them. */}
-      <div className={`${cols} sticky top-0 z-20 bg-surface pb-2 pt-3`}>
-        <span aria-hidden />
-        {days.map((d) => (
-          <button
-            key={d.dateKey}
-            type="button"
-            onClick={() => onDayTap(d.dateKey)}
-            aria-current={d.isToday ? "date" : undefined}
-            aria-label={`${d.weekday} ${d.date}. Open this day`}
-            className={`flex min-h-10 items-center justify-center gap-1.5 rounded-lg text-sm transition-colors hover:bg-background ${
-              d.weekend ? "text-zinc-400" : "text-muted"
-            }`}
-          >
-            <span className="font-medium">{d.weekday}</span>
-            <span
-              className={`flex size-7 items-center justify-center rounded-full font-semibold tabular-nums ${
-                d.isToday ? "bg-primary text-on-primary" : "text-foreground"
-              }`}
-            >
-              {d.date}
-            </span>
-          </button>
-        ))}
-      </div>
-
-      {anyAllDay && (
-        <div className={`${cols} mb-2`}>
-          <span className="self-center pr-1 text-right text-[11px] text-muted">All day</span>
+    <div className="pb-3 pr-2">
+      {/* Weekday headers and all-day bars stay in view while the hours scroll under them. */}
+      <div className="sticky top-0 z-20 border-b border-line bg-surface">
+        <div className={`${cols} pt-2`}>
+          <span aria-hidden />
           {days.map((d) => (
-            <ul key={d.dateKey} className="flex min-w-0 flex-col gap-1">
+            <button
+              key={d.dateKey}
+              type="button"
+              onClick={() => onDayTap(d.dateKey)}
+              aria-current={d.isToday ? "date" : undefined}
+              aria-label={`${d.weekday} ${d.date}. Open this day`}
+              className="group flex flex-col items-center gap-0.5 pb-1"
+            >
+              <span className={`text-[11px] font-medium uppercase tracking-wide ${d.isToday ? "text-accent" : "text-muted"}`}>
+                {d.weekday}
+              </span>
+              <span
+                className={`flex size-11 items-center justify-center rounded-full text-2xl tabular-nums transition-colors ${
+                  d.isToday ? "bg-accent text-on-accent" : "text-foreground group-hover:bg-zinc-100 dark:group-hover:bg-zinc-800"
+                }`}
+              >
+                {d.date}
+              </span>
+            </button>
+          ))}
+        </div>
+        <div className={`${cols} pb-1.5`}>
+          <span className="pr-2 pt-0.5 text-right text-[10px] text-muted">{days[0] && zoneOn(days[0].dateKey)}</span>
+          {days.map((d) => (
+            <ul key={d.dateKey} className="flex min-w-0 flex-col gap-0.5 px-0.5">
               {d.allDay.map((a) => (
                 <li key={a.id}>
                   <button
                     type="button"
                     onClick={() => onAllDayTap(d.dateKey, a.id)}
                     aria-label={`${a.title}, ${a.label}`}
-                    className={`${TONE.society.block} w-full truncate rounded-md border px-1.5 py-1 text-left text-xs font-medium ${
-                      openId === a.id ? "ring-2 ring-zinc-900 dark:ring-zinc-100" : ""
+                    className={`${TONE.society.block} w-full truncate rounded border px-2 py-0.5 text-left text-xs font-medium ${
+                      openId === a.id ? "ring-2 ring-zinc-900 ring-offset-1 dark:ring-zinc-100" : ""
                     }`}
                   >
                     {a.title}
@@ -136,16 +138,16 @@ export function WeekCalendar({
             </ul>
           ))}
         </div>
-      )}
+      </div>
 
-      <div className={`${cols} mt-2`}>
+      <div className={`${cols} mt-3`}>
         {/* Hour labels, centred on their lines. */}
         <div className="relative" style={{ height: y(end) }}>
           {hours.map((m) => (
             <span
               key={m}
               aria-hidden
-              className="absolute right-1.5 -translate-y-1/2 text-xs tabular-nums text-muted"
+              className="absolute right-2 -translate-y-1/2 text-[11px] tabular-nums text-muted"
               style={{ top: y(m) }}
             >
               {minutesLabel(m)}
@@ -159,7 +161,7 @@ export function WeekCalendar({
           return (
             <div
               key={d.dateKey}
-              className="relative overflow-hidden rounded-lg border border-line bg-background"
+              className="relative overflow-hidden border-l border-line"
               style={{ height: y(end) }}
             >
               {hours.filter((m) => m > start && m < end).map((m) => (
@@ -225,29 +227,31 @@ export function WeekCalendar({
                     type="button"
                     onClick={() => onEventTap(d.dateKey, e.id)}
                     aria-label={`${e.tone === "exam" ? "Exam" : KIND_LABEL[e.kind]}, ${e.title}, ${time}${e.detail ? `, ${e.detail}` : ""}${n > 1 ? ", clashes with another event" : ""}`}
-                    className={`absolute flex flex-col overflow-hidden rounded-md border px-1.5 text-left leading-tight text-foreground transition-colors ${tone.block} ${
+                    className={`absolute flex flex-col overflow-hidden rounded-md border px-1.5 text-left leading-tight transition-colors ${tone.block} ${
                       mins < 45 ? "justify-center" : "pt-1"
-                    } ${e.invalid ? "ring-2 ring-red-500" : ""} ${isOpen ? "ring-2 ring-zinc-900 dark:ring-zinc-100" : ""}`}
+                    } ${e.invalid ? "ring-2 ring-red-500" : ""} ${isOpen ? "ring-2 ring-zinc-900 ring-offset-1 dark:ring-zinc-100" : ""}`}
                     style={{
                       top: top + 1,
                       height: height - 2,
-                      left: `calc(${(col / n) * 100}% + 3px)`,
+                      left: `calc(${(col / n) * 100}% + 2px)`,
                       width: `calc(${100 / n}% - 6px)`,
                     }}
                   >
+                    {/* Title first, then the time. */}
                     {mins < 45 ? (
                       <span className="truncate text-xs font-medium">
-                        {n > 1 && <span aria-hidden className={`font-bold ${tone.text}`}>! </span>}
-                        <span className={`tabular-nums ${tone.text}`}>{minutesLabel(e.startMin)}</span> {e.title}
+                        {n > 1 && <span aria-hidden className="font-bold">! </span>}
+                        {e.title}
+                        <span className={`tabular-nums ${tone.text}`}>, {minutesLabel(e.startMin)}</span>
                       </span>
                     ) : (
                       <>
-                        <span className={`truncate text-[11px] font-semibold tabular-nums ${tone.text}`}>
-                          {n > 1 && <span aria-hidden>! </span>}
-                          {time}
+                        <span className={`text-xs font-medium ${mins >= 90 ? "line-clamp-3" : "line-clamp-2"}`}>
+                          {n > 1 && <span aria-hidden className="font-bold">! </span>}
+                          {e.title}
                         </span>
-                        <span className={`mt-0.5 text-xs font-medium ${mins >= 90 ? "line-clamp-3" : "line-clamp-2"}`}>{e.title}</span>
-                        {mins >= 120 && e.detail && <span className="mt-1 truncate text-[11px] text-muted">{e.detail}</span>}
+                        <span className={`mt-0.5 truncate text-[11px] tabular-nums ${tone.text}`}>{time}</span>
+                        {mins >= 120 && e.detail && <span className={`mt-0.5 truncate text-[11px] ${tone.text}`}>{e.detail}</span>}
                       </>
                     )}
                   </button>
@@ -257,13 +261,13 @@ export function WeekCalendar({
               {d.markers.filter((m) => m.min >= start && m.min <= end).map((m) => (
                 // Above the blocks: a deadline can fall inside a class. Only the flag takes taps.
                 <div key={m.id} className="pointer-events-none absolute inset-x-0 z-[5]" style={{ top: y(m.min) }}>
-                  <span aria-hidden className="absolute inset-x-0 h-0.5 -translate-y-1/2 bg-amber-500" />
+                  <span aria-hidden className="absolute inset-x-0 h-0.5 -translate-y-1/2 bg-deadline" />
                   <button
                     type="button"
                     onClick={() => onMarkerTap(d.dateKey, m.id)}
                     aria-label={`Deadline, ${m.label}`}
-                    className={`pointer-events-auto absolute inset-x-1 -translate-y-1/2 truncate rounded-md border border-amber-300 bg-amber-50 px-1 py-0.5 text-left text-[11px] font-medium tabular-nums text-amber-800 hover:bg-amber-100 dark:border-amber-500/50 dark:bg-amber-950 dark:text-amber-200 ${
-                      openId === m.id ? "ring-2 ring-zinc-900 dark:ring-zinc-100" : ""
+                    className={`pointer-events-auto absolute left-0.5 right-1 -translate-y-1/2 truncate rounded bg-deadline px-1.5 py-0.5 text-left text-[11px] font-medium tabular-nums text-deadline-ink hover:bg-deadline-hover ${
+                      openId === m.id ? "ring-2 ring-zinc-900 ring-offset-1 dark:ring-zinc-100" : ""
                     }`}
                   >
                     {m.label}
@@ -280,7 +284,7 @@ export function WeekCalendar({
                   style={{ top: y(now) }}
                 >
                   <span aria-hidden className="absolute inset-x-0 h-0.5 -translate-y-1/2 bg-red-500" />
-                  <span aria-hidden className="absolute left-0.5 size-2.5 -translate-y-1/2 rounded-full bg-red-500 ring-2 ring-background" />
+                  <span aria-hidden className="absolute left-0.5 size-2.5 -translate-y-1/2 rounded-full bg-red-500 ring-2 ring-surface" />
                 </div>
               )}
             </div>

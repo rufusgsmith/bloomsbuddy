@@ -4,11 +4,12 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import type { ReactNode } from "react";
 
-// The app's navigation. From md it's a sidebar down the left (icons only on md, icons and labels
-// from lg, so the week grid keeps its room); on a phone it's a pinned bar on top with the tabs
-// as a strip that scrolls sideways. On /setup, /timetable and /debug the tabs are hidden (those
-// pages have their own buttons at the bottom): the phone bar keeps just the wordmark and the
-// sidebar isn't shown. Pages size themselves with --nav-h (the phone bar's height, 0 from md).
+// The app's navigation. From md it's a narrow rail down the right (an icon with a small label
+// under it, the current tab's icon in a blue pill), so Today's own sidebar can sit on the left like
+// a calendar app's; on a phone it's a pinned bar on top with the tabs as a strip that scrolls
+// sideways. On /setup, /timetable and /debug the tabs are hidden (those pages have their own buttons
+// at the bottom): the phone bar keeps just the name and the rail isn't shown. No logo, by request.
+// Pages size themselves with --nav-h (the phone bar's height, 0 from md).
 
 const TABS: { href: string; label: string; icon: ReactNode }[] = [
   {
@@ -71,6 +72,9 @@ const HIDDEN_ON = ["/setup", "/timetable", "/debug"];
 const isActive = (pathname: string, href: string) =>
   href === "/" ? pathname === "/" : pathname === href || pathname.startsWith(`${href}/`);
 
+const TAB_ON = "bg-primary text-on-primary";
+const TAB_OFF = "text-muted hover:bg-zinc-200/60 hover:text-foreground dark:hover:bg-zinc-800";
+
 function TabIcon({ children, className = "" }: { children: ReactNode; className?: string }) {
   return (
     <svg
@@ -95,9 +99,9 @@ export function SideNav() {
   return (
     <>
       {/* Phone: a bar on top. */}
-      <header className="sticky top-0 z-40 flex h-[var(--nav-h)] shrink-0 items-center gap-3 border-b border-line bg-surface px-4 md:hidden">
+      <header className="sticky top-0 z-40 flex h-[var(--nav-h)] shrink-0 items-center gap-3 border-b border-line bg-background px-4 md:hidden">
         {tabsHidden && (
-          <Link href="/" className="flex shrink-0 items-center text-[15px] font-semibold tracking-tight">
+          <Link href="/" className="flex min-h-9 shrink-0 items-center text-lg text-foreground">
             Bloomsbuddy
           </Link>
         )}
@@ -111,8 +115,8 @@ export function SideNav() {
                     <Link
                       href={tab.href}
                       aria-current={active ? "page" : undefined}
-                      className={`flex min-h-9 items-center whitespace-nowrap rounded-lg px-3 text-sm font-medium transition-colors ${
-                        active ? "bg-primary text-on-primary" : "text-muted hover:text-foreground"
+                      className={`flex min-h-9 items-center whitespace-nowrap rounded-full px-3.5 text-sm font-medium transition-colors ${
+                        active ? TAB_ON : TAB_OFF
                       }`}
                     >
                       {tab.label}
@@ -125,15 +129,11 @@ export function SideNav() {
         )}
       </header>
 
-      {/* md and up: a sidebar. */}
+      {/* md and up: a rail down the right (order-last in the body's row). */}
       {!tabsHidden && (
-        <aside className="sticky top-0 hidden h-dvh w-[4.25rem] shrink-0 flex-col border-r border-line bg-surface px-3 py-5 md:flex lg:w-56">
-          {/* Wordmark only where there's room for it; on md the sidebar is icons only. */}
-          <Link href="/" className="mb-7 hidden min-h-9 items-center px-2 text-[15px] font-semibold tracking-tight lg:flex">
-            Bloomsbuddy
-          </Link>
+        <aside className="sticky top-0 hidden h-dvh w-[4.5rem] shrink-0 flex-col items-center pt-3 md:order-last md:flex">
           <nav aria-label="Main">
-            <ul className="flex flex-col gap-1">
+            <ul className="flex flex-col gap-3">
               {TABS.map((tab) => {
                 const active = isActive(pathname, tab.href);
                 return (
@@ -141,15 +141,12 @@ export function SideNav() {
                     <Link
                       href={tab.href}
                       aria-current={active ? "page" : undefined}
-                      title={tab.label}
-                      className={`flex min-h-10 items-center gap-3 rounded-lg px-2.5 text-sm font-medium transition-colors ${
-                        active
-                          ? "bg-primary text-on-primary"
-                          : "text-muted hover:bg-background hover:text-foreground"
-                      }`}
+                      className="group flex w-14 flex-col items-center gap-1 text-[11px] font-medium text-muted aria-[current=page]:text-foreground"
                     >
-                      <TabIcon>{tab.icon}</TabIcon>
-                      <span className="sr-only lg:not-sr-only">{tab.label}</span>
+                      <span className={`flex h-8 w-14 items-center justify-center rounded-full transition-colors ${active ? TAB_ON : TAB_OFF}`}>
+                        <TabIcon className="size-5">{tab.icon}</TabIcon>
+                      </span>
+                      {tab.label}
                     </Link>
                   </li>
                 );

@@ -65,23 +65,30 @@ const TWO_LINE_MINS = 30;
 
 const KIND_LABEL = Object.fromEntries(EVENT_KINDS.map((k) => [k.value, k.label])) as Record<EventKind, string>;
 
-/** Which colour is which, as one quiet wrapped row of swatches. */
-export function KindLegend() {
+/**
+ * Which colour is which: one quiet wrapped row of swatches under the calendar, or with `list`, a
+ * column with bigger swatches for Today's sidebar.
+ */
+export function KindLegend({ list = false }: { list?: boolean }) {
+  const swatch = list ? "size-[18px] rounded" : "size-2.5 rounded-[3px]";
   return (
-    <ul aria-label="Event colours" className="mt-3 flex flex-wrap gap-x-4 gap-y-1.5 text-xs text-muted">
+    <ul
+      aria-label="Event colours"
+      className={list ? "flex flex-col gap-3 text-sm text-foreground" : "mt-3 flex flex-wrap gap-x-4 gap-y-1.5 text-xs text-muted"}
+    >
       {TONE_LABELS.map((t) => (
-        <li key={t.tone} className="flex items-center gap-1.5">
-          <span aria-hidden className={`size-2.5 rounded-[3px] ${TONE[t.tone].dot}`} />
+        <li key={t.tone} className={`flex items-center ${list ? "gap-3" : "gap-1.5"}`}>
+          <span aria-hidden className={`${swatch} ${TONE[t.tone].dot}`} />
           {t.label}
         </li>
       ))}
-      <li className="flex items-center gap-1.5">
-        <span aria-hidden className="size-2.5 rounded-[3px] border border-dashed border-gap-ink" />
-        Free gap
-      </li>
-      <li className="flex items-center gap-1.5">
-        <span aria-hidden className="h-0.5 w-3 bg-amber-500" />
+      <li className={`flex items-center ${list ? "gap-3" : "gap-1.5"}`}>
+        <span aria-hidden className={`${swatch} bg-deadline`} />
         Deadline
+      </li>
+      <li className={`flex items-center ${list ? "gap-3" : "gap-1.5"}`}>
+        <span aria-hidden className={`${swatch} border border-dashed border-gap-ink bg-gap-fill`} />
+        Free gap
       </li>
     </ul>
   );
@@ -394,7 +401,7 @@ function Segment({
             // Under 30 minutes there's room for one line only: centre it with no vertical padding.
             const pad = e.endMin - e.startMin < TWO_LINE_MINS ? "justify-center py-0" : "py-1";
             const tone = TONE[e.tone ?? "timetable"];
-            const className = `absolute flex flex-col overflow-hidden rounded-lg border px-2 ${pad} text-left text-sm leading-tight text-foreground transition-colors ${tone.block} ${
+            const className = `absolute flex flex-col overflow-hidden rounded-lg border px-2 ${pad} text-left text-sm leading-tight transition-colors ${tone.block} ${
               e.invalid ? "ring-2 ring-red-500 ring-offset-1 ring-offset-white dark:ring-offset-zinc-950" : ""
             } ${e.id === openId ? "ring-2 ring-zinc-900 ring-offset-1 ring-offset-background dark:ring-zinc-100" : ""}`;
             const style = {
@@ -439,13 +446,13 @@ function Segment({
             return (
               // Above the blocks: a deadline can fall inside a class. Only the pill takes taps.
               <div key={m.id} className="pointer-events-none absolute inset-x-0 z-[5]" style={{ top: y(m.min) }}>
-                <span aria-hidden className="absolute inset-x-0 h-0.5 -translate-y-1/2 bg-amber-500" />
+                <span aria-hidden className="absolute inset-x-0 h-0.5 -translate-y-1/2 bg-deadline" />
                 <button
                   type="button"
                   onClick={() => onMarkerTap?.(m.id)}
                   aria-expanded={isOpen}
                   aria-label={`Deadline, ${m.label}`}
-                  className={`pointer-events-auto absolute right-1 max-w-[85%] -translate-y-1/2 truncate rounded-md border border-amber-300 bg-amber-50 px-1.5 py-0.5 text-xs font-medium text-amber-800 hover:bg-amber-100 dark:border-amber-500/50 dark:bg-amber-950 dark:text-amber-200 ${
+                  className={`pointer-events-auto absolute right-1 max-w-[85%] -translate-y-1/2 truncate rounded-md bg-deadline px-1.5 py-0.5 text-xs font-medium text-deadline-ink hover:bg-deadline-hover ${
                     isOpen ? "ring-2 ring-zinc-900 dark:ring-zinc-100" : ""
                   }`}
                 >
@@ -519,16 +526,16 @@ export function DayPills({
             onClick={() => onSelect(d.key)}
             aria-pressed={isActive}
             aria-current={d.current ? "date" : undefined}
-            className={`relative flex min-w-0 flex-1 flex-col items-center justify-center rounded-lg border text-xs transition-colors sm:max-w-24 ${
+            className={`relative flex min-w-0 flex-1 flex-col items-center justify-center rounded-xl text-[11px] font-medium uppercase tracking-wide transition-colors sm:max-w-24 ${
               d.date === undefined ? "min-h-10 pb-1" : "min-h-14"
             } ${
               isActive
-                ? "border-indigo-300 bg-surface font-medium text-foreground ring-1 ring-indigo-300 dark:border-indigo-400/60 dark:ring-indigo-400/60"
-                : `border-line hover:bg-surface ${d.weekend ? "bg-background text-zinc-400" : "bg-zinc-100/70 text-muted dark:bg-zinc-900"}`
+                ? "bg-primary text-on-primary"
+                : `hover:bg-zinc-100 dark:hover:bg-zinc-800 ${d.current ? "text-accent" : "text-muted"}`
             }`}
           >
             <span>{d.weekday}</span>
-            {d.date !== undefined && <span className="text-base font-semibold tabular-nums">{d.date}</span>}
+            {d.date !== undefined && <span className="text-lg font-normal normal-case tabular-nums">{d.date}</span>}
             {d.dot && (
               <span
                 aria-hidden
