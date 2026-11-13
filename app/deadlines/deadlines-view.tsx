@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { useMemo, useRef, useState, useSyncExternalStore, type ReactNode } from "react";
 import { useClaudeConnected } from "../claude-status";
-import { CalendarButton, DeleteButton, Field, inputClass, PageHeader, TabPage, noAutofill } from "../form-ui";
+import { CalendarButton, DeleteButton, DemoBanner, Field, inputClass, PageHeader, TabPage, noAutofill } from "../form-ui";
 import { CameraIcon, FlagIcon, PenIcon } from "../icons";
 import {
   parseDeadlineIds,
@@ -128,18 +128,7 @@ export function DeadlinesView() {
         <Editor user={user} />
       ) : (
         <>
-          <Link
-            href="/setup"
-            className="mb-5 flex items-center justify-between gap-3 rounded-lg border border-emerald-200 bg-emerald-50 px-3 py-2 text-sm text-emerald-900 hover:bg-emerald-100 dark:border-emerald-500/40 dark:bg-emerald-500/10 dark:text-emerald-100"
-          >
-            <span>
-              <span className="font-medium">These are demo deadlines.</span>{" "}
-              <span>Snap your timetable and Moodle to track your own.</span>
-            </span>
-            <span className="shrink-0 font-medium underline underline-offset-2">
-              Set up
-            </span>
-          </Link>
+          <DemoBanner what="deadlines" setupHint="Snap your timetable and Moodle to track your own." />
           <Groups deadlines={demo ?? []} readOnly />
         </>
       )}

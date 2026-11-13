@@ -1,4 +1,6 @@
+import Link from "next/link";
 import { useEffect, useRef, useState, type ReactNode } from "react";
+import { DEMO_ONLY } from "@/lib/config";
 import type { WallTime } from "@/lib/types";
 
 // UI pieces shared across the tabs, setup and the pickers.
@@ -23,6 +25,26 @@ export const PAGE_HEIGHT = "h-[calc(100dvh-var(--nav-h))]";
 
 /** A white card on the grey page: the one container style for lists, forms and panels. */
 export const cardClass = "rounded-xl border border-line bg-surface";
+
+const DEMO_BANNER_CLASS =
+  "mb-5 flex items-center justify-between gap-3 rounded-lg border border-emerald-200 bg-emerald-50 px-3 py-2 text-sm text-emerald-900 dark:border-emerald-500/40 dark:bg-emerald-500/10 dark:text-emerald-100";
+
+/** Over a tab's demo list: "These are demo <what>." On the demo-only site it says you can't add your own, else it links to setup. */
+export function DemoBanner({ what, setupHint }: { what: string; setupHint: string }) {
+  const text = (
+    <span>
+      <span className="font-medium">These are demo {what}.</span>{" "}
+      <span>{DEMO_ONLY ? "This site is a demo, so you can't add your own." : setupHint}</span>
+    </span>
+  );
+  if (DEMO_ONLY) return <p className={DEMO_BANNER_CLASS}>{text}</p>;
+  return (
+    <Link href="/setup" className={`${DEMO_BANNER_CLASS} hover:bg-emerald-100`}>
+      {text}
+      <span className="shrink-0 font-medium underline underline-offset-2">Set up</span>
+    </Link>
+  );
+}
 
 /**
  * The frame of every tab: exactly the screen beside (or under) the nav. `top` stays put like the nav and

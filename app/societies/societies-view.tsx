@@ -1,6 +1,5 @@
 "use client";
 
-import Link from "next/link";
 import { useEffect, useMemo, useRef, useState, useSyncExternalStore } from "react";
 import { isAllDaySociety } from "@/lib/all-day";
 import { clashMessage, findClashes } from "@/lib/clashes";
@@ -19,7 +18,7 @@ import {
   subscribeEvents,
   type EventStore,
 } from "@/lib/manual-events";
-import { CalendarButton, PageHeader, TabPage } from "../form-ui";
+import { CalendarButton, DemoBanner, PageHeader, TabPage } from "../form-ui";
 import { PeopleIcon } from "../icons";
 import { demoNow, demoTodayKey, mockDeadlines, mockSocietyEvents, mockTimetable } from "@/lib/mock";
 import { parseUserData, readRawUserData, saveUserData, subscribeUserData } from "@/lib/storage";
@@ -184,18 +183,7 @@ function Demo({ calendar }: { calendar: Calendar }) {
 
   return (
     <>
-      <Link
-        href="/setup"
-        className="mb-5 flex items-center justify-between gap-3 rounded-lg border border-emerald-200 bg-emerald-50 px-3 py-2 text-sm text-emerald-900 hover:bg-emerald-100 dark:border-emerald-500/40 dark:bg-emerald-500/10 dark:text-emerald-100"
-      >
-        <span>
-          <span className="font-medium">These are demo societies.</span>{" "}
-          <span>Set up your timetable, then add the societies you&apos;re in.</span>
-        </span>
-        <span className="shrink-0 font-medium underline underline-offset-2">
-          Set up
-        </span>
-      </Link>
+      <DemoBanner what="societies" setupHint="Set up your timetable, then add the societies you're in." />
       <ul className="mb-6 flex flex-wrap gap-2">
         {names.map((name) => (
           <li key={name} className="rounded-lg bg-zinc-100 px-3 py-1.5 text-sm font-medium dark:bg-zinc-800">

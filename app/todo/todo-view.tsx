@@ -1,8 +1,7 @@
 "use client";
 
-import Link from "next/link";
 import { useMemo, useState, useSyncExternalStore, type FormEvent, type ReactNode } from "react";
-import { DeleteButton, inputClass, PageHeader, Switch, TabPage, TimeField, noAutofill } from "../form-ui";
+import { DeleteButton, DemoBanner, inputClass, PageHeader, Switch, TabPage, TimeField, noAutofill } from "../form-ui";
 import { TODO_DEFAULT_MINS } from "@/lib/calendar-items";
 import { formatDurationShort } from "@/lib/duration";
 import { locationLabel } from "@/lib/location";
@@ -206,16 +205,7 @@ function DemoTodos() {
   const [{ today, todos }] = useState(() => ({ today: demoTodayKey(), todos: mockTodos().sort(byDueThenEstimate) }));
   return (
     <>
-      <Link
-        href="/setup"
-        className="mb-5 flex items-center justify-between gap-3 rounded-lg border border-emerald-200 bg-emerald-50 px-3 py-2 text-sm text-emerald-900 hover:bg-emerald-100 dark:border-emerald-500/40 dark:bg-emerald-500/10 dark:text-emerald-100"
-      >
-        <span>
-          <span className="font-medium">These are demo to-dos.</span>{" "}
-          <span>Set up your week to keep your own list.</span>
-        </span>
-        <span className="shrink-0 font-medium underline underline-offset-2">Set up</span>
-      </Link>
+      <DemoBanner what="to-dos" setupHint="Set up your week to keep your own list." />
       <ul className="flex flex-col gap-2">
         {todos.map((t) => (
           <li key={t.id}>

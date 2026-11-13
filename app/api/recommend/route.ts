@@ -7,6 +7,7 @@
 // addedEventIds are society event ids already on the student's calendar: fixed plans, never suggested again.
 // allDay is the gap's day's all-day society strips as text ("Seven Sisters hike (Time TBC)"): not busy time, only context.
 // The student fields are checked by parseStudentContext (lib/recommend/request.ts), shared with /api/chat.
+import { DEMO_ONLY } from "@/lib/config";
 import { recommendForGap } from "@/lib/recommend/recommend";
 import { parseAllDay, parseStudentContext } from "@/lib/recommend/request";
 import type { Gap } from "@/lib/types";
@@ -36,8 +37,8 @@ export async function POST(request: Request) {
     return Response.json({ error: "Missing or malformed `gap`" }, { status: 400 });
   }
 
-  if (!process.env.ANTHROPIC_API_KEY) {
-    console.error("[recommend] ANTHROPIC_API_KEY is not set");
+  if (DEMO_ONLY || !process.env.ANTHROPIC_API_KEY) {
+    console.error("[recommend] Claude is off (demo-only site or no ANTHROPIC_API_KEY)");
     return Response.json({ error: "Claude isn't connected (no API key)", code: "no_key" }, { status: 503 });
   }
 

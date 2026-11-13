@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { useEffect, useState, useSyncExternalStore } from "react";
 import { BUILDINGS } from "@/lib/buildings";
+import { DEMO_ONLY } from "@/lib/config";
 import { setDeadlineOnCalendar, setOnToday } from "@/lib/calendar-items";
 import { dayNote } from "@/lib/day-note";
 import { formatDurationShort } from "@/lib/duration";
@@ -412,14 +413,19 @@ export function TodayTimeline({
     if (gap) toggleGap(gap, d);
   };
 
-  /** "Create": a menu of ways to add to the calendar. The demo week can't be changed, so there it's the way to set up your own. */
+  /**
+   * "Create": a menu of ways to add to the calendar. The demo week can't be changed, so there it's the way to set
+   * up your own, and on the demo-only site there's nothing to create.
+   */
   const create = (compact: boolean) =>
     readOnly ? (
-      <Link href="/setup" aria-label="Set up my week" className={compact ? primaryButtonClass : CREATE_CLASS}>
-        <PlusIcon className={compact ? "size-4" : "size-6"} />
-        {/* Icon only on a phone, so the day's title keeps its room. */}
-        <span className={compact ? "hidden sm:inline" : ""}>Set up my week</span>
-      </Link>
+      DEMO_ONLY ? null : (
+        <Link href="/setup" aria-label="Set up my week" className={compact ? primaryButtonClass : CREATE_CLASS}>
+          <PlusIcon className={compact ? "size-4" : "size-6"} />
+          {/* Icon only on a phone, so the day's title keeps its room. */}
+          <span className={compact ? "hidden sm:inline" : ""}>Set up my week</span>
+        </Link>
+      )
     ) : (
       <CreateMenu
         compact={compact}
@@ -469,7 +475,7 @@ export function TodayTimeline({
         </div>
         <div className="flex flex-wrap items-center gap-2">
           {/* Below lg there's no sidebar, so Create sits here. */}
-          <div className="lg:hidden">{create(true)}</div>
+          <div className="empty:hidden lg:hidden">{create(true)}</div>
           <HomeButton home={home} onClick={readOnly ? undefined : () => setHomeSheetOpen(true)} />
           <button type="button" onClick={onOpenChat} aria-haspopup="dialog" aria-label="Ask Bloomsbuddy" className={secondaryButtonClass}>
             <SparkleIcon className="size-4 text-emerald-600 dark:text-emerald-400" />
@@ -515,7 +521,7 @@ export function TodayTimeline({
       <div className="flex min-h-0 flex-1">
         {/* lg and up: the sidebar, on the page colour beside the calendar panel. */}
         <aside aria-label="Calendar tools" className="hidden w-64 shrink-0 flex-col gap-7 overflow-y-auto px-4 pb-6 pt-2 lg:flex">
-          <div>{create(false)}</div>
+          <div className="empty:hidden">{create(false)}</div>
           {dateKey && (
             <MiniMonth
               selected={dateKey}
@@ -535,10 +541,16 @@ export function TodayTimeline({
         <div className="flex min-w-0 flex-1 flex-col md:mb-2 md:overflow-hidden md:rounded-2xl md:bg-surface">
           {mode === "demo" && (
             <p className="mx-4 mt-3 flex flex-wrap items-center justify-between gap-x-3 gap-y-1 rounded-xl bg-emerald-50 px-4 py-2.5 text-sm text-emerald-900 dark:bg-emerald-500/10 dark:text-emerald-100">
-              <span>This is a demo week, so it&apos;s read-only. Tap a free gap to see what Bloomsbuddy suggests, or set up your own week.</span>
-              <Link href="/setup" className="font-medium underline underline-offset-2 hover:no-underline">
-                Set up my week
-              </Link>
+              {DEMO_ONLY ? (
+                <span>This site is a demo with a made-up student&apos;s week, so you can&apos;t add your own data. Tap a free gap to see what Bloomsbuddy suggests.</span>
+              ) : (
+                <>
+                  <span>This is a demo week, so it&apos;s read-only. Tap a free gap to see what Bloomsbuddy suggests, or set up your own week.</span>
+                  <Link href="/setup" className="font-medium underline underline-offset-2 hover:no-underline">
+                    Set up my week
+                  </Link>
+                </>
+              )}
             </p>
           )}
           {view === "day" && (

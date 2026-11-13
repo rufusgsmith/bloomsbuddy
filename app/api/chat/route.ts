@@ -4,6 +4,7 @@
 // days: [{ dateKey, events, allDay? }] the Today page can see, for get_schedule and travel.
 // allDay is that day's all-day society strips as text: not busy time, only context.
 // The other fields are the same as /api/recommend (parseStudentContext).
+import { DEMO_ONLY } from "@/lib/config";
 import { isDateKey } from "@/lib/london-time";
 import { chatReply, type ChatDay, type ChatTurn } from "@/lib/recommend/chat";
 import { parseAllDay, parseStudentContext } from "@/lib/recommend/request";
@@ -69,8 +70,8 @@ export async function POST(request: Request) {
     return Response.json({ error: "`messages` must end with the student's message" }, { status: 400 });
   }
 
-  if (!process.env.ANTHROPIC_API_KEY) {
-    console.error("[chat] ANTHROPIC_API_KEY is not set");
+  if (DEMO_ONLY || !process.env.ANTHROPIC_API_KEY) {
+    console.error("[chat] Claude is off (demo-only site or no ANTHROPIC_API_KEY)");
     return Response.json({ error: "Claude isn't connected (no API key)", code: "no_key" }, { status: 503 });
   }
 

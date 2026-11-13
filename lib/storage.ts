@@ -2,6 +2,7 @@
 // Anything unreadable (private mode, old format, hand-edited JSON) counts as "no data",
 // so the app falls back to the demo week instead of crashing.
 
+import { DEMO_ONLY } from "./config";
 import type { UserData } from "./types";
 
 const KEY = "bloomsbuddy:v1";
@@ -14,6 +15,8 @@ function notifyChange(): void {
 
 /** The stored JSON as-is. A string is a stable snapshot for useSyncExternalStore. */
 export function readRawUserData(): string | null {
+  // On the demo-only site every tab shows the demo, even for a browser that saved a week before.
+  if (DEMO_ONLY) return null;
   try {
     return localStorage.getItem(KEY);
   } catch {

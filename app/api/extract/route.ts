@@ -4,6 +4,7 @@
 // data is base64 without the "data:" prefix. The client shrinks screenshots before sending,
 // so this stays well under Vercel's 4.5MB request limit.
 import { extractDeadlines, extractTimetable, extractTodos, type ExtractInput, type ImageInput } from "@/lib/extract/extract";
+import { DEMO_ONLY } from "@/lib/config";
 import { londonTodayKey } from "@/lib/london-time";
 
 const MEDIA_TYPES = ["image/jpeg", "image/png", "image/gif", "image/webp"];
@@ -51,8 +52,8 @@ export async function POST(request: Request) {
     input = { image: body.image };
   }
 
-  if (!process.env.ANTHROPIC_API_KEY) {
-    console.error("[extract] ANTHROPIC_API_KEY is not set");
+  if (DEMO_ONLY || !process.env.ANTHROPIC_API_KEY) {
+    console.error("[extract] Claude is off (demo-only site or no ANTHROPIC_API_KEY)");
     return Response.json({ error: "Claude isn't connected (no API key)", code: "no_key" }, { status: 503 });
   }
 
