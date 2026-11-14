@@ -7,21 +7,21 @@ import { toDemoDay } from "./week";
 const TODOS: Todo[] = [
   {
     id: "todo-demo-email-tutor",
-    title: "Email personal tutor about switching to PHIL0045",
+    title: "Email personal tutor to book a catch-up",
     estMinutes: 10,
     doBefore: "2026-10-13",
     done: false,
   },
   {
-    id: "todo-demo-varian",
-    title: "Read Varian ch. 5 (choice) for the micro tutorial",
+    id: "todo-demo-reading",
+    title: "Read chapter 3 of the calculus textbook",
     estMinutes: 45,
     doBefore: "2026-10-19",
     done: false,
   },
   {
-    id: "todo-demo-print-ps",
-    title: "Print the Game Theory problem set",
+    id: "todo-demo-print",
+    title: "Print the Mechanics homework",
     estMinutes: 10,
     doBefore: "2026-10-15",
     location: { kind: "building", buildingId: "students-union" },
