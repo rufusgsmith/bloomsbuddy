@@ -129,7 +129,7 @@ interface CalendarDeadlines {
 }
 
 /** Deadline flags shown on the demo week (each one's due time on its day). */
-const DEMO_SHOWN_DEADLINES: CalendarDeadlines = { shown: ["dl-stat0002-quiz3", "dl-econ0019-ps2"], hiddenExams: [] };
+const DEMO_SHOWN_DEADLINES: CalendarDeadlines = { shown: ["dl-probability-quiz", "dl-matrices-homework"], hiddenExams: [] };
 
 /**
  * The mock week, Monday–Sunday, always 19–25 Oct 2026. Opens on the day with today's real weekday.

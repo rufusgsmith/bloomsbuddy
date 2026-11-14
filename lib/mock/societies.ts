@@ -6,9 +6,9 @@ import { toDemoWeek } from "./week";
 // Written as the week of Mon 12 Oct 2026, like the timetable, and moved by mockSocietyEvents().
 const EVENTS: SocietyEvent[] = [
   {
-    id: "soc-econ-coffee-cvs",
-    society: "UCL Economics & Finance Society",
-    title: "Coffee & CVs: spring week applications",
+    id: "soc-maths-coffee-cvs",
+    society: "UCL Maths Society",
+    title: "Free coffee and CV tips",
     start: "2026-10-12T12:30:00+01:00",
     end: "2026-10-12T13:30:00+01:00",
     venue: "Student Centre, Level 1 event space",
@@ -30,7 +30,7 @@ const EVENTS: SocietyEvent[] = [
   {
     id: "soc-invest-stock-pitch",
     society: "UCL Investment Society",
-    title: "Stock pitch workshop",
+    title: "Investing for beginners workshop",
     start: "2026-10-13T12:00:00+01:00",
     end: "2026-10-13T13:00:00+01:00",
     venue: "Wilkins Building, Haldane Room",
@@ -52,7 +52,7 @@ const EVENTS: SocietyEvent[] = [
   {
     id: "soc-climbing-beginners",
     society: "UCL Climbing Society",
-    title: "Beginners' bouldering session",
+    title: "Beginners' climbing session",
     start: "2026-10-13T19:00:00+01:00",
     end: "2026-10-13T21:00:00+01:00",
     venue: "VauxWall Climbing Centre (off campus)",
@@ -73,7 +73,7 @@ const EVENTS: SocietyEvent[] = [
   {
     id: "soc-debating-weekly",
     society: "UCL Debating Society",
-    title: "Weekly debate: THW ban unpaid internships",
+    title: "Weekly debate: should phones be banned in schools?",
     start: "2026-10-14T18:00:00+01:00",
     end: "2026-10-14T20:00:00+01:00",
     venue: "Christopher Ingold G21",
@@ -82,20 +82,20 @@ const EVENTS: SocietyEvent[] = [
     free: true,
   },
   {
-    id: "soc-econ-boe-speaker",
-    society: "UCL Economics & Finance Society",
-    title: "Speaker event: life as a Bank of England economist",
+    id: "soc-maths-careers-talk",
+    society: "UCL Maths Society",
+    title: "Careers talk: life as a data scientist",
     start: "2026-10-15T14:15:00+01:00",
     end: "2026-10-15T15:15:00+01:00",
     venue: "IOE Logan Hall",
     buildingId: "ioe-bedford-way",
-    tags: ["careers", "talk", "economics"],
+    tags: ["careers", "talk", "maths"],
     free: true,
   },
   {
-    id: "soc-film-big-short",
+    id: "soc-film-night",
     society: "UCL Film Society",
-    title: "Screening: The Big Short",
+    title: "Film night: Good Will Hunting",
     start: "2026-10-15T19:00:00+01:00",
     end: "2026-10-15T21:30:00+01:00",
     venue: "Students' Union, Gordon Street",
@@ -106,7 +106,7 @@ const EVENTS: SocietyEvent[] = [
   {
     id: "soc-chess-blitz",
     society: "UCL Chess Society",
-    title: "Friday blitz tournament",
+    title: "Friday speed chess tournament",
     start: "2026-10-16T14:30:00+01:00",
     end: "2026-10-16T16:00:00+01:00",
     venue: "Print Room Cafe, Students' Union",
@@ -115,9 +115,9 @@ const EVENTS: SocietyEvent[] = [
     free: true,
   },
   {
-    id: "soc-invest-markets-mixer",
+    id: "soc-invest-pizza-social",
     society: "UCL Investment Society",
-    title: "Markets mixer (free pizza)",
+    title: "Free pizza social",
     start: "2026-10-16T15:00:00+01:00",
     end: "2026-10-16T16:30:00+01:00",
     venue: "Student Centre, Level 1 event space",
