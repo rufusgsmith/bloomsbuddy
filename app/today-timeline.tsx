@@ -542,7 +542,7 @@ export function TodayTimeline({
           {mode === "demo" && (
             <p className="mx-4 mt-3 flex flex-wrap items-center justify-between gap-x-3 gap-y-1 rounded-xl bg-emerald-50 px-4 py-2.5 text-sm text-emerald-900 dark:bg-emerald-500/10 dark:text-emerald-100">
               {DEMO_ONLY ? (
-                <span>This site is a demo with a made-up student&apos;s week, so you can&apos;t add your own data. Tap a free gap to see what Bloomsbuddy suggests.</span>
+                <span>This site is a demo with a made-up student&apos;s week, so you can&apos;t make edits. Tap a free gap to see what Bloomsbuddy suggests.</span>
               ) : (
                 <>
                   <span>This is a demo week, so it&apos;s read-only. Tap a free gap to see what Bloomsbuddy suggests, or set up your own week.</span>

@@ -325,13 +325,13 @@ const DEMO_PICKS: Record<string, Picks> = {
   // Fri 16:00–17:00, 53 min usable, Cruciform (just sat the test) to Bentham House (History of Maths).
   "gap-exam-dl-probability-test-tt-fri-4": {
     top: {
-      title: "Free pizza social",
+      title: "End-of-week social (free pizza)",
       type: "event",
       place: "Student Centre",
       travelMins: 4,
       travelMode: "walk",
-      reason: "Test done. The Investment Society's social runs till 16:30 with free pizza, 4 min away and 3 min from Bentham House. You've earned it.",
-      relatedId: "soc-invest-pizza-social",
+      reason: "Test done. The Maths Society's social runs till 16:30 with free pizza, 4 min away and 3 min from Bentham House. You've earned it.",
+      relatedId: "soc-maths-pizza-social",
     },
     alternatives: [
       {

@@ -34,7 +34,7 @@ export function DemoBanner({ what, setupHint }: { what: string; setupHint: strin
   const text = (
     <span>
       <span className="font-medium">These are demo {what}.</span>{" "}
-      <span>{DEMO_ONLY ? "This site is a demo, so you can't add your own." : setupHint}</span>
+      <span>{DEMO_ONLY ? "This site is a demo, so you can't make edits." : setupHint}</span>
     </span>
   );
   if (DEMO_ONLY) return <p className={DEMO_BANNER_CLASS}>{text}</p>;
