@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState, useSyncExternalStore } from "react";
-import { PageHeader, secondaryButtonClass, TabPage } from "../form-ui";
+import { PageHeader, TabPage } from "../form-ui";
 
 // The Library tab. Embeds UCL's live seat page as an iframe in the student's browser.
 // The page can't be fetched server-side (Cloudflare's bot check), so recommendations keep
@@ -37,15 +37,7 @@ export function LibraryView() {
     <TabPage
       width="max-w-7xl"
       top={
-        <PageHeader
-          title="Library"
-          subtitle="Live seats from UCL Library Services"
-          action={
-            <a href={SEATS_URL} target="_blank" rel="noopener noreferrer" className={secondaryButtonClass}>
-              Open on UCL site ↗
-            </a>
-          }
-        />
+        <PageHeader title="Library" subtitle="Live seats from UCL Library Services" />
       }
       bodyClassName="flex flex-col pb-6 pt-5"
     >
