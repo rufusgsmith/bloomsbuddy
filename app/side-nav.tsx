@@ -4,9 +4,9 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import type { ReactNode } from "react";
 
-// The app's navigation. From md it's a narrow rail down the right (an icon with a small label
-// under it, the current tab's icon in a blue pill), so Today's own sidebar can sit on the left like
-// a calendar app's; on a phone it's a pinned bar on top with the tabs as a strip that scrolls
+// The app's navigation. From md it's a narrow rail down the left (an icon with a small label
+// under it, the current tab's icon in a blue pill), where people look for the main menu, with
+// Today's own sidebar beside it like Gmail's; on a phone it's a pinned bar on top with the tabs as a strip that scrolls
 // sideways. On /setup, /timetable and /debug the tabs are hidden (those pages have their own buttons
 // at the bottom): the phone bar keeps just the name and the rail isn't shown. No logo, by request.
 // Pages size themselves with --nav-h (the phone bar's height, 0 from md).
@@ -129,9 +129,9 @@ export function SideNav() {
         )}
       </header>
 
-      {/* md and up: a rail down the right (order-last in the body's row). */}
+      {/* md and up: a rail down the left (first in the body's row). */}
       {!tabsHidden && (
-        <aside className="sticky top-0 hidden h-dvh w-[4.5rem] shrink-0 flex-col items-center pt-3 md:order-last md:flex">
+        <aside className="sticky top-0 hidden h-dvh w-[4.5rem] shrink-0 flex-col items-center pt-3 md:flex">
           <nav aria-label="Main">
             <ul className="flex flex-col gap-3">
               {TABS.map((tab) => {

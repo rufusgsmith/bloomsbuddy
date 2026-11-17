@@ -538,7 +538,7 @@ export function TodayTimeline({
         </aside>
 
         {/* The calendar: a white rounded panel from md, the page itself on a phone. */}
-        <div className="flex min-w-0 flex-1 flex-col md:mb-2 md:overflow-hidden md:rounded-2xl md:bg-surface">
+        <div className="flex min-w-0 flex-1 flex-col md:mb-2 md:mr-2 md:overflow-hidden md:rounded-2xl md:bg-surface">
           {mode === "demo" && (
             <p className="mx-4 mt-3 flex flex-wrap items-center justify-between gap-x-3 gap-y-1 rounded-xl bg-emerald-50 px-4 py-2.5 text-sm text-emerald-900 dark:bg-emerald-500/10 dark:text-emerald-100">
               {DEMO_ONLY ? (

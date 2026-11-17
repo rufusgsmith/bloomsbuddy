@@ -63,7 +63,7 @@ export function TabPage({
   children: ReactNode;
 }) {
   return (
-    <main className={`flex ${PAGE_HEIGHT} w-full flex-col overflow-hidden md:py-2 md:pl-2`}>
+    <main className={`flex ${PAGE_HEIGHT} w-full flex-col overflow-hidden md:py-2 md:pr-2`}>
       <div className="flex min-h-0 flex-1 flex-col overflow-hidden md:rounded-2xl md:bg-surface">
         <div className="shrink-0 border-b border-line">
           <div className={`mx-auto w-full ${width} px-4 pt-6 md:px-6`}>{top}</div>
