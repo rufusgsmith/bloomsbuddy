@@ -2,7 +2,7 @@
 
 :root {
   /* A light calendar app: grey-blue page, white panels, one blue accent. */
-  --background: #f8fafd; /* the page, the sidebar and the nav rail */
+  --background: #f8fafd; /* the page, the sidebar and the nav bar */
   --surface: #ffffff; /* the calendar panel, cards, sheets */
   --line: #dde3ea; /* borders and hour rules */
   --foreground: #1f1f1f;
@@ -56,7 +56,7 @@
   --gap-line: #81c995;
   --gap-ink: #137333;
   --gap-dot: #34a853;
-  /* Height of the phone's top bar, so every page fills exactly the screen under it (0 with the sidebar). */
+  /* Height of the nav bar on top, so every page fills exactly the screen under it. */
   --nav-h: 3.5rem;
   /* Native controls (time/date inputs, selects, scrollbars) follow light/dark mode. */
   color-scheme: light dark;
@@ -275,10 +275,10 @@
   }
 }
 
-/* From md the nav is a sidebar, so pages take the full height. */
+/* From md the nav bar is as tall as Today's top bar (40px buttons plus its padding). */
 @media (min-width: 768px) {
   :root {
-    --nav-h: 0rem;
+    --nav-h: 3.75rem;
   }
 }
 

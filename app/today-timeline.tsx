@@ -23,6 +23,7 @@ import { DayPills, KindLegend, type CalendarEvent, type CalendarGap, type Calend
 import { DayList } from "./day-list";
 import { EventSheet, type EventFormTarget } from "./event-form";
 import { PAGE_HEIGHT, primaryButtonClass, secondaryButtonClass, Segmented, SidePanel } from "./form-ui";
+import { NavTabs } from "./side-nav";
 import { HomeIcon, PlusIcon, SparkleIcon } from "./icons";
 import { HomeSheet } from "./home-sheet";
 import { IcsImportSheet } from "./ics-import";
@@ -437,42 +438,53 @@ export function TodayTimeline({
       />
     );
 
+  /**
+   * ‹ › and the week or day title: in the top bar below xl, in the sidebar from xl (wrapping there, as it's narrow).
+   * Only rendered in the browser (<Home> shows a skeleton on the server), so reading today here can't mismatch.
+   */
+  const heading = (wrap: boolean) => (
+    <>
+      <div className="flex shrink-0">
+        <StepButton label={view === "week" ? "Previous week" : "Previous day"} disabled={prevDisabled} onClick={() => (view === "week" ? moveWeek(-1) : moveDay(-1))}>
+          ‹
+        </StepButton>
+        <StepButton label={view === "week" ? "Next week" : "Next day"} disabled={nextDisabled} onClick={() => (view === "week" ? moveWeek(1) : moveDay(1))}>
+          ›
+        </StepButton>
+      </div>
+      <div className="min-w-0">
+        <h1 className={`${wrap ? "" : "truncate"} text-[22px] leading-tight`}>
+          {view === "week"
+            ? first && last
+              ? weekRange(first, last)
+              : "This week"
+            : day
+              ? `${dayTitle(day.dateKey, todayKey)}, ${londonDayMonth.format(dayDate(day.dateKey))}`
+              : "Today"}
+        </h1>
+        <p className={`${wrap ? "" : "truncate"} text-sm text-muted`}>
+          {view === "week"
+            ? mode === "demo"
+              ? "Demo week"
+              : `Week ${weekIndex + 1} of ${weekStarts.length}`
+            : // Worked out from this day's events on every render, so it follows timetable edits.
+              day && dayNote(day.dateKey, todayKey, day.events)}
+        </p>
+      </div>
+    </>
+  );
+
   return (
-    // Exactly the screen beside (or under) the nav. The top bar stays put and only the calendar scrolls.
-    <main className={`flex ${PAGE_HEIGHT} w-full flex-col overflow-hidden`}>
+    // Exactly the screen under the nav bar; from xl that bar is hidden here (this top bar holds the tabs), so the full
+    // height. The top bar stays put and only the calendar scrolls.
+    <main className={`flex ${PAGE_HEIGHT} w-full flex-col overflow-hidden xl:h-dvh`}>
       <div className="flex shrink-0 flex-wrap items-center gap-x-3 gap-y-2 px-4 pb-2 pt-3 md:pr-2">
-        {/* The name sits over the sidebar, as wide as it (16rem less this bar's padding and gap). No logo. */}
-        <span className="hidden w-[14.25rem] shrink-0 pl-2 text-[22px] text-muted lg:block">Bloomsbuddy</span>
-        {/* Only rendered in the browser (<Home> shows a skeleton on the server), so reading today here can't mismatch. */}
-        <div className="flex min-w-0 flex-1 items-center gap-2">
-          <div className="flex shrink-0">
-            <StepButton label={view === "week" ? "Previous week" : "Previous day"} disabled={prevDisabled} onClick={() => (view === "week" ? moveWeek(-1) : moveDay(-1))}>
-              ‹
-            </StepButton>
-            <StepButton label={view === "week" ? "Next week" : "Next day"} disabled={nextDisabled} onClick={() => (view === "week" ? moveWeek(1) : moveDay(1))}>
-              ›
-            </StepButton>
-          </div>
-          <div className="min-w-0">
-            <h1 className="truncate text-[22px] leading-tight">
-              {view === "week"
-                ? first && last
-                  ? weekRange(first, last)
-                  : "This week"
-                : day
-                  ? `${dayTitle(day.dateKey, todayKey)}, ${londonDayMonth.format(dayDate(day.dateKey))}`
-                  : "Today"}
-            </h1>
-            <p className="truncate text-sm text-muted">
-              {view === "week"
-                ? mode === "demo"
-                  ? "Demo week"
-                  : `Week ${weekIndex + 1} of ${weekStarts.length}`
-                : // Worked out from this day's events on every render, so it follows timetable edits.
-                  day && dayNote(day.dateKey, todayKey, day.events)}
-            </p>
-          </div>
+        {/* From xl: the name over the sidebar, as wide as it (16rem less this bar's padding and gap), then the tabs. No logo. */}
+        <span className="hidden w-[14.25rem] shrink-0 pl-2 text-[22px] text-muted xl:block">Bloomsbuddy</span>
+        <div className="hidden min-w-0 flex-1 xl:block">
+          <NavTabs />
         </div>
+        <div className="flex min-w-0 flex-1 items-center gap-2 xl:hidden">{heading(false)}</div>
         <div className="flex flex-wrap items-center gap-2">
           {/* Below lg there's no sidebar, so Create sits here. */}
           <div className="empty:hidden lg:hidden">{create(true)}</div>
@@ -521,6 +533,7 @@ export function TodayTimeline({
       <div className="flex min-h-0 flex-1">
         {/* lg and up: the sidebar, on the page colour beside the calendar panel. */}
         <aside aria-label="Calendar tools" className="hidden w-64 shrink-0 flex-col gap-7 overflow-y-auto px-4 pb-6 pt-2 lg:flex">
+          <div className="hidden items-center gap-2 xl:flex">{heading(true)}</div>
           <div className="empty:hidden">{create(false)}</div>
           {dateKey && (
             <MiniMonth
@@ -538,7 +551,7 @@ export function TodayTimeline({
         </aside>
 
         {/* The calendar: a white rounded panel from md, the page itself on a phone. */}
-        <div className="flex min-w-0 flex-1 flex-col md:mb-2 md:mr-2 md:overflow-hidden md:rounded-2xl md:bg-surface">
+        <div className="flex min-w-0 flex-1 flex-col md:mx-2 md:mb-2 md:overflow-hidden lg:ml-0 md:rounded-2xl md:bg-surface">
           {mode === "demo" && (
             <p className="mx-4 mt-3 flex flex-wrap items-center justify-between gap-x-3 gap-y-1 rounded-xl bg-emerald-50 px-4 py-2.5 text-sm text-emerald-900 dark:bg-emerald-500/10 dark:text-emerald-100">
               {DEMO_ONLY ? (

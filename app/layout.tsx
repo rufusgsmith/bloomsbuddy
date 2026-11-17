@@ -16,7 +16,7 @@ export const metadata: Metadata = {
 };
 
 export const viewport: Viewport = {
-  // The browser bar matches the phone's top bar (see globals.css).
+  // The browser bar matches the nav bar on top (see globals.css).
   themeColor: [
     { media: "(prefers-color-scheme: light)", color: "#f8fafd" },
     { media: "(prefers-color-scheme: dark)", color: "#131314" },
@@ -26,7 +26,7 @@ export const viewport: Viewport = {
 export default function RootLayout({ children }: LayoutProps<"/">) {
   return (
     <html lang="en" className={`${plexSans.variable} h-full antialiased`}>
-      <body className="flex min-h-full flex-col md:flex-row">
+      <body className="flex min-h-full flex-col">
         {/* Only whether a key is set reaches the browser, never the key itself. */}
         <ClaudeStatusProvider connected={Boolean(process.env.ANTHROPIC_API_KEY)}>
           <SideNav />
