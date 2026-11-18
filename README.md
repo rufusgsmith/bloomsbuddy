@@ -4,9 +4,11 @@ Bloomsbuddy finds the free gaps between your UCL lectures and uses Claude to sug
 
 I built it for the UCL Claude Campus Hackathon (16 October 2026, Better Student Life track) and kept working on it afterwards.
 
-![Bloomsbuddy's demo week, with Monday's 12:30 gap open and three picks for it](docs/gap-picks.png)
+![A 30 second walkthrough: Bloomsbuddy finds every free gap in a week of UCL classes, then picks the best thing to do with one](docs/demo.gif)
 
-[Watch the demo video](bloomsbuddy-demo.mp4) (MP4, 14 MB)
+[Watch it in full quality](bloomsbuddy-demo.mp4) (MP4, 14 MB)
+
+![Bloomsbuddy's demo week, with Monday's 12:30 gap open and three picks for it](docs/gap-picks.png)
 
 ## What it does
 
