@@ -6,10 +6,6 @@ I built it for the UCL Claude Campus Hackathon (16 October 2026, Better Student 
 
 ![A 30 second walkthrough: Bloomsbuddy finds every free gap in a week of UCL classes, then picks the best thing to do with one](docs/demo.gif)
 
-[Watch it in full quality](bloomsbuddy-demo.mp4) (MP4, 14 MB)
-
-![Bloomsbuddy's demo week, with Monday's 12:30 gap open and three picks for it](docs/gap-picks.png)
-
 ## What it does
 
 UCL timetables leave gaps between lectures, and most of that time gets wasted. Bloomsbuddy reads your timetable and Moodle deadlines from screenshots, finds the gaps, and gives you a top pick for each one plus two alternatives, each with a reason. A pick can be a study spot, a society event, lunch, a rest, going home, or something from your to-do list.
