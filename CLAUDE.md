@@ -84,6 +84,7 @@ Every data source sits behind a **provider interface** with a `mock` and a `real
 - Durations of 60+ minutes are shown in hours and minutes, never as a big minute count: "3 hours and 12 minutes" in prose, "3h 12m" in tight labels. Use `formatDuration` / `formatDurationShort` from `lib/duration.ts`; Claude follows the same rule via the system prompt.
 - Secrets live only in `.env.local` (gitignored). `ANTHROPIC_API_KEY` is server-side only and never imported into client components.
 - `.env.example` documents every env var.
+- `README.md` is the public GitHub page: plain, humanized prose (no em or en dashes, so time ranges read "12:00 to 14:00"). Update it when a feature changes. Its screenshots in `docs/` are a production build's demo week at 2x (`gap-picks.png` at 1440×900 with Monday's 12:30 gap open, the `phone-*.png` ones at 390×844); retake them when the UI changes.
 - Keep dependencies minimal and ask before adding new ones.
 
 ## UI rules
